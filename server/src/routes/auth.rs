@@ -41,9 +41,9 @@ pub struct SetupResponse {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
-    #[validate(length(min = 1, max = 255, message = "Invalid username"))]
+    #[validate(length(min = 1, max = 64, message = "Invalid username"))]
     pub username: String,
-    #[validate(length(min = 8, max = 1024, message = "Invalid password"))]
+    #[validate(length(min = 1, max = 128, message = "Invalid password"))]
     pub password: String,
     #[validate(length(min = 1, max = 255, message = "Invalid device ID"))]
     pub device_id: String,
