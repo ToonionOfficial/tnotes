@@ -4,9 +4,9 @@ pub mod state;
 pub mod ws;
 
 use axum::{
+    Router,
     response::Html,
     routing::{get, post},
-    Router,
 };
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 

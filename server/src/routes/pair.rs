@@ -1,12 +1,8 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use notat_core::{
+    Ulid,
     auth::token::{create_session_for_device, generate_pairing_code},
     db::sessions::create_session,
-    Ulid,
 };
 use qrcode_generator::QrCodeEcc;
 use serde::{Deserialize, Serialize};
@@ -32,8 +28,6 @@ pub struct QrPayload {
     pub device_id: String,
 }
 
-/// GET /api/pair
-/// Generates pairing credentials and a fully rendered SVG QR code for new clients.
 pub async fn pair_handler(
     State(state): State<AppState>,
 ) -> Result<Json<PairingDataResponse>, (StatusCode, String)> {
@@ -55,14 +49,14 @@ pub async fn pair_handler(
     let qr_payload = serde_json::to_string(&qr_payload_struct)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Generate real SVG QR code using qrcode-generator
-    let qr_svg = qrcode_generator::to_svg_to_string(
-        &qr_payload,
-        QrCodeEcc::Medium,
-        220,
-        None::<&str>,
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("QR generation error: {}", e)))?;
+    let qr_svg =
+        qrcode_generator::to_svg_to_string(&qr_payload, QrCodeEcc::Medium, 220, None::<&str>)
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("QR generation error: {}", e),
+                )
+            })?;
 
     Ok(Json(PairingDataResponse {
         url: state.config.server_url.clone(),
