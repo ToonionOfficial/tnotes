@@ -1,5 +1,5 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { NotebookPen, Loader2 } from 'lucide-react'
 import { useForm } from '@tanstack/react-form'
 import { z } from 'zod'
@@ -14,10 +14,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
-import type { SetupResponse, SetupStatusResponse } from '@/lib/types'
+import type { MeResponse, SetupResponse, SetupStatusResponse } from '@/lib/types'
 
 export const Route = createFileRoute('/setup')({
   beforeLoad: async () => {
+    // Only perform checks on client where cookies/network exist
+    if (typeof window === 'undefined') return
+
     let isConfigured = false
     try {
       const status = await apiFetch<SetupStatusResponse>('/api/setup/status')
@@ -46,7 +49,35 @@ const passwordSchema = z
 
 function SetupPage() {
   const navigate = useNavigate()
+  const [checkingStatus, setCheckingStatus] = useState(true)
   const [serverError, setServerError] = useState('')
+
+  // Client check: if already configured or logged in, redirect away
+  useEffect(() => {
+    let mounted = true
+    Promise.allSettled([
+      apiFetch<SetupStatusResponse>('/api/setup/status'),
+      apiFetch<MeResponse>('/api/me'),
+    ]).then(([statusRes, meRes]) => {
+      if (!mounted) return
+
+      if (meRes.status === 'fulfilled') {
+        navigate({ to: '/', replace: true })
+        return
+      }
+
+      if (statusRes.status === 'fulfilled' && statusRes.value.is_configured) {
+        navigate({ to: '/login', replace: true })
+        return
+      }
+
+      setCheckingStatus(false)
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [navigate])
 
   const form = useForm({
     defaultValues: {
@@ -76,6 +107,14 @@ function SetupPage() {
     },
   })
 
+  if (checkingStatus) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-5">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center p-5">
       <Card className="w-full max-w-md shadow-2xl">
@@ -88,7 +127,7 @@ function SetupPage() {
             Create your owner account to start taking notes and syncing devices.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -221,6 +260,16 @@ function SetupPage() {
               )}
             </form.Subscribe>
           </form>
+
+          <div className="text-center text-xs text-muted-foreground pt-1 border-t border-border/50">
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="font-medium text-primary hover:underline underline-offset-4"
+            >
+              Sign in
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

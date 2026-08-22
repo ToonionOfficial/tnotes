@@ -1,11 +1,15 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
+import { useState } from 'react'
 import {
   Check,
   Copy,
   FolderSync,
   Globe,
-  Loader2,
   RefreshCw,
   Smartphone,
   Sparkles,
@@ -28,57 +32,46 @@ interface PairSearch {
 
 export const Route = createFileRoute('/pair')({
   validateSearch: (search: Record<string, unknown>): PairSearch => ({
-    welcome: search.welcome === true || search.welcome === 'true',
+    welcome:
+      search.welcome === true || search.welcome === 'true'
+        ? true
+        : undefined,
   }),
   beforeLoad: async () => {
+    if (typeof window === 'undefined') return
     try {
       await apiFetch<MeResponse>('/api/me')
     } catch {
       throw redirect({ to: '/login' })
     }
   },
+  loader: async () => {
+    const pairData = await apiFetch<PairingDataResponse>('/api/pair')
+    return { pairData }
+  },
   component: PairPage,
 })
 
 function PairPage() {
   const navigate = useNavigate()
-  const { welcome } = Route.useSearch()
+  const router = useRouter()
+  const search = Route.useSearch()
+  const { pairData } = Route.useLoaderData()
+  const isWelcome = search.welcome === true
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [pairData, setPairData] = useState<PairingDataResponse | null>(null)
-  const [copiedCode, setCopiedCode] = useState(false)
-  const [copiedUrl, setCopiedUrl] = useState(false)
+  const [copied, setCopied] = useState<'code' | 'url' | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  async function fetchPairData() {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await apiFetch<PairingDataResponse>('/api/pair')
-      setPairData(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate pairing QR')
-    } finally {
-      setLoading(false)
-    }
+  function handleCopy(type: 'code' | 'url', text: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(type)
+    setTimeout(() => setCopied(null), 2000)
   }
 
-  useEffect(() => {
-    fetchPairData()
-  }, [])
-
-  function handleCopyCode() {
-    if (!pairData) return
-    navigator.clipboard.writeText(pairData.pairing_code)
-    setCopiedCode(true)
-    setTimeout(() => setCopiedCode(false), 2000)
-  }
-
-  function handleCopyUrl() {
-    if (!pairData) return
-    navigator.clipboard.writeText(pairData.url)
-    setCopiedUrl(true)
-    setTimeout(() => setCopiedUrl(false), 2000)
+  async function handleRegenerate() {
+    setIsRefreshing(true)
+    await router.invalidate()
+    setIsRefreshing(false)
   }
 
   return (
@@ -86,84 +79,70 @@ function PairPage() {
       <Card className="w-full max-w-lg border-border/80 shadow-2xl">
         <CardHeader className="text-center pb-3">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-            {welcome ? (
+            {isWelcome ? (
               <Sparkles className="h-7 w-7" />
             ) : (
               <FolderSync className="h-7 w-7" />
             )}
           </div>
           <CardTitle className="text-2xl font-bold">
-            {welcome ? "You're all set!" : 'Pair a Mobile Device'}
+            {isWelcome ? "You're all set!" : 'Pair a Mobile Device'}
           </CardTitle>
           <CardDescription className="text-sm">
-            {welcome
+            {isWelcome
               ? 'Your vault is ready. Scan with the mobile app to sync your notes, or continue to the web editor.'
               : 'Scan this QR code with the Notat Mobile App to instantly pair your device.'}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-5">
-          {/* QR Code Container */}
+          {/* QR Code Display */}
           <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card/60 p-5 shadow-inner">
-            {loading ? (
-              <div className="flex h-64 w-64 flex-col items-center justify-center gap-3 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs font-medium">Generating encrypted QR code…</p>
-              </div>
-            ) : error ? (
-              <div className="flex h-64 w-64 flex-col items-center justify-center gap-3 text-center p-4">
-                <p className="text-xs text-destructive">{error}</p>
-                <Button variant="outline" size="sm" onClick={fetchPairData}>
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Try Again
-                </Button>
-              </div>
-            ) : pairData ? (
-              <div className="flex flex-col items-center gap-4">
-                {/* QR SVG */}
-                <div
-                  className="rounded-xl bg-white p-3 shadow-md [&_svg]:h-56 [&_svg]:w-56 [&_svg]:max-w-full"
-                  dangerouslySetInnerHTML={{ __html: pairData.qr_svg }}
-                />
+            <div className="flex flex-col items-center gap-4">
+              {/* QR SVG */}
+              <div
+                className="rounded-xl bg-white p-3 shadow-md [&_svg]:h-56 [&_svg]:w-56 [&_svg]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: pairData.qr_svg }}
+              />
 
-                {/* Account & Server Meta */}
-                <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <User className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-semibold text-foreground">{pairData.username}</span>
-                  </div>
-                  <span>•</span>
-                  <div className="flex items-center gap-1">
-                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                    <button
-                      type="button"
-                      onClick={handleCopyUrl}
-                      className="hover:text-foreground underline decoration-dotted transition-colors"
-                      title="Copy server URL"
-                    >
-                      {pairData.url}
-                    </button>
-                    {copiedUrl && <Check className="h-3 w-3 text-success" />}
-                  </div>
+              {/* Account & Server Meta */}
+              <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-semibold text-foreground">{pairData.username}</span>
                 </div>
-
-                {/* 6-Digit Manual Code */}
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-muted-foreground">Manual pairing code:</span>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                   <button
                     type="button"
-                    onClick={handleCopyCode}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/80 px-3 py-1 font-mono text-sm font-bold tracking-widest text-foreground hover:bg-muted transition-colors shadow-sm"
+                    onClick={() => handleCopy('url', pairData.url)}
+                    className="hover:text-foreground underline decoration-dotted transition-colors"
+                    title="Copy server URL"
                   >
-                    {pairData.pairing_code}
-                    {copiedCode ? (
-                      <Check className="h-3.5 w-3.5 text-success" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
+                    {pairData.url}
                   </button>
+                  {copied === 'url' && <Check className="h-3 w-3 text-success" />}
                 </div>
               </div>
-            ) : null}
+
+              {/* 6-Digit Manual Code */}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-muted-foreground">Manual pairing code:</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy('code', pairData.pairing_code)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/80 px-3 py-1 font-mono text-sm font-bold tracking-widest text-foreground hover:bg-muted transition-colors shadow-sm"
+                >
+                  {pairData.pairing_code}
+                  {copied === 'code' ? (
+                    <Check className="h-3.5 w-3.5 text-success" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Quick Instructions */}
@@ -193,14 +172,14 @@ function PairPage() {
                 variant="ghost"
                 size="sm"
                 className="text-xs text-muted-foreground hover:text-foreground h-8"
-                onClick={fetchPairData}
-                disabled={loading}
+                onClick={handleRegenerate}
+                disabled={isRefreshing}
               >
-                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Regenerate QR
               </Button>
 
-              {!welcome && (
+              {!isWelcome && (
                 <Button
                   variant="ghost"
                   size="sm"

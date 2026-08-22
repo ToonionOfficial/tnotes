@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NotebookPen, Loader2 } from 'lucide-react'
 import { useForm } from '@tanstack/react-form'
 import { z } from 'zod'
@@ -18,6 +18,8 @@ import type { LoginResponse, MeResponse, SetupStatusResponse } from '@/lib/types
 
 export const Route = createFileRoute('/login')({
   beforeLoad: async () => {
+    if (typeof window === 'undefined') return
+
     // 1. Check if server is configured
     try {
       const status = await apiFetch<SetupStatusResponse>('/api/setup/status')
@@ -28,7 +30,7 @@ export const Route = createFileRoute('/login')({
       if (err && typeof err === 'object' && 'to' in err) throw err
     }
 
-    // 2. Check if already logged in
+    // 2. Client navigation check: If already logged in, redirect to workspace
     try {
       await apiFetch<MeResponse>('/api/me')
       throw redirect({ to: '/' })
@@ -54,7 +56,27 @@ function getOrCreateDeviceId(): string {
 
 function LoginPage() {
   const navigate = useNavigate()
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [serverError, setServerError] = useState('')
+
+  // Client-side direct entry / refresh check: prevent authenticated access to /login
+  useEffect(() => {
+    let mounted = true
+    apiFetch<MeResponse>('/api/me')
+      .then(() => {
+        if (mounted) {
+          navigate({ to: '/', replace: true })
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setCheckingAuth(false)
+        }
+      })
+    return () => {
+      mounted = false
+    }
+  }, [navigate])
 
   const form = useForm({
     defaultValues: {
@@ -81,6 +103,14 @@ function LoginPage() {
       }
     },
   })
+
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-5">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-5">

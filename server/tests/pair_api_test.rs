@@ -14,7 +14,7 @@ use serde_json::json;
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn test_web_index_and_pair_api() {
+async fn test_pair_api_flow() {
     let conn = open_in_memory().unwrap();
     let config = ServerConfig {
         host: "127.0.0.1".into(),
@@ -25,19 +25,7 @@ async fn test_web_index_and_pair_api() {
     let state = AppState::new(conn, config);
     let app = build_router(state);
 
-    // 1. GET / returns HTML page
-    let res = app
-        .clone()
-        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
-    assert_eq!(res.status(), StatusCode::OK);
-    let body = res.into_body().collect().await.unwrap().to_bytes();
-    let html = String::from_utf8(body.to_vec()).unwrap();
-    assert!(html.to_lowercase().contains("<!doctype html>"));
-    assert!(html.contains("Notat"));
-
-    // 2. GET /api/pair without auth → 401 Unauthorized
+    // 1. GET /api/pair without auth → 401 Unauthorized
     let res = app
         .clone()
         .oneshot(
@@ -50,7 +38,7 @@ async fn test_web_index_and_pair_api() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
-    // 3. Setup admin user
+    // 2. Setup admin user
     let res = app
         .clone()
         .oneshot(
@@ -67,7 +55,7 @@ async fn test_web_index_and_pair_api() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
 
-    // 4. Login to get a session token
+    // 3. Login to get a session token
     let res = app
         .clone()
         .oneshot(
@@ -94,7 +82,7 @@ async fn test_web_index_and_pair_api() {
     let login_res: LoginResponse = serde_json::from_slice(&body).unwrap();
     let token = login_res.token;
 
-    // 5. GET /api/pair with valid Bearer token → 200 OK
+    // 4. GET /api/pair with valid Bearer token → 200 OK
     let res = app
         .clone()
         .oneshot(

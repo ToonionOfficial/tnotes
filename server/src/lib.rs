@@ -6,7 +6,6 @@ pub mod ws;
 
 use axum::{
     middleware::from_fn_with_state,
-    response::Html,
     routing::{get, post},
     Router,
 };
@@ -18,12 +17,6 @@ use tower_http::{
 
 use crate::state::AppState;
 
-const INDEX_HTML: &str = include_str!("web/index.html");
-
-async fn index_handler() -> Html<&'static str> {
-    Html(INDEX_HTML)
-}
-
 pub fn build_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/api/sync", post(routes::sync::sync_handler))
@@ -33,7 +26,6 @@ pub fn build_router(state: AppState) -> Router {
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 
     Router::new()
-        .route("/", get(index_handler))
         .route("/ws/sync", get(ws::ws_sync_handler))
         .route("/api/health", get(routes::health::health_check))
         .route("/api/setup/status", get(routes::auth::setup_status_handler))

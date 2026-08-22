@@ -11,6 +11,9 @@ import type { LogoutResponse, MeResponse, SetupStatusResponse } from '@/lib/type
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
+    // Only perform checks on client where cookies exist
+    if (typeof window === 'undefined') return
+
     // 1. Check if server is configured
     try {
       const status = await apiFetch<SetupStatusResponse>('/api/setup/status')
@@ -36,7 +39,8 @@ export const Route = createFileRoute('/')({
 
 function DashboardPage() {
   const navigate = useNavigate()
-  const { me } = Route.useRouteContext()
+  const context = Route.useRouteContext()
+  const me = context?.me
 
   async function handleLogout() {
     try {
@@ -89,7 +93,7 @@ function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Workspace Placeholder (Phase 2 TipTap & Notes List will go here) */}
+      {/* Main Workspace Placeholder */}
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-md">
           <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground border border-border">
@@ -97,7 +101,7 @@ function DashboardPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              Welcome back, {me?.username}!
+              Welcome back{me?.username ? `, ${me.username}` : ''}!
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Your server is securely connected and ready. Phase 2 notes list and Markdown editor coming next.
