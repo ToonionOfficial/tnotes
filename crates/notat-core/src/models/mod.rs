@@ -5,6 +5,7 @@ pub mod device;
 pub mod folder;
 pub mod note;
 pub mod theme;
+pub mod user;
 
 pub fn current_time_ms() -> i64 {
     SystemTime::now()

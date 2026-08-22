@@ -21,6 +21,7 @@ pub struct Note {
 }
 
 impl Note {
+    /// Creates a new note with version 1 and calculates its initial checksum
     pub fn new(
         title: impl Into<String>,
         body: impl Into<String>,
@@ -36,7 +37,7 @@ impl Note {
         Self {
             id: Ulid::generate().to_string(),
             folder_id,
-            title: title.into(),
+            title,
             body,
             pinned: false,
             trashed: false,
@@ -49,9 +50,50 @@ impl Note {
         }
     }
 
-    pub fn update() {}
+    /// Updates title, body, and folder_id, automatically recalculating checksum,
+    /// bumping version, and updating timestamp.
+    pub fn update(
+        &mut self,
+        title: impl Into<String>,
+        body: impl Into<String>,
+        folder_id: Option<String>,
+        device_id: impl Into<String>,
+    ) {
+        let body = body.into();
+        self.checksum = compute_checksum(&body);
+        self.title = title.into();
+        self.body = body;
+        self.folder_id = folder_id;
+        self.device_id = device_id.into();
+        self.version += 1;
+        self.updated_at = current_time_ms();
+    }
 
-    pub fn trash() {}
+    /// Moves the note to trash (soft delete)
+    pub fn trash(&mut self, device_id: impl Into<String>) {
+        let now = current_time_ms();
+        self.trashed = true;
+        self.deleted_at = Some(now);
+        self.updated_at = now;
+        self.device_id = device_id.into();
+        self.version += 1;
+    }
 
-    pub fn restore() {}
+    /// Restores the note from trash
+    pub fn restore(&mut self, device_id: impl Into<String>) {
+        let now = current_time_ms();
+        self.trashed = false;
+        self.deleted_at = None;
+        self.updated_at = now;
+        self.device_id = device_id.into();
+        self.version += 1;
+    }
+
+    /// Toggles or updates the pinned status
+    pub fn set_pinned(&mut self, pinned: bool, device_id: impl Into<String>) {
+        self.pinned = pinned;
+        self.updated_at = current_time_ms();
+        self.device_id = device_id.into();
+        self.version += 1;
+    }
 }
