@@ -6,3 +6,4 @@ pub mod sync;
 
 pub use errors::{Error, Result};
 pub use rusqlite::Connection;
+pub use ulid::Ulid;

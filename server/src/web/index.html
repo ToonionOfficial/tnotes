@@ -4,9 +4,307 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notat</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #313244;
+            --surface-hover: #45475a;
+            --accent: #89b4fa;
+            --accent-hover: #b4befe;
+            --fg: #cdd6f4;
+            --muted: #a6adc8;
+            --border: #45475a;
+            --success: #a6e3a1;
+            --danger: #f38ba8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--fg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .logo {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            color: var(--muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            width: 100%;
+            padding: 13px;
+            background: var(--accent);
+            color: #11111b;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.05s ease;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        button:active {
+            transform: scale(0.99);
+        }
+
+        .msg {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .msg.error {
+            display: block;
+            background: rgba(243, 139, 168, 0.15);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .msg.success {
+            display: block;
+            background: rgba(166, 227, 161, 0.15);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .qr-container svg {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .pairing-code-box {
+            background: var(--bg);
+            border: 1px dashed var(--accent);
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+            margin-top: 16px;
+        }
+
+        .pairing-code {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            color: var(--accent);
+            font-family: monospace;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-    <h1>Notat</h1>
-    <p>Setup wizard and QR pairing page.</p>
+
+<div class="card">
+    <div class="header">
+        <div class="logo">📝</div>
+        <h1 id="view-title">Notat</h1>
+        <p class="subtitle" id="view-desc">Self-hosted markdown notes with sync</p>
+    </div>
+
+    <div id="alert-box" class="msg"></div>
+
+    <!-- Section 1: Setup Wizard -->
+    <div id="section-setup" class="hidden">
+        <form id="form-setup">
+            <div class="form-group">
+                <label for="setup-user">Admin Username</label>
+                <input type="text" id="setup-user" required autocomplete="username" placeholder="admin">
+            </div>
+            <div class="form-group">
+                <label for="setup-pass">Master Password</label>
+                <input type="password" id="setup-pass" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </div>
+            <button type="submit">Complete Setup</button>
+        </form>
+    </div>
+
+    <!-- Section 2: Pair Device Screen -->
+    <div id="section-pair" class="hidden">
+        <div class="qr-container" id="qr-box"></div>
+
+        <p class="hint">Scan with the <b>Notat Mobile App</b> to pair automatically</p>
+
+        <div class="pairing-code-box">
+            <div style="font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase;">Desktop Pairing Code</div>
+            <div class="pairing-code" id="pair-code">------</div>
+        </div>
+
+        <button id="btn-refresh-pair" style="margin-top: 18px; background: var(--surface-hover); color: var(--fg);">Generate New Code</button>
+    </div>
+</div>
+
+<script>
+const alertBox = document.getElementById('alert-box');
+const sectionSetup = document.getElementById('section-setup');
+const sectionPair = document.getElementById('section-pair');
+const qrBox = document.getElementById('qr-box');
+const pairCodeText = document.getElementById('pair-code');
+const viewTitle = document.getElementById('view-title');
+const viewDesc = document.getElementById('view-desc');
+
+function showAlert(msg, isError = false) {
+    alertBox.textContent = msg;
+    alertBox.className = 'msg ' + (isError ? 'error' : 'success');
+}
+
+async function loadStatus() {
+    try {
+        const res = await fetch('/api/setup/status');
+        const data = await res.json();
+
+        if (!data.is_configured) {
+            viewTitle.textContent = "Welcome to Notat";
+            viewDesc.textContent = "Create your master account to get started";
+            sectionSetup.classList.remove('hidden');
+            sectionPair.classList.add('hidden');
+        } else {
+            viewTitle.textContent = "Pair Devices";
+            viewDesc.textContent = "Connect mobile and desktop apps to this server";
+            sectionSetup.classList.add('hidden');
+            sectionPair.classList.remove('hidden');
+            loadPairingData();
+        }
+    } catch (err) {
+        showAlert("Failed to connect to Notat server.", true);
+    }
+}
+
+async function loadPairingData() {
+    try {
+        const res = await fetch('/api/pair');
+        const data = await res.json();
+
+        pairCodeText.textContent = data.pairing_code;
+        // Inject the server-generated SVG directly into the DOM
+        qrBox.innerHTML = data.qr_svg;
+    } catch (err) {
+        showAlert("Failed to generate pairing QR code.", true);
+    }
+}
+
+document.getElementById('form-setup').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('setup-user').value.trim();
+    const password = document.getElementById('setup-pass').value;
+
+    try {
+        const res = await fetch('/api/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || "Setup failed");
+        }
+
+        showAlert("Setup completed successfully!");
+        setTimeout(loadStatus, 800);
+    } catch (err) {
+        showAlert(err.message, true);
+    }
+});
+
+document.getElementById('btn-refresh-pair').addEventListener('click', loadPairingData);
+
+loadStatus();
+</script>
 </body>
 </html>

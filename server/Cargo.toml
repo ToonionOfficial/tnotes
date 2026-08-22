@@ -15,6 +15,7 @@ serde_json = "1.0.151"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 validator = { version = "0.20.0", features = ["derive"] }
+qrcode-generator = "5.0.0"
 
 [dev-dependencies]
 http-body-util = "0.1.2"
