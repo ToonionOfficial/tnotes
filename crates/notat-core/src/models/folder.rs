@@ -6,6 +6,7 @@ use crate::models::current_time_ms;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Folder {
     pub id: String,
+    pub user_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,
     pub name: String,
@@ -26,11 +27,13 @@ impl Folder {
         parent_id: Option<String>,
         sort_order: i32,
         device_id: impl Into<String>,
+        user_id: impl Into<String>,
     ) -> Self {
         let now = current_time_ms();
 
         Self {
             id: Ulid::generate().to_string(),
+            user_id: user_id.into(),
             parent_id,
             name: name.into(),
             icon: icon.unwrap_or_else(|| "📁".to_string()),

@@ -9,7 +9,13 @@ use axum::{
 };
 use notat_core::{
     auth::token::create_session_for_device,
-    db::{migrations::open_in_memory, sessions::create_session},
+    db::{
+        devices::upsert_device,
+        migrations::open_in_memory,
+        sessions::create_session,
+        users::create_user,
+    },
+    models::{device::Device, user::User},
 };
 use notat_server::{
     middleware::{require_auth, AuthenticatedDevice},
@@ -21,7 +27,7 @@ use tower::ServiceExt;
 async fn protected_test_handler(
     Extension(auth): Extension<AuthenticatedDevice>,
 ) -> impl IntoResponse {
-    Json(json!({ "device_id": auth.device_id }))
+    Json(json!({ "device_id": auth.device_id, "user_id": auth.user_id }))
 }
 
 #[tokio::test]
@@ -33,6 +39,14 @@ async fn test_require_auth_middleware() {
         data_dir: ":memory:".into(),
         server_url: "http://localhost:8787".into(),
     };
+
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev_phone = Device::new("device_phone", "Phone", "mobile", &user.id);
+    let dev_old = Device::new("device_old", "Old Device", "mobile", &user.id);
+    upsert_device(&conn, &dev_phone).unwrap();
+    upsert_device(&conn, &dev_old).unwrap();
 
     let session_valid = create_session_for_device("device_phone", None);
     let session_expired = create_session_for_device("device_old", Some(-5000));

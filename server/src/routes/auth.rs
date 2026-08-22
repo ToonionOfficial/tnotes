@@ -140,7 +140,7 @@ pub async fn login_handler(
         ));
     }
 
-    let device = Device::new(&req.device_id, &req.device_name, &req.platform);
+    let device = Device::new(&req.device_id, &req.device_name, &req.platform, &user.id);
     upsert_device(&conn, &device)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

@@ -5,22 +5,26 @@ use notat_core::{
             insert_folder, list_all_folders, list_subfolders, upsert_folder,
         },
         migrations::open_in_memory,
+        users::create_user,
     },
-    models::folder::Folder,
+    models::{folder::Folder, user::User},
 };
 
 #[test]
 fn test_folder_crud_and_mutations() {
     let conn = open_in_memory().unwrap();
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
 
     // 1. Create a folder
-    let mut folder = Folder::new("Work", Some("💼".into()), None, 0, "dev_1");
+    let mut folder = Folder::new("Work", Some("💼".into()), None, 0, "dev_1", &user.id);
     assert_eq!(folder.version, 1);
     insert_folder(&conn, &folder).unwrap();
 
     let fetched = get_folder_by_id(&conn, &folder.id).unwrap().unwrap();
     assert_eq!(fetched.name, "Work");
     assert_eq!(fetched.icon, "💼");
+    assert_eq!(fetched.user_id, user.id);
     assert_eq!(fetched.version, 1);
 
     // 2. Rename and change icon
@@ -39,13 +43,13 @@ fn test_folder_crud_and_mutations() {
     assert!(folder.deleted_at.is_some());
     upsert_folder(&conn, &folder).unwrap();
 
-    assert!(list_all_folders(&conn).unwrap().is_empty());
+    assert!(list_all_folders(&conn, &user.id).unwrap().is_empty());
 
     folder.restore("dev_1");
     assert!(folder.deleted_at.is_none());
     upsert_folder(&conn, &folder).unwrap();
 
-    assert_eq!(list_all_folders(&conn).unwrap().len(), 1);
+    assert_eq!(list_all_folders(&conn, &user.id).unwrap().len(), 1);
 
     // 4. Hard delete
     delete_folder_permanently(&conn, &folder.id).unwrap();
@@ -55,31 +59,33 @@ fn test_folder_crud_and_mutations() {
 #[test]
 fn test_hierarchical_folder_tree_recursive_cte() {
     let conn = open_in_memory().unwrap();
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
 
     // 1. Level 0: "Work" and "Personal"
-    let work = Folder::new("Work", Some("💼".into()), None, 0, "dev_1");
-    let personal = Folder::new("Personal", Some("🏠".into()), None, 1, "dev_1");
+    let work = Folder::new("Work", Some("💼".into()), None, 0, "dev_1", &user.id);
+    let personal = Folder::new("Personal", Some("🏠".into()), None, 1, "dev_1", &user.id);
     insert_folder(&conn, &work).unwrap();
     insert_folder(&conn, &personal).unwrap();
 
     // 2. Level 1: "Engineering" inside "Work"
-    let eng = Folder::new("Engineering", Some("⚙️".into()), Some(work.id.clone()), 0, "dev_1");
+    let eng = Folder::new("Engineering", Some("⚙️".into()), Some(work.id.clone()), 0, "dev_1", &user.id);
     insert_folder(&conn, &eng).unwrap();
 
     // 3. Level 2: "Backend" inside "Engineering"
-    let backend = Folder::new("Backend", Some("🦀".into()), Some(eng.id.clone()), 0, "dev_1");
+    let backend = Folder::new("Backend", Some("🦀".into()), Some(eng.id.clone()), 0, "dev_1", &user.id);
     insert_folder(&conn, &backend).unwrap();
 
     // Test list_subfolders
-    let root_folders = list_subfolders(&conn, None).unwrap();
+    let root_folders = list_subfolders(&conn, &user.id, None).unwrap();
     assert_eq!(root_folders.len(), 2);
 
-    let work_subfolders = list_subfolders(&conn, Some(&work.id)).unwrap();
+    let work_subfolders = list_subfolders(&conn, &user.id, Some(&work.id)).unwrap();
     assert_eq!(work_subfolders.len(), 1);
     assert_eq!(work_subfolders[0].id, eng.id);
 
     // Test recursive CTE tree query
-    let tree = get_folder_tree(&conn).unwrap();
+    let tree = get_folder_tree(&conn, &user.id).unwrap();
     assert_eq!(tree.len(), 4);
 
     let personal_node = tree.iter().find(|n| n.folder.id == personal.id).unwrap();

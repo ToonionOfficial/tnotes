@@ -1,14 +1,18 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    Json,
+};
 use notat_core::{
-    Ulid,
     auth::token::{create_session_for_device, generate_pairing_code},
     db::{devices::upsert_device, sessions::create_session},
     models::device::Device,
+    Ulid,
 };
 use qrcode_generator::QrCodeEcc;
 use serde::{Deserialize, Serialize};
 
-use crate::state::AppState;
+use crate::{middleware::AuthenticatedDevice, state::AppState};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PairingDataResponse {
@@ -31,17 +35,18 @@ pub struct QrPayload {
 
 pub async fn pair_handler(
     State(state): State<AppState>,
+    Extension(auth): Extension<AuthenticatedDevice>,
 ) -> Result<Json<PairingDataResponse>, (StatusCode, String)> {
     let new_device_id = Ulid::generate().to_string();
     let session = create_session_for_device(&new_device_id, None);
     let pairing_code = generate_pairing_code();
 
     let conn = state.db.lock().await;
-    create_session(&conn, &session)
+    let device = Device::new(&new_device_id, "Paired Device", "unknown", &auth.user_id);
+    upsert_device(&conn, &device)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let device = Device::new(&new_device_id, "Paired Device", "unknown");
-    upsert_device(&conn, &device)
+    create_session(&conn, &session)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let qr_payload_struct = QrPayload {

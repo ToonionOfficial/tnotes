@@ -4,6 +4,7 @@ use rusqlite::{params, Connection, OptionalExtension, Result, Row};
 pub fn row_to_device(row: &Row) -> Result<Device> {
     Ok(Device {
         id: row.get("id")?,
+        user_id: row.get("user_id")?,
         name: row.get("name")?,
         platform: row.get("platform")?,
         last_seen_at: row.get("last_seen_at")?,
@@ -14,14 +15,16 @@ pub fn row_to_device(row: &Row) -> Result<Device> {
 /// Register or update a device
 pub fn upsert_device(conn: &Connection, device: &Device) -> Result<()> {
     conn.execute(
-        "INSERT INTO devices (id, name, platform, last_seen_at, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+        "INSERT INTO devices (id, user_id, name, platform, last_seen_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(id) DO UPDATE SET
+             user_id = excluded.user_id,
              name = excluded.name,
              platform = excluded.platform,
              last_seen_at = excluded.last_seen_at",
         params![
             device.id,
+            device.user_id,
             device.name,
             device.platform,
             device.last_seen_at,
@@ -50,7 +53,18 @@ pub fn touch_device(conn: &Connection, id: &str, last_seen_at: i64) -> Result<()
     Ok(())
 }
 
-/// List all registered devices, ordered by most recently active
+/// List all registered devices for a specific user, ordered by most recently active
+pub fn list_devices_by_user(conn: &Connection, user_id: &str) -> Result<Vec<Device>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM devices WHERE user_id = ?1 ORDER BY last_seen_at DESC",
+    )?;
+    let devices = stmt
+        .query_map(params![user_id], row_to_device)?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(devices)
+}
+
+/// List all registered devices across all users (for housekeeping / admin)
 pub fn list_devices(conn: &Connection) -> Result<Vec<Device>> {
     let mut stmt = conn.prepare(
         "SELECT * FROM devices ORDER BY last_seen_at DESC",

@@ -8,7 +8,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use notat_core::{
-    db::{devices::touch_device, sessions::get_session},
+    db::{devices::{get_device_by_id, touch_device}, sessions::get_session},
     models::current_time_ms,
 };
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ pub async fn ws_sync_handler(
         return Err((StatusCode::UNAUTHORIZED, "Empty authentication token"));
     }
 
-    let device_id = {
+    let (device_id, user_id) = {
         let conn = state.db.lock().await;
         let session = get_session(&conn, &token)
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
@@ -67,17 +67,21 @@ pub async fn ws_sync_handler(
             return Err((StatusCode::UNAUTHORIZED, "Session expired"));
         }
 
+        let device = get_device_by_id(&conn, &session.device_id)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
+            .ok_or((StatusCode::UNAUTHORIZED, "Associated device not found"))?;
+
         let now = current_time_ms();
         let _ = touch_device(&conn, &session.device_id, now);
-        session.device_id
+        (session.device_id, device.user_id)
     };
 
-    tracing::info!("WebSocket connected for device: {}", device_id);
+    tracing::info!("WebSocket connected for user: {}, device: {}", user_id, device_id);
 
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, device_id)))
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, device_id, user_id)))
 }
 
-async fn handle_socket(socket: WebSocket, state: AppState, device_id: String) {
+async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, user_id: String) {
     let (mut sender, mut receiver) = socket.split();
     let mut broadcast_rx = state.ws_sender.subscribe();
 
@@ -111,7 +115,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String) {
             broadcast_msg = broadcast_rx.recv() => {
                 match broadcast_msg {
                     Ok(msg) => {
-                        if msg.sender_device_id != device_id {
+                        if msg.user_id == user_id && msg.sender_device_id != device_id {
                             let notification = WsServerMessage::SyncNotification {
                                 sender_device_id: msg.sender_device_id,
                                 count: msg.changes.len(),

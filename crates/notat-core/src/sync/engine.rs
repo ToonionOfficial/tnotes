@@ -130,20 +130,22 @@ pub fn apply_incoming_changes(
 
 /// Server-side sync endpoint processor:
 /// 1. Applies client's incoming changes atomically.
-/// 2. Queries server's changes since client's `last_sync_at` (excluding client's device ID).
+/// 2. Queries server's changes since client's `last_sync_at` (excluding client's device ID) for `user_id`.
 /// 3. Returns the `SyncResponse` envelope.
 pub fn process_sync_envelope(
     conn: &mut Connection,
     envelope: &SyncEnvelope,
+    user_id: &str,
 ) -> Result<SyncResponse> {
     // 1. Apply incoming changes
     apply_incoming_changes(conn, &envelope.changes)?;
 
-    // 2. Fetch server changes since client's cursor
+    // 2. Fetch server changes since client's cursor scoped to this user
     let outgoing_changes = get_changes_since(
         conn,
         envelope.last_sync_at,
         Some(&envelope.device_id),
+        user_id,
     )?;
 
     // 3. Return response with current server timestamp
@@ -157,13 +159,17 @@ pub fn process_sync_envelope(
 mod tests {
     use super::*;
     use crate::db::migrations::open_in_memory;
+    use crate::db::users::create_user;
+    use crate::models::user::User;
 
     #[test]
     fn test_sync_apply_new_and_conflict() {
         let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
 
         // 1. Client A creates a note
-        let note_a = Note::new("Title A", "Body A", None, "dev_a");
+        let note_a = Note::new("Title A", "Body A", None, "dev_a", &user.id);
         let change_a = Change {
             entity_type: EntityType::Note,
             entity_id: note_a.id.clone(),
@@ -222,13 +228,15 @@ mod tests {
     #[test]
     fn test_process_sync_envelope_roundtrip() {
         let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
 
         // 1. Seed a note created by dev_a on the server
-        let note_server = Note::new("Server Note", "From dev_a", None, "dev_a");
+        let note_server = Note::new("Server Note", "From dev_a", None, "dev_a", &user.id);
         upsert_note(&conn, &note_server).unwrap();
 
         // 2. Client dev_b connects with a new note and last_sync_at = 0
-        let note_client = Note::new("Client Note", "From dev_b", None, "dev_b");
+        let note_client = Note::new("Client Note", "From dev_b", None, "dev_b", &user.id);
         let envelope = SyncEnvelope {
             device_id: "dev_b".to_string(),
             last_sync_at: 0,
@@ -242,7 +250,7 @@ mod tests {
             }],
         };
 
-        let response = process_sync_envelope(&mut conn, &envelope).unwrap();
+        let response = process_sync_envelope(&mut conn, &envelope, &user.id).unwrap();
 
         // dev_b should receive the note from dev_a, but not its own note
         assert_eq!(response.changes.len(), 1);

@@ -6,7 +6,7 @@ use axum::{
 };
 use notat_core::{
     db::{
-        devices::touch_device,
+        devices::{get_device_by_id, touch_device},
         sessions::{delete_session, get_session},
     },
     models::current_time_ms,
@@ -18,6 +18,7 @@ use crate::state::AppState;
 pub struct AuthenticatedDevice {
     pub token: String,
     pub device_id: String,
+    pub user_id: String,
 }
 
 pub async fn require_auth(
@@ -51,12 +52,17 @@ pub async fn require_auth(
         return Err((StatusCode::UNAUTHORIZED, "Session expired"));
     }
 
+    let device = get_device_by_id(&conn, &session.device_id)
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
+        .ok_or((StatusCode::UNAUTHORIZED, "Associated device not found"))?;
+
     let now = current_time_ms();
     let _ = touch_device(&conn, &session.device_id, now);
 
     let auth_device = AuthenticatedDevice {
         token: session.token,
         device_id: session.device_id,
+        user_id: device.user_id,
     };
 
     req.extensions_mut().insert(auth_device);

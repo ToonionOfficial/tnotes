@@ -5,8 +5,14 @@ use axum::{
 use http_body_util::BodyExt;
 use notat_core::{
     auth::token::create_session_for_device,
-    db::{migrations::open_in_memory, notes::get_note_by_id, sessions::create_session},
-    models::note::Note,
+    db::{
+        devices::upsert_device,
+        migrations::open_in_memory,
+        notes::get_note_by_id,
+        sessions::create_session,
+        users::create_user,
+    },
+    models::{device::Device, note::Note, user::User},
     sync::envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
 };
 use notat_server::{
@@ -24,6 +30,14 @@ async fn test_sync_api_flow() {
         data_dir: ":memory:".into(),
         server_url: "http://localhost:8787".into(),
     };
+
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev1 = Device::new("device_desktop", "Desktop", "desktop", &user.id);
+    let dev2 = Device::new("device_mobile", "Mobile", "mobile", &user.id);
+    upsert_device(&conn, &dev1).unwrap();
+    upsert_device(&conn, &dev2).unwrap();
 
     let session1 = create_session_for_device("device_desktop", None);
     let session2 = create_session_for_device("device_mobile", None);
@@ -60,6 +74,7 @@ async fn test_sync_api_flow() {
         "Fearless concurrency with Tokio",
         None,
         "device_desktop",
+        &user.id,
     );
     let note1_payload = serde_json::to_value(&note1).unwrap();
 
@@ -100,6 +115,7 @@ async fn test_sync_api_flow() {
         let saved_note = get_note_by_id(&db, &note1.id).unwrap().unwrap();
         assert_eq!(saved_note.title, "Rust Concurrency");
         assert_eq!(saved_note.body, "Fearless concurrency with Tokio");
+        assert_eq!(saved_note.user_id, user.id);
     }
 
     // 4. Client 2 syncs with last_sync_at = 0 -> receives Client 1's note

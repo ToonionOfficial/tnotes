@@ -1,8 +1,13 @@
 use futures_util::{SinkExt, StreamExt};
 use notat_core::{
     auth::token::create_session_for_device,
-    db::{migrations::open_in_memory, sessions::create_session},
-    models::note::Note,
+    db::{
+        devices::upsert_device,
+        migrations::open_in_memory,
+        sessions::create_session,
+        users::create_user,
+    },
+    models::{device::Device, note::Note, user::User},
     sync::envelope::{Change, EntityType, SyncEnvelope},
 };
 use notat_server::{
@@ -24,6 +29,14 @@ async fn test_websocket_realtime_broadcast() {
         data_dir: ":memory:".into(),
         server_url: format!("http://{}", addr),
     };
+
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev_a = Device::new("device_a", "Device A", "desktop", &user.id);
+    let dev_b = Device::new("device_b", "Device B", "mobile", &user.id);
+    upsert_device(&conn, &dev_a).unwrap();
+    upsert_device(&conn, &dev_b).unwrap();
 
     let session_a = create_session_for_device("device_a", None);
     let session_b = create_session_for_device("device_b", None);
@@ -62,7 +75,7 @@ async fn test_websocket_realtime_broadcast() {
     }
 
     // 3. Device A performs a sync push over HTTP
-    let note = Note::new("Test WS Note", "Realtime sync test", None, "device_a");
+    let note = Note::new("Test WS Note", "Realtime sync test", None, "device_a", &user.id);
     let envelope = SyncEnvelope {
         device_id: "device_a".into(),
         last_sync_at: 0,

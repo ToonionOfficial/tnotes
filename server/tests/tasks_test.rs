@@ -1,11 +1,13 @@
 use notat_core::{
     auth::token::create_session_for_device,
     db::{
+        devices::upsert_device,
         migrations::open_in_memory,
         notes::{get_note_by_id, insert_note},
         sessions::{create_session, get_session},
+        users::create_user,
     },
-    models::{current_time_ms, note::Note},
+    models::{current_time_ms, device::Device, note::Note, user::User},
 };
 use notat_server::tasks::run_housekeeping;
 
@@ -15,6 +17,14 @@ async fn test_housekeeping_task() {
     let now = current_time_ms();
     let ms_per_day = 24 * 60 * 60 * 1000;
 
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev_active = Device::new("device_active", "Active Device", "desktop", &user.id);
+    let dev_expired = Device::new("device_expired", "Expired Device", "mobile", &user.id);
+    upsert_device(&conn, &dev_active).unwrap();
+    upsert_device(&conn, &dev_expired).unwrap();
+
     // 1. Setup Sessions: one active, one expired
     let active_session = create_session_for_device("device_active", None);
     let expired_session = create_session_for_device("device_expired", Some(-10_000));
@@ -23,11 +33,11 @@ async fn test_housekeeping_task() {
     create_session(&conn, &expired_session).unwrap();
 
     // 2. Setup Notes: one recently trashed (5 days ago), one old trashed (35 days ago)
-    let mut recent_trashed = Note::new("Recent Note", "Body", None, "device_active");
+    let mut recent_trashed = Note::new("Recent Note", "Body", None, "device_active", &user.id);
     recent_trashed.trashed = true;
     recent_trashed.deleted_at = Some(now - (5 * ms_per_day));
 
-    let mut old_trashed = Note::new("Old Note", "Body", None, "device_active");
+    let mut old_trashed = Note::new("Old Note", "Body", None, "device_active", &user.id);
     old_trashed.trashed = true;
     old_trashed.deleted_at = Some(now - (35 * ms_per_day));
 

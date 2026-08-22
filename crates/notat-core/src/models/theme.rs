@@ -3,8 +3,6 @@ use ulid::Ulid;
 
 use crate::models::current_time_ms;
 
-// NOTE: Might make it simpler only colors
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeColors {
     pub bg: String,
@@ -52,6 +50,8 @@ pub struct ThemeSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
     pub name: String,
     pub builtin: bool,
     pub schema: ThemeSchema,
@@ -62,10 +62,16 @@ pub struct Theme {
 }
 
 impl Theme {
-    pub fn new(name: impl Into<String>, schema: ThemeSchema, device_id: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        schema: ThemeSchema,
+        device_id: impl Into<String>,
+        user_id: Option<String>,
+    ) -> Self {
         let now = current_time_ms();
         Self {
             id: Ulid::generate().to_string(),
+            user_id,
             name: name.into(),
             builtin: false,
             schema,
@@ -80,6 +86,7 @@ impl Theme {
     pub fn builtin_dark() -> Self {
         Self {
             id: "theme_builtin_dark".to_string(),
+            user_id: None,
             name: "Default Dark".to_string(),
             builtin: true,
             schema: ThemeSchema {
@@ -123,6 +130,7 @@ impl Theme {
     pub fn builtin_light() -> Self {
         Self {
             id: "theme_builtin_light".to_string(),
+            user_id: None,
             name: "Default Light".to_string(),
             builtin: true,
             schema: ThemeSchema {

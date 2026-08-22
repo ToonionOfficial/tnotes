@@ -13,6 +13,7 @@ pub struct FolderNode {
 pub fn row_to_folder(row: &Row) -> Result<Folder> {
     Ok(Folder {
         id: row.get("id")?,
+        user_id: row.get("user_id")?,
         parent_id: row.get("parent_id")?,
         name: row.get("name")?,
         icon: row.get("icon")?,
@@ -29,13 +30,14 @@ pub fn row_to_folder(row: &Row) -> Result<Folder> {
 pub fn insert_folder(conn: &Connection, folder: &Folder) -> Result<()> {
     conn.execute(
         "INSERT INTO folders (
-            id, parent_id, name, icon, sort_order,
+            id, user_id, parent_id, name, icon, sort_order,
             version, updated_at, created_at, deleted_at, device_id
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
         )",
         params![
             folder.id,
+            folder.user_id,
             folder.parent_id,
             folder.name,
             folder.icon,
@@ -54,12 +56,13 @@ pub fn insert_folder(conn: &Connection, folder: &Folder) -> Result<()> {
 pub fn upsert_folder(conn: &Connection, folder: &Folder) -> Result<()> {
     conn.execute(
         "INSERT INTO folders (
-            id, parent_id, name, icon, sort_order,
+            id, user_id, parent_id, name, icon, sort_order,
             version, updated_at, created_at, deleted_at, device_id
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
         )
         ON CONFLICT(id) DO UPDATE SET
+            user_id = excluded.user_id,
             parent_id = excluded.parent_id,
             name = excluded.name,
             icon = excluded.icon,
@@ -70,6 +73,7 @@ pub fn upsert_folder(conn: &Connection, folder: &Folder) -> Result<()> {
             device_id = excluded.device_id",
         params![
             folder.id,
+            folder.user_id,
             folder.parent_id,
             folder.name,
             folder.icon,
@@ -94,38 +98,38 @@ pub fn get_folder_by_id(conn: &Connection, id: &str) -> Result<Option<Folder>> {
     .optional()
 }
 
-/// List all active (non-deleted) folders
-pub fn list_all_folders(conn: &Connection) -> Result<Vec<Folder>> {
+/// List all active (non-deleted) folders for a specific user
+pub fn list_all_folders(conn: &Connection, user_id: &str) -> Result<Vec<Folder>> {
     let mut stmt = conn.prepare(
         "SELECT * FROM folders
-         WHERE deleted_at IS NULL
+         WHERE user_id = ?1 AND deleted_at IS NULL
          ORDER BY sort_order ASC, name ASC",
     )?;
     let folders = stmt
-        .query_map([], row_to_folder)?
+        .query_map(params![user_id], row_to_folder)?
         .collect::<Result<Vec<_>>>()?;
     Ok(folders)
 }
 
-/// List direct subfolders of a parent (or root folders if `parent_id` is None)
-pub fn list_subfolders(conn: &Connection, parent_id: Option<&str>) -> Result<Vec<Folder>> {
+/// List direct subfolders of a parent for a specific user (or root folders if `parent_id` is None)
+pub fn list_subfolders(conn: &Connection, user_id: &str, parent_id: Option<&str>) -> Result<Vec<Folder>> {
     match parent_id {
         Some(pid) => {
             let mut stmt = conn.prepare(
                 "SELECT * FROM folders
-                 WHERE parent_id = ?1 AND deleted_at IS NULL
+                 WHERE user_id = ?1 AND parent_id = ?2 AND deleted_at IS NULL
                  ORDER BY sort_order ASC, name ASC",
             )?;
-            let folders = stmt.query_map(params![pid], row_to_folder)?.collect::<Result<Vec<_>>>()?;
+            let folders = stmt.query_map(params![user_id, pid], row_to_folder)?.collect::<Result<Vec<_>>>()?;
             Ok(folders)
         }
         None => {
             let mut stmt = conn.prepare(
                 "SELECT * FROM folders
-                 WHERE parent_id IS NULL AND deleted_at IS NULL
+                 WHERE user_id = ?1 AND parent_id IS NULL AND deleted_at IS NULL
                  ORDER BY sort_order ASC, name ASC",
             )?;
-            let folders = stmt.query_map([], row_to_folder)?.collect::<Result<Vec<_>>>()?;
+            let folders = stmt.query_map(params![user_id], row_to_folder)?.collect::<Result<Vec<_>>>()?;
             Ok(folders)
         }
     }
@@ -137,34 +141,34 @@ pub fn delete_folder_permanently(conn: &Connection, id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Fetch the complete hierarchical folder tree using a recursive CTE query
-pub fn get_folder_tree(conn: &Connection) -> Result<Vec<FolderNode>> {
+/// Fetch the complete hierarchical folder tree for a specific user using a recursive CTE query
+pub fn get_folder_tree(conn: &Connection, user_id: &str) -> Result<Vec<FolderNode>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE folder_tree AS (
             SELECT 
-                id, parent_id, name, icon, sort_order, version,
+                id, user_id, parent_id, name, icon, sort_order, version,
                 updated_at, created_at, deleted_at, device_id,
                 0 AS depth,
                 name AS path
             FROM folders
-            WHERE parent_id IS NULL AND deleted_at IS NULL
+            WHERE user_id = ?1 AND parent_id IS NULL AND deleted_at IS NULL
 
             UNION ALL
 
             SELECT 
-                f.id, f.parent_id, f.name, f.icon, f.sort_order, f.version,
+                f.id, f.user_id, f.parent_id, f.name, f.icon, f.sort_order, f.version,
                 f.updated_at, f.created_at, f.deleted_at, f.device_id,
                 ft.depth + 1 AS depth,
                 ft.path || ' / ' || f.name AS path
             FROM folders f
             JOIN folder_tree ft ON f.parent_id = ft.id
-            WHERE f.deleted_at IS NULL
+            WHERE f.user_id = ?1 AND f.deleted_at IS NULL
         )
         SELECT * FROM folder_tree ORDER BY path ASC, sort_order ASC",
     )?;
 
     let nodes = stmt
-        .query_map([], |row| {
+        .query_map(params![user_id], |row| {
             Ok(FolderNode {
                 folder: row_to_folder(row)?,
                 depth: row.get("depth")?,

@@ -2,12 +2,13 @@ use rusqlite::{params, Connection, OptionalExtension, Result};
 use crate::db::{folders::row_to_folder, notes::row_to_note, themes::row_to_theme};
 use crate::sync::envelope::{Change, EntityType};
 
-/// Collect all entity changes (notes, folders, themes) that have been modified since `since_timestamp`.
-/// Optionally excludes changes that originated from `exclude_device_id`.
+/// Collect all entity changes (notes, folders, themes) that have been modified since `since_timestamp`
+/// for a specific `user_id`. Optionally excludes changes that originated from `exclude_device_id`.
 pub fn get_changes_since(
     conn: &Connection,
     since_timestamp: i64,
     exclude_device_id: Option<&str>,
+    user_id: &str,
 ) -> Result<Vec<Change>> {
     let mut changes = Vec::new();
 
@@ -15,16 +16,16 @@ pub fn get_changes_since(
     let notes = match exclude_device_id {
         Some(dev_id) => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM notes WHERE updated_at > ?1 AND device_id != ?2 ORDER BY updated_at ASC",
+                "SELECT * FROM notes WHERE user_id = ?1 AND updated_at > ?2 AND device_id != ?3 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp, dev_id], row_to_note)?
+            stmt.query_map(params![user_id, since_timestamp, dev_id], row_to_note)?
                 .collect::<Result<Vec<_>>>()?
         }
         None => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM notes WHERE updated_at > ?1 ORDER BY updated_at ASC",
+                "SELECT * FROM notes WHERE user_id = ?1 AND updated_at > ?2 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp], row_to_note)?
+            stmt.query_map(params![user_id, since_timestamp], row_to_note)?
                 .collect::<Result<Vec<_>>>()?
         }
     };
@@ -48,16 +49,16 @@ pub fn get_changes_since(
     let folders = match exclude_device_id {
         Some(dev_id) => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM folders WHERE updated_at > ?1 AND device_id != ?2 ORDER BY updated_at ASC",
+                "SELECT * FROM folders WHERE user_id = ?1 AND updated_at > ?2 AND device_id != ?3 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp, dev_id], row_to_folder)?
+            stmt.query_map(params![user_id, since_timestamp, dev_id], row_to_folder)?
                 .collect::<Result<Vec<_>>>()?
         }
         None => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM folders WHERE updated_at > ?1 ORDER BY updated_at ASC",
+                "SELECT * FROM folders WHERE user_id = ?1 AND updated_at > ?2 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp], row_to_folder)?
+            stmt.query_map(params![user_id, since_timestamp], row_to_folder)?
                 .collect::<Result<Vec<_>>>()?
         }
     };
@@ -77,20 +78,20 @@ pub fn get_changes_since(
         });
     }
 
-    // 3. Collect Theme changes (custom synced themes)
+    // 3. Collect Theme changes (custom synced themes for this user)
     let themes = match exclude_device_id {
         Some(dev_id) => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM themes WHERE updated_at > ?1 AND device_id != ?2 AND builtin = 0 ORDER BY updated_at ASC",
+                "SELECT * FROM themes WHERE (user_id = ?1 OR builtin = 1) AND updated_at > ?2 AND device_id != ?3 AND builtin = 0 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp, dev_id], row_to_theme)?
+            stmt.query_map(params![user_id, since_timestamp, dev_id], row_to_theme)?
                 .collect::<Result<Vec<_>>>()?
         }
         None => {
             let mut stmt = conn.prepare(
-                "SELECT * FROM themes WHERE updated_at > ?1 AND builtin = 0 ORDER BY updated_at ASC",
+                "SELECT * FROM themes WHERE (user_id = ?1 OR builtin = 1) AND updated_at > ?2 AND builtin = 0 ORDER BY updated_at ASC",
             )?;
-            stmt.query_map(params![since_timestamp], row_to_theme)?
+            stmt.query_map(params![user_id, since_timestamp], row_to_theme)?
                 .collect::<Result<Vec<_>>>()?
         }
     };

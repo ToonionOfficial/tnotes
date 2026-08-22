@@ -7,6 +7,7 @@ use tokio::sync::{Mutex, broadcast};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsBroadcastMessage {
     pub sender_device_id: String,
+    pub user_id: String,
     pub changes: Vec<Change>,
 }
 

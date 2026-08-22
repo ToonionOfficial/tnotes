@@ -6,6 +6,7 @@ use crate::models::{compute_checksum, current_time_ms};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     pub id: String,
+    pub user_id: String,
     pub folder_id: Option<String>,
     pub title: String,
     pub body: String,
@@ -27,15 +28,18 @@ impl Note {
         body: impl Into<String>,
         folder_id: Option<String>,
         device_id: impl Into<String>,
+        user_id: impl Into<String>,
     ) -> Self {
         let title = title.into();
         let body = body.into();
         let device_id = device_id.into();
+        let user_id = user_id.into();
         let now = current_time_ms();
         let checksum = compute_checksum(&body);
 
         Self {
             id: Ulid::generate().to_string(),
+            user_id,
             folder_id,
             title,
             body,

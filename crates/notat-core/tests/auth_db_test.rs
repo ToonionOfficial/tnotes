@@ -1,6 +1,7 @@
 use notat_core::{
     auth::{password::{hash_password, verify_password}, token::create_session_for_device},
     db::{
+        devices::upsert_device,
         migrations::open_in_memory,
         sessions::{
             cleanup_expired_sessions, create_session, delete_session,
@@ -8,7 +9,7 @@ use notat_core::{
         },
         users::{create_user, get_user_by_id, get_user_by_username, has_any_user, update_password},
     },
-    models::user::User,
+    models::{device::Device, user::User},
 };
 
 #[test]
@@ -49,6 +50,13 @@ fn test_user_flow_and_auth() {
 #[test]
 fn test_session_lifecycle() {
     let conn = open_in_memory().unwrap();
+    let user = User::new("testuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev_phone = Device::new("phone_1", "Phone", "mobile", &user.id);
+    let dev_laptop = Device::new("laptop_1", "Laptop", "desktop", &user.id);
+    upsert_device(&conn, &dev_phone).unwrap();
+    upsert_device(&conn, &dev_laptop).unwrap();
 
     let session_1 = create_session_for_device("phone_1", None);
     let session_2 = create_session_for_device("laptop_1", None);
