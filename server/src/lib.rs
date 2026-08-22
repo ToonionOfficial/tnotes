@@ -4,11 +4,16 @@ pub mod state;
 pub mod ws;
 
 use axum::{
-    Router,
+    middleware::from_fn_with_state,
     response::Html,
     routing::{get, post},
+    Router,
 };
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{
+    compression::CompressionLayer,
+    cors::CorsLayer,
+    trace::TraceLayer,
+};
 
 use crate::state::AppState;
 
@@ -19,6 +24,10 @@ async fn index_handler() -> Html<&'static str> {
 }
 
 pub fn build_router(state: AppState) -> Router {
+    let protected_routes = Router::new()
+        .route("/api/sync", post(routes::sync::sync_handler))
+        .layer(from_fn_with_state(state.clone(), middleware::require_auth));
+
     Router::new()
         .route("/", get(index_handler))
         .route("/api/health", get(routes::health::health_check))
@@ -26,7 +35,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/setup", post(routes::auth::setup_handler))
         .route("/api/login", post(routes::auth::login_handler))
         .route("/api/pair", get(routes::pair::pair_handler))
+        .merge(protected_routes)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
+        .layer(CompressionLayer::new())
         .with_state(state)
 }
