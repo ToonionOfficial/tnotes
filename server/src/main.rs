@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use notat_server::{
     build_router,
     state::{AppState, ServerConfig},
+    tasks::start_housekeeping_task,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -26,6 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     notat_core::db::themes::seed_default_themes(&conn)?;
 
     let state = AppState::new(conn, config.clone());
+
+    // Start background housekeeping task (runs every 1 hour)
+    start_housekeeping_task(state.db.clone(), 3600);
+
     let app = build_router(state);
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;

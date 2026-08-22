@@ -1,6 +1,7 @@
 pub mod middleware;
 pub mod routes;
 pub mod state;
+pub mod tasks;
 pub mod ws;
 
 use axum::{
@@ -30,6 +31,7 @@ pub fn build_router(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(index_handler))
+        .route("/ws/sync", get(ws::ws_sync_handler))
         .route("/api/health", get(routes::health::health_check))
         .route("/api/setup/status", get(routes::auth::setup_status_handler))
         .route("/api/setup", post(routes::auth::setup_handler))

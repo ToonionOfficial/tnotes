@@ -1,13 +1,17 @@
 services:
   notat-server:
-    build: ./server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     ports:
       - "8787:8787"
     volumes:
       - notat-data:/data
     environment:
       - NOTAT_DATA_DIR=/data
-      - RUST_LOG=notat=info
+      - NOTAT_HOST=0.0.0.0
+      - NOTAT_PORT=8787
+      - RUST_LOG=notat_server=info,tower_http=info
 
   caddy:
     image: caddy:2-alpine
