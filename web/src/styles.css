@@ -34,37 +34,40 @@
 }
 
 /*
-  Catppuccin Mocha — dark-first theme for Notat.
+  DankShell (DankMaterialShell / Matugen) — dark-first theme for tnotes.
+  Matches ~/.config/gtk-4.0/dank-colors.css:
+    window #141318 · surface #201F24 · text #E6E1E9
+    accent #CABEFF (on #32285F) · error #FFB4AB (on #690005)
   We only ship dark mode for now. Light mode can be added later.
 */
 :root {
-  --background: oklch(0.178 0.014 256.788); /* #1e1e2e */
-  --foreground: oklch(0.87 0.017 252.894); /* #cdd6f4 */
+  --background: #141318; /* window bg */
+  --foreground: #e6e1e9; /* window fg */
 
-  --card: oklch(0.24 0.014 256.788); /* #313244 */
-  --card-foreground: oklch(0.87 0.017 252.894);
+  --card: #201f24; /* surface */
+  --card-foreground: #e6e1e9;
 
-  --popover: oklch(0.24 0.014 256.788);
-  --popover-foreground: oklch(0.87 0.017 252.894);
+  --popover: #201f24;
+  --popover-foreground: #e6e1e9;
 
-  --primary: oklch(0.73 0.1 248); /* #89b4fa blue */
-  --primary-foreground: oklch(0.178 0.014 256.788);
+  --primary: #cabeff; /* accent bg */
+  --primary-foreground: #32285f; /* accent fg */
 
-  --secondary: oklch(0.31 0.011 256.788); /* #45475a */
-  --secondary-foreground: oklch(0.87 0.017 252.894);
+  --secondary: #2a2930; /* elevated surface */
+  --secondary-foreground: #e6e1e9;
 
-  --muted: oklch(0.31 0.011 256.788);
-  --muted-foreground: oklch(0.73 0.014 252.894); /* #a6adc8 */
+  --muted: #201f24;
+  --muted-foreground: #c6c2cd; /* on-surface variant */
 
-  --accent: oklch(0.31 0.011 256.788);
-  --accent-foreground: oklch(0.87 0.017 252.894);
+  --accent: #2a2930; /* hover surfaces */
+  --accent-foreground: #e6e1e9;
 
-  --destructive: oklch(0.66 0.14 16); /* #f38ba8 red */
-  --destructive-foreground: oklch(0.178 0.014 256.788);
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
 
-  --border: oklch(0.31 0.011 256.788); /* #45475a */
-  --input: oklch(0.31 0.011 256.788);
-  --ring: oklch(0.73 0.1 248);
+  --border: #302e36;
+  --input: #302e36;
+  --ring: #cabeff;
 
   --radius: 0.75rem;
   --success: oklch(0.78 0.12 149); /* #a6e3a1 green */

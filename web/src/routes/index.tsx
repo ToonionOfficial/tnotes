@@ -1,6 +1,14 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { FolderSync, LogOut, NotebookPen, StickyNote } from 'lucide-react'
+import { FolderSync, LogOut, PanelLeft, StickyNote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { apiFetch } from '@/lib/api'
 import type { LogoutResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
 
@@ -51,9 +59,15 @@ function DashboardPage() {
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/80 bg-background/80 px-4 sm:px-6 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <NotebookPen className="h-4 w-4" />
-          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground"
+            title="Toggle Sidebar"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
+          <img src="/logo-transparent.png" alt="TNotes logo" className="h-8 w-8" />
           <span className="font-bold tracking-tight text-foreground">TNotes</span>
         </div>
 
@@ -71,20 +85,29 @@ function DashboardPage() {
 
           <div className="h-4 w-px bg-border" />
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
-              {me?.username}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              title="Sign Out"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full p-0"
+                title={me?.username ?? 'Account'}
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground uppercase">
+                  {me?.username?.charAt(0) ?? '?'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Profile</DropdownMenuLabel>
+              <DropdownMenuItem disabled>{me?.username}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                <LogOut />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

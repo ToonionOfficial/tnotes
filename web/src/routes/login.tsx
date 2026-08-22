@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import Shake from '@/components/ui/shake'
 import { apiFetch } from '@/lib/api'
 import type { LoginResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
 
@@ -117,93 +118,99 @@ function LoginPage() {
           <CardDescription>Enter your credentials to access your notes</CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              form.handleSubmit()
-            }}
-            className="space-y-4"
-          >
-            {serverError && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {serverError}
-              </div>
-            )}
-
-            <form.Field
-              name="username"
-              validators={{
-                onChange: ({ value }) => {
-                  const res = usernameSchema.safeParse(value)
-                  return res.success ? undefined : res.error.issues[0]?.message
-                },
+          <Shake signal={serverError}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                form.handleSubmit()
               }}
+              className="space-y-4"
             >
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Username</Label>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    type="text"
-                    placeholder="Username"
-                    autoComplete="username"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
-                  )}
+              {serverError && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {serverError}
                 </div>
               )}
-            </form.Field>
 
-            <form.Field
-              name="password"
-              validators={{
-                onChange: ({ value }) => {
-                  const res = passwordSchema.safeParse(value)
-                  return res.success ? undefined : res.error.issues[0]?.message
-                },
-              }}
-            >
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Password</Label>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    type="password"
-                    placeholder="Password"
-                    autoComplete="current-password"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
-                  )}
-                </div>
-              )}
-            </form.Field>
+              <form.Field
+                name="username"
+                validators={{
+                  onChange: ({ value }) => {
+                    const res = usernameSchema.safeParse(value)
+                    return res.success ? undefined : res.error.issues[0]?.message
+                  },
+                }}
+              >
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Username</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="text"
+                      placeholder="Username"
+                      autoComplete="username"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
 
-            <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
-              {([canSubmit, isSubmitting]) => (
-                <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in…
-                    </>
-                  ) : (
-                    'Sign In'
-                  )}
-                </Button>
-              )}
-            </form.Subscribe>
-          </form>
+              <form.Field
+                name="password"
+                validators={{
+                  onChange: ({ value }) => {
+                    const res = passwordSchema.safeParse(value)
+                    return res.success ? undefined : res.error.issues[0]?.message
+                  },
+                }}
+              >
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Password</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="password"
+                      placeholder="Password"
+                      autoComplete="current-password"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+                {([canSubmit, isSubmitting]) => (
+                  <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in…
+                      </>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </Button>
+                )}
+              </form.Subscribe>
+            </form>
+          </Shake>
         </CardContent>
       </Card>
     </div>
