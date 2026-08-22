@@ -8,9 +8,13 @@ notat-core = { path = "../crates/notat-core" }
 
 axum = { version = "0.8.1", features = ["ws"] }
 tokio = { version = "1.43.0", features = ["full"] }
-tower = "0.5.2"
+tower = { version = "0.5.2", features = ["util"] }
 tower-http = { version = "0.6.2", features = ["cors", "compression-gzip", "trace"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
+validator = { version = "0.20.0", features = ["derive"] }
+
+[dev-dependencies]
+http-body-util = "0.1.2"

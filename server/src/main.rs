@@ -1,14 +1,9 @@
-mod middleware;
-mod routes;
-mod state;
-mod ws;
-
-use axum::{Router, routing::get};
 use std::net::SocketAddr;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use notat_server::{
+    build_router,
+    state::{AppState, ServerConfig},
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use crate::state::{AppState, ServerConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,16 +23,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Opening database at {}", db_path);
 
     let conn = notat_core::db::migrations::open_connection(&db_path)?;
-
     notat_core::db::themes::seed_default_themes(&conn)?;
 
     let state = AppState::new(conn, config.clone());
-
-    let app = Router::new()
-        .route("/api/health", get(routes::health::health_check))
-        .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive())
-        .with_state(state);
+    let app = build_router(state);
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(&addr).await?;
