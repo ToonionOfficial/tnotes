@@ -163,9 +163,14 @@ pub fn search_notes(conn: &Connection, search_term: &str) -> Result<Vec<Note>> {
         return Ok(Vec::new());
     }
 
-    // Sanitize query and append wildcard for prefix matching: e.g. "rust*"
-    let sanitized = trimmed.replace('"', "\"\"");
-    let formatted_query = format!("{}*", sanitized);
+    // Safely tokenize and quote each word as a prefix match (e.g. "rust"* "metal"*)
+    // to prevent FTS5 syntax errors on special characters or operators
+    let tokens: Vec<String> = trimmed
+        .split_whitespace()
+        .map(|word| format!("\"{}\"*", word.replace('"', "\"\"")))
+        .collect();
+
+    let formatted_query = tokens.join(" ");
 
     let mut stmt = conn.prepare(
         "SELECT n.* FROM notes n

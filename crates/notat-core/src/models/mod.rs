@@ -11,8 +11,8 @@ pub mod user;
 pub fn current_time_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Time went backward")
-        .as_millis() as i64
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
 }
 
 pub fn compute_checksum(content: &str) -> String {
