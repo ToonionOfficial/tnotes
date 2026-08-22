@@ -49,8 +49,10 @@ pub async fn ws_sync_handler(
         auth_val.strip_prefix("Bearer ").unwrap_or(auth_val).trim().to_string()
     } else if let Some(q_token) = query.token {
         q_token.trim().to_string()
+    } else if let Some(cookie) = axum_extra::extract::cookie::CookieJar::from_headers(&headers).get(crate::middleware::SESSION_COOKIE_NAME) {
+        cookie.value().trim().to_string()
     } else {
-        return Err((StatusCode::UNAUTHORIZED, "Missing authentication token"));
+        return Err((StatusCode::UNAUTHORIZED, "Missing authentication token or cookie"));
     };
 
     if token.is_empty() {

@@ -28,6 +28,8 @@ pub fn build_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/api/sync", post(routes::sync::sync_handler))
         .route("/api/pair", get(routes::pair::pair_handler))
+        .route("/api/me", get(routes::auth::me_handler))
+        .route("/api/logout", post(routes::auth::logout_handler))
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 
     Router::new()

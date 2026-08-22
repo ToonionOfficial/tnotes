@@ -1,20 +1,55 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    Json,
+};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use validator::Validate;
 
-use crate::state::AppState;
+use crate::{
+    middleware::{AuthenticatedDevice, SESSION_COOKIE_NAME},
+    state::AppState,
+};
 use notat_core::{
     auth::{
         password::{hash_password, verify_password},
         token::create_session_for_device,
     },
     db::{
-        devices::upsert_device,
-        sessions::create_session,
-        users::{create_user, get_user_by_username, has_any_user},
+        devices::{get_device_by_id, upsert_device},
+        sessions::{create_session, delete_session},
+        users::{create_user, get_user_by_id, get_user_by_username, has_any_user},
     },
-    models::{device::Device, user::User},
+    models::{current_time_ms, device::Device, user::User},
+    Ulid,
 };
+
+pub fn build_session_cookie(token: &str, expires_at: i64) -> Cookie<'static> {
+    let now = current_time_ms();
+    let max_age_secs = if expires_at > now {
+        (expires_at - now) / 1000
+    } else {
+        7776000 // 90 days default
+    };
+
+    Cookie::build((SESSION_COOKIE_NAME, token.to_string()))
+        .path("/")
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .max_age(Duration::seconds(max_age_secs))
+        .build()
+}
+
+pub fn build_removal_cookie() -> Cookie<'static> {
+    Cookie::build((SESSION_COOKIE_NAME, ""))
+        .path("/")
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .max_age(Duration::ZERO)
+        .build()
+}
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct SetupRequest {
@@ -37,6 +72,9 @@ pub struct SetupResponse {
     pub ok: bool,
     pub user_id: String,
     pub username: String,
+    pub token: String,
+    pub device_id: String,
+    pub expires_at: i64,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -65,6 +103,20 @@ pub struct SetupStatusResponse {
     pub is_configured: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MeResponse {
+    pub user_id: String,
+    pub username: String,
+    pub device_id: String,
+    pub device_name: String,
+    pub platform: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogoutResponse {
+    pub ok: bool,
+}
+
 pub async fn setup_status_handler(
     State(state): State<AppState>,
 ) -> Result<Json<SetupStatusResponse>, (StatusCode, String)> {
@@ -77,8 +129,9 @@ pub async fn setup_status_handler(
 
 pub async fn setup_handler(
     State(state): State<AppState>,
+    jar: CookieJar,
     Json(req): Json<SetupRequest>,
-) -> Result<(StatusCode, Json<SetupResponse>), (StatusCode, String)> {
+) -> Result<(StatusCode, CookieJar, Json<SetupResponse>), (StatusCode, String)> {
     req.validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
@@ -102,22 +155,39 @@ pub async fn setup_handler(
 
     create_user(&conn, &user).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    // Create an initial web session for the owner
+    let device_id = Ulid::generate().to_string();
+    let device = Device::new(&device_id, "Web Browser", "web", &user_id);
+    upsert_device(&conn, &device)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let session = create_session_for_device(&device_id, None);
+    create_session(&conn, &session)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     tracing::info!("First-run setup completed for user: {}", saved_username);
+
+    let cookie = build_session_cookie(&session.token, session.expires_at);
 
     Ok((
         StatusCode::CREATED,
+        jar.add(cookie),
         Json(SetupResponse {
             ok: true,
             user_id,
             username: saved_username,
+            token: session.token,
+            device_id: session.device_id,
+            expires_at: session.expires_at,
         }),
     ))
 }
 
 pub async fn login_handler(
     State(state): State<AppState>,
+    jar: CookieJar,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+) -> Result<(CookieJar, Json<LoginResponse>), (StatusCode, String)> {
     req.validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
@@ -155,9 +225,52 @@ pub async fn login_handler(
         device.platform
     );
 
-    Ok(Json(LoginResponse {
-        token: session.token,
-        device_id: session.device_id,
-        expires_at: session.expires_at,
+    let cookie = build_session_cookie(&session.token, session.expires_at);
+
+    Ok((
+        jar.add(cookie),
+        Json(LoginResponse {
+            token: session.token,
+            device_id: session.device_id,
+            expires_at: session.expires_at,
+        }),
+    ))
+}
+
+pub async fn me_handler(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthenticatedDevice>,
+) -> Result<Json<MeResponse>, (StatusCode, String)> {
+    let conn = state.db.lock().await;
+
+    let user = get_user_by_id(&conn, &auth.user_id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".into()))?;
+
+    let device = get_device_by_id(&conn, &auth.device_id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Device not found".into()))?;
+
+    Ok(Json(MeResponse {
+        user_id: user.id,
+        username: user.username,
+        device_id: device.id,
+        device_name: device.name,
+        platform: device.platform,
     }))
+}
+
+pub async fn logout_handler(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Extension(auth): Extension<AuthenticatedDevice>,
+) -> Result<(CookieJar, Json<LogoutResponse>), (StatusCode, String)> {
+    let conn = state.db.lock().await;
+    let _ = delete_session(&conn, &auth.token);
+
+    tracing::info!("User session logged out: {}", auth.device_id);
+
+    let cookie = build_removal_cookie();
+
+    Ok((jar.add(cookie), Json(LogoutResponse { ok: true })))
 }

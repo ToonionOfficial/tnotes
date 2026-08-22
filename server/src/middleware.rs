@@ -4,6 +4,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use axum_extra::extract::cookie::CookieJar;
 use notat_core::{
     db::{
         devices::{get_device_by_id, touch_device},
@@ -14,6 +15,8 @@ use notat_core::{
 
 use crate::state::AppState;
 
+pub const SESSION_COOKIE_NAME: &str = "notat_session";
+
 #[derive(Debug, Clone)]
 pub struct AuthenticatedDevice {
     pub token: String,
@@ -21,34 +24,51 @@ pub struct AuthenticatedDevice {
     pub user_id: String,
 }
 
+/// Extracts session token from Authorization: Bearer header,
+/// falling back to the `notat_session` httpOnly cookie.
+pub fn extract_token_from_request(req: &Request) -> Option<String> {
+    // 1. Check Authorization: Bearer <token>
+    if let Some(auth_val) = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|val| val.to_str().ok())
+    {
+        if let Some(token) = auth_val.strip_prefix("Bearer ") {
+            let trimmed = token.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+
+    // 2. Fallback to notat_session cookie
+    let jar = CookieJar::from_headers(req.headers());
+    if let Some(cookie) = jar.get(SESSION_COOKIE_NAME) {
+        let val = cookie.value().trim();
+        if !val.is_empty() {
+            return Some(val.to_string());
+        }
+    }
+
+    None
+}
+
 pub async fn require_auth(
     State(state): State<AppState>,
     mut req: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, &'static str)> {
-    let auth_header = req
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|val| val.to_str().ok())
-        .ok_or((StatusCode::UNAUTHORIZED, "Missing Authorization header"))?;
-
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or((StatusCode::UNAUTHORIZED, "Invalid Authorization scheme"))?
-        .trim();
-
-    if token.is_empty() {
-        return Err((StatusCode::UNAUTHORIZED, "Empty Bearer token"));
-    }
+    let token = extract_token_from_request(&req)
+        .ok_or((StatusCode::UNAUTHORIZED, "Missing authentication token or cookie"))?;
 
     let conn = state.db.lock().await;
 
-    let session = get_session(&conn, token)
+    let session = get_session(&conn, &token)
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
         .ok_or((StatusCode::UNAUTHORIZED, "Invalid session token"))?;
 
     if session.is_expired() {
-        let _ = delete_session(&conn, token);
+        let _ = delete_session(&conn, &token);
         return Err((StatusCode::UNAUTHORIZED, "Session expired"));
     }
 
