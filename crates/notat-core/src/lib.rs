@@ -5,3 +5,4 @@ pub mod models;
 pub mod sync;
 
 pub use errors::{Error, Result};
+pub use rusqlite::Connection;
