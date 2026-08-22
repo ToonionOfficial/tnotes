@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub mod device;
 pub mod folder;
 pub mod note;
+pub mod session;
 pub mod theme;
 pub mod user;
 

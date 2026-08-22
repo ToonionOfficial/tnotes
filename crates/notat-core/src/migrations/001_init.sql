@@ -1,7 +1,7 @@
 -- Notat schema v1
 
 CREATE TABLE IF NOT EXISTS user (
-    id              INTEGER PRIMARY KEY DEFAULT 1,
+    id              TEXT PRIMARY KEY,
     username        TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
     created_at      INTEGER NOT NULL
