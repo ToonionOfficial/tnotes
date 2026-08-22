@@ -1,7 +1,23 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { NotebookPen } from 'lucide-react'
+import { apiFetch } from '@/lib/api'
+import type { SetupStatusResponse } from '@/lib/types'
 
 export const Route = createFileRoute('/')({
+  beforeLoad: async () => {
+    try {
+      const status = await apiFetch<SetupStatusResponse>('/api/setup/status')
+      if (!status.is_configured) {
+        throw redirect({ to: '/setup' })
+      }
+      // When configured, redirect to login for now (or notes when authenticated)
+      throw redirect({ to: '/login' })
+    } catch (err) {
+      if (err && typeof err === 'object' && 'to' in err) {
+        throw err
+      }
+    }
+  },
   component: IndexPage,
 })
 
