@@ -8,11 +8,9 @@ use crate::db::{
     themes::{get_theme_by_id, upsert_theme},
 };
 use crate::errors::{Error, Result};
-use crate::models::{
-    current_time_ms, folder::Folder, note::Note, theme::Theme,
-};
+use crate::models::{current_time_ms, folder::Folder, note::Note, theme::Theme};
 use crate::sync::{
-    conflict::{should_apply_remote, VersionMeta},
+    conflict::{VersionMeta, should_apply_remote},
     envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
 };
 
@@ -35,17 +33,14 @@ pub fn apply_incoming_changes(
     for change in changes {
         match change.entity_type {
             EntityType::Note => {
-                let remote_note: Note = serde_json::from_value(change.payload.clone())
-                    .map_err(Error::Json)?;
+                let remote_note: Note =
+                    serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
 
                 let local_note = get_note_by_id(&tx, &remote_note.id)?;
                 let should_apply = match &local_note {
                     Some(local) => {
-                        let local_meta = VersionMeta::new(
-                            local.version,
-                            local.updated_at,
-                            &local.device_id,
-                        );
+                        let local_meta =
+                            VersionMeta::new(local.version, local.updated_at, &local.device_id);
                         let remote_meta = VersionMeta::new(
                             remote_note.version,
                             remote_note.updated_at,
@@ -64,17 +59,14 @@ pub fn apply_incoming_changes(
                 }
             }
             EntityType::Folder => {
-                let remote_folder: Folder = serde_json::from_value(change.payload.clone())
-                    .map_err(Error::Json)?;
+                let remote_folder: Folder =
+                    serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
 
                 let local_folder = get_folder_by_id(&tx, &remote_folder.id)?;
                 let should_apply = match &local_folder {
                     Some(local) => {
-                        let local_meta = VersionMeta::new(
-                            local.version,
-                            local.updated_at,
-                            &local.device_id,
-                        );
+                        let local_meta =
+                            VersionMeta::new(local.version, local.updated_at, &local.device_id);
                         let remote_meta = VersionMeta::new(
                             remote_folder.version,
                             remote_folder.updated_at,
@@ -93,17 +85,14 @@ pub fn apply_incoming_changes(
                 }
             }
             EntityType::Theme => {
-                let remote_theme: Theme = serde_json::from_value(change.payload.clone())
-                    .map_err(Error::Json)?;
+                let remote_theme: Theme =
+                    serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
 
                 let local_theme = get_theme_by_id(&tx, &remote_theme.id)?;
                 let should_apply = match &local_theme {
                     Some(local) => {
-                        let local_meta = VersionMeta::new(
-                            local.version,
-                            local.updated_at,
-                            &local.device_id,
-                        );
+                        let local_meta =
+                            VersionMeta::new(local.version, local.updated_at, &local.device_id);
                         let remote_meta = VersionMeta::new(
                             remote_theme.version,
                             remote_theme.updated_at,

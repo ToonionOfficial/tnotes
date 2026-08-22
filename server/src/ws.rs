@@ -1,17 +1,20 @@
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         Query, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
 };
 use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use tnotes_core::{
-    db::{devices::{get_device_by_id, touch_device}, sessions::get_session},
+    db::{
+        devices::{get_device_by_id, touch_device},
+        sessions::get_session,
+    },
     models::current_time_ms,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
@@ -45,14 +48,26 @@ pub async fn ws_sync_handler(
     Query(query): Query<WsQuery>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
-    let token = if let Some(auth_val) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()) {
-        auth_val.strip_prefix("Bearer ").unwrap_or(auth_val).trim().to_string()
+    let token = if let Some(auth_val) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    {
+        auth_val
+            .strip_prefix("Bearer ")
+            .unwrap_or(auth_val)
+            .trim()
+            .to_string()
     } else if let Some(q_token) = query.token {
         q_token.trim().to_string()
-    } else if let Some(cookie) = axum_extra::extract::cookie::CookieJar::from_headers(&headers).get(crate::middleware::SESSION_COOKIE_NAME) {
+    } else if let Some(cookie) = axum_extra::extract::cookie::CookieJar::from_headers(&headers)
+        .get(crate::middleware::SESSION_COOKIE_NAME)
+    {
         cookie.value().trim().to_string()
     } else {
-        return Err((StatusCode::UNAUTHORIZED, "Missing authentication token or cookie"));
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Missing authentication token or cookie",
+        ));
     };
 
     if token.is_empty() {
@@ -78,7 +93,11 @@ pub async fn ws_sync_handler(
         (session.device_id, device.user_id)
     };
 
-    tracing::info!("WebSocket connected for user: {}, device: {}", user_id, device_id);
+    tracing::info!(
+        "WebSocket connected for user: {}, device: {}",
+        user_id,
+        device_id
+    );
 
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, device_id, user_id)))
 }
@@ -123,7 +142,8 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
                                 count: msg.changes.len(),
                             };
                             if let Ok(json) = serde_json::to_string(&notification) {
-                                if sender.send(Message::Text(json.into())).await.is_err() {
+                                let send_err = sender.send(Message::Text(json.into())).await.is_err();
+                                if send_err {
                                     break;
                                 }
                             }

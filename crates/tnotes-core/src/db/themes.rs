@@ -1,14 +1,10 @@
 use crate::models::theme::{Theme, ThemeSchema};
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 
 pub fn row_to_theme(row: &Row) -> Result<Theme> {
     let raw_schema: String = row.get("schema")?;
     let schema: ThemeSchema = serde_json::from_str(&raw_schema).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            0,
-            rusqlite::types::Type::Text,
-            Box::new(e),
-        )
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
     })?;
 
     Ok(Theme {
@@ -26,9 +22,8 @@ pub fn row_to_theme(row: &Row) -> Result<Theme> {
 
 /// Insert a new theme
 pub fn insert_theme(conn: &Connection, theme: &Theme) -> Result<()> {
-    let schema_json = serde_json::to_string(&theme.schema).map_err(|e| {
-        rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-    })?;
+    let schema_json = serde_json::to_string(&theme.schema)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
     conn.execute(
         "INSERT INTO themes (id, user_id, name, builtin, schema, version, updated_at, created_at, device_id)
@@ -50,9 +45,8 @@ pub fn insert_theme(conn: &Connection, theme: &Theme) -> Result<()> {
 
 /// Upsert a theme (used by sync engine)
 pub fn upsert_theme(conn: &Connection, theme: &Theme) -> Result<()> {
-    let schema_json = serde_json::to_string(&theme.schema).map_err(|e| {
-        rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-    })?;
+    let schema_json = serde_json::to_string(&theme.schema)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
     conn.execute(
         "INSERT INTO themes (id, user_id, name, builtin, schema, version, updated_at, created_at, device_id)
@@ -103,9 +97,8 @@ pub fn list_themes_for_user(conn: &Connection, user_id: Option<&str>) -> Result<
             Ok(themes)
         }
         None => {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM themes WHERE builtin = 1 ORDER BY name ASC",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT * FROM themes WHERE builtin = 1 ORDER BY name ASC")?;
             let themes = stmt
                 .query_map([], row_to_theme)?
                 .collect::<Result<Vec<_>>>()?;
@@ -116,9 +109,7 @@ pub fn list_themes_for_user(conn: &Connection, user_id: Option<&str>) -> Result<
 
 /// List all themes (built-in first, then custom themes by name)
 pub fn list_themes(conn: &Connection) -> Result<Vec<Theme>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM themes ORDER BY builtin DESC, name ASC",
-    )?;
+    let mut stmt = conn.prepare("SELECT * FROM themes ORDER BY builtin DESC, name ASC")?;
     let themes = stmt
         .query_map([], row_to_theme)?
         .collect::<Result<Vec<_>>>()?;

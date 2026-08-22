@@ -1,5 +1,5 @@
 use crate::models::user::User;
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 
 pub fn row_to_user(row: &Row) -> Result<User> {
     Ok(User {

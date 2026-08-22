@@ -1,18 +1,12 @@
-import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { NotebookPen, Loader2 } from 'lucide-react'
 import { useForm } from '@tanstack/react-form'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { Loader2, NotebookPen } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
 import type { MeResponse, SetupResponse, SetupStatusResponse } from '@/lib/types'
 
@@ -165,9 +159,7 @@ function SetupPage() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      {String(field.state.meta.errors[0])}
-                    </p>
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
@@ -196,9 +188,7 @@ function SetupPage() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      {String(field.state.meta.errors[0])}
-                    </p>
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
@@ -231,23 +221,15 @@ function SetupPage() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      {String(field.state.meta.errors[0])}
-                    </p>
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
             </form.Field>
 
-            <form.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
-            >
+            <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
               {([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canSubmit || isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

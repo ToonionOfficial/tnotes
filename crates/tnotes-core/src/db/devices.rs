@@ -1,5 +1,5 @@
 use crate::models::device::Device;
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 
 pub fn row_to_device(row: &Row) -> Result<Device> {
     Ok(Device {
@@ -55,9 +55,8 @@ pub fn touch_device(conn: &Connection, id: &str, last_seen_at: i64) -> Result<()
 
 /// List all registered devices for a specific user, ordered by most recently active
 pub fn list_devices_by_user(conn: &Connection, user_id: &str) -> Result<Vec<Device>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM devices WHERE user_id = ?1 ORDER BY last_seen_at DESC",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM devices WHERE user_id = ?1 ORDER BY last_seen_at DESC")?;
     let devices = stmt
         .query_map(params![user_id], row_to_device)?
         .collect::<Result<Vec<_>>>()?;
@@ -66,9 +65,7 @@ pub fn list_devices_by_user(conn: &Connection, user_id: &str) -> Result<Vec<Devi
 
 /// List all registered devices across all users (for housekeeping / admin)
 pub fn list_devices(conn: &Connection) -> Result<Vec<Device>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM devices ORDER BY last_seen_at DESC",
-    )?;
+    let mut stmt = conn.prepare("SELECT * FROM devices ORDER BY last_seen_at DESC")?;
     let devices = stmt
         .query_map([], row_to_device)?
         .collect::<Result<Vec<_>>>()?;

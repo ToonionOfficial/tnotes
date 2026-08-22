@@ -1,8 +1,8 @@
 use tnotes_core::{
     db::{
         folders::{
-            delete_folder_permanently, get_folder_by_id, get_folder_tree,
-            insert_folder, list_all_folders, list_subfolders, upsert_folder,
+            delete_folder_permanently, get_folder_by_id, get_folder_tree, insert_folder,
+            list_all_folders, list_subfolders, upsert_folder,
         },
         migrations::open_in_memory,
         users::create_user,
@@ -69,11 +69,25 @@ fn test_hierarchical_folder_tree_recursive_cte() {
     insert_folder(&conn, &personal).unwrap();
 
     // 2. Level 1: "Engineering" inside "Work"
-    let eng = Folder::new("Engineering", Some("⚙️".into()), Some(work.id.clone()), 0, "dev_1", &user.id);
+    let eng = Folder::new(
+        "Engineering",
+        Some("⚙️".into()),
+        Some(work.id.clone()),
+        0,
+        "dev_1",
+        &user.id,
+    );
     insert_folder(&conn, &eng).unwrap();
 
     // 3. Level 2: "Backend" inside "Engineering"
-    let backend = Folder::new("Backend", Some("🦀".into()), Some(eng.id.clone()), 0, "dev_1", &user.id);
+    let backend = Folder::new(
+        "Backend",
+        Some("🦀".into()),
+        Some(eng.id.clone()),
+        0,
+        "dev_1",
+        &user.id,
+    );
     insert_folder(&conn, &backend).unwrap();
 
     // Test list_subfolders

@@ -1,5 +1,5 @@
 use crate::models::folder::Folder;
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 use serde::{Deserialize, Serialize};
 
 /// Represents a folder with its hierarchical depth and computed path in the tree
@@ -112,7 +112,11 @@ pub fn list_all_folders(conn: &Connection, user_id: &str) -> Result<Vec<Folder>>
 }
 
 /// List direct subfolders of a parent for a specific user (or root folders if `parent_id` is None)
-pub fn list_subfolders(conn: &Connection, user_id: &str, parent_id: Option<&str>) -> Result<Vec<Folder>> {
+pub fn list_subfolders(
+    conn: &Connection,
+    user_id: &str,
+    parent_id: Option<&str>,
+) -> Result<Vec<Folder>> {
     match parent_id {
         Some(pid) => {
             let mut stmt = conn.prepare(
@@ -120,7 +124,9 @@ pub fn list_subfolders(conn: &Connection, user_id: &str, parent_id: Option<&str>
                  WHERE user_id = ?1 AND parent_id = ?2 AND deleted_at IS NULL
                  ORDER BY sort_order ASC, name ASC",
             )?;
-            let folders = stmt.query_map(params![user_id, pid], row_to_folder)?.collect::<Result<Vec<_>>>()?;
+            let folders = stmt
+                .query_map(params![user_id, pid], row_to_folder)?
+                .collect::<Result<Vec<_>>>()?;
             Ok(folders)
         }
         None => {
@@ -129,7 +135,9 @@ pub fn list_subfolders(conn: &Connection, user_id: &str, parent_id: Option<&str>
                  WHERE user_id = ?1 AND parent_id IS NULL AND deleted_at IS NULL
                  ORDER BY sort_order ASC, name ASC",
             )?;
-            let folders = stmt.query_map(params![user_id], row_to_folder)?.collect::<Result<Vec<_>>>()?;
+            let folders = stmt
+                .query_map(params![user_id], row_to_folder)?
+                .collect::<Result<Vec<_>>>()?;
             Ok(folders)
         }
     }

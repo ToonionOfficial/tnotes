@@ -1,5 +1,5 @@
 {
-  "name": "notat-web",
+  "name": "tnotes-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,6 +9,10 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src",
+    "format": "biome format --write src",
+    "format:check": "biome format src",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -28,6 +32,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.10",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/router-cli": "^1.132.0",
     "@tanstack/router-plugin": "^1.168.34",

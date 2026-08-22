@@ -1,5 +1,5 @@
 use crate::models::note::Note;
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 
 pub fn row_to_note(row: &Row) -> Result<Note> {
     Ok(Note {
@@ -109,7 +109,11 @@ pub fn list_active_notes(conn: &Connection, user_id: &str) -> Result<Vec<Note>> 
 }
 
 /// List active notes inside a specific folder (or root notes if `folder_id` is None)
-pub fn list_notes_by_folder(conn: &Connection, user_id: &str, folder_id: Option<&str>) -> Result<Vec<Note>> {
+pub fn list_notes_by_folder(
+    conn: &Connection,
+    user_id: &str,
+    folder_id: Option<&str>,
+) -> Result<Vec<Note>> {
     match folder_id {
         Some(fid) => {
             let mut stmt = conn.prepare(
@@ -117,7 +121,9 @@ pub fn list_notes_by_folder(conn: &Connection, user_id: &str, folder_id: Option<
                  WHERE user_id = ?1 AND folder_id = ?2 AND trashed = 0
                  ORDER BY pinned DESC, updated_at DESC",
             )?;
-            let notes = stmt.query_map(params![user_id, fid], row_to_note)?.collect::<Result<Vec<_>>>()?;
+            let notes = stmt
+                .query_map(params![user_id, fid], row_to_note)?
+                .collect::<Result<Vec<_>>>()?;
             Ok(notes)
         }
         None => {
@@ -126,7 +132,9 @@ pub fn list_notes_by_folder(conn: &Connection, user_id: &str, folder_id: Option<
                  WHERE user_id = ?1 AND folder_id IS NULL AND trashed = 0
                  ORDER BY pinned DESC, updated_at DESC",
             )?;
-            let notes = stmt.query_map(params![user_id], row_to_note)?.collect::<Result<Vec<_>>>()?;
+            let notes = stmt
+                .query_map(params![user_id], row_to_note)?
+                .collect::<Result<Vec<_>>>()?;
             Ok(notes)
         }
     }

@@ -51,7 +51,11 @@ async fn test_housekeeping_task() {
 
     // 4. Verify outcomes
     // Expired session should be gone
-    assert!(get_session(&conn, &expired_session.token).unwrap().is_none());
+    assert!(
+        get_session(&conn, &expired_session.token)
+            .unwrap()
+            .is_none()
+    );
     // Active session should remain
     assert!(get_session(&conn, &active_session.token).unwrap().is_some());
 

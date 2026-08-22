@@ -6,11 +6,8 @@ use http_body_util::BodyExt;
 use tnotes_core::{
     auth::token::create_session_for_device,
     db::{
-        devices::upsert_device,
-        migrations::open_in_memory,
-        notes::get_note_by_id,
-        sessions::create_session,
-        users::create_user,
+        devices::upsert_device, migrations::open_in_memory, notes::get_note_by_id,
+        sessions::create_session, users::create_user,
     },
     models::{device::Device, note::Note, user::User},
     sync::envelope::{Change, EntityType, SyncEnvelope, SyncResponse},

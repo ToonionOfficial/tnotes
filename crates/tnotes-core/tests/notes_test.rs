@@ -3,9 +3,8 @@ use tnotes_core::{
         folders::insert_folder,
         migrations::open_in_memory,
         notes::{
-            delete_note_permanently, delete_trashed_older_than, get_note_by_id,
-            insert_note, list_active_notes, list_notes_by_folder, list_trashed_notes,
-            search_notes, upsert_note,
+            delete_note_permanently, delete_trashed_older_than, get_note_by_id, insert_note,
+            list_active_notes, list_notes_by_folder, list_trashed_notes, search_notes, upsert_note,
         },
         users::create_user,
     },
@@ -39,7 +38,12 @@ fn test_note_crud_and_mutations() {
     assert_eq!(fetched.version, 1);
 
     // 3. Update note content
-    note.update("Updated Title", "Updated Body Content", Some(folder.id.clone()), "dev_1");
+    note.update(
+        "Updated Title",
+        "Updated Body Content",
+        Some(folder.id.clone()),
+        "dev_1",
+    );
     assert_eq!(note.version, 2);
     assert_ne!(note.checksum, initial_checksum);
 
@@ -89,7 +93,13 @@ fn test_list_notes_by_folder() {
     insert_folder(&conn, &folder_a).unwrap();
 
     let root_note = Note::new("Root Note", "No folder", None, "dev_1", &user.id);
-    let folder_note = Note::new("Folder Note", "In folder A", Some(folder_a.id.clone()), "dev_1", &user.id);
+    let folder_note = Note::new(
+        "Folder Note",
+        "In folder A",
+        Some(folder_a.id.clone()),
+        "dev_1",
+        &user.id,
+    );
 
     insert_note(&conn, &root_note).unwrap();
     insert_note(&conn, &folder_note).unwrap();
@@ -172,10 +182,19 @@ fn test_fts5_full_text_search() {
 
     // Test FTS update trigger: update note 2 from pasta to pizza
     let mut updated_note_2 = note_2.clone();
-    updated_note_2.update("Pizza Recipe", "Neapolitan dough with san marzano tomatoes.", None, "dev_1");
+    updated_note_2.update(
+        "Pizza Recipe",
+        "Neapolitan dough with san marzano tomatoes.",
+        None,
+        "dev_1",
+    );
     upsert_note(&conn, &updated_note_2).unwrap();
 
-    assert!(search_notes(&conn, &user.id, "carbonara").unwrap().is_empty());
+    assert!(
+        search_notes(&conn, &user.id, "carbonara")
+            .unwrap()
+            .is_empty()
+    );
     let pizza_results = search_notes(&conn, &user.id, "pizza").unwrap();
     assert_eq!(pizza_results.len(), 1);
     assert_eq!(pizza_results[0].id, note_2.id);

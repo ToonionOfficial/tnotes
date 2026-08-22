@@ -1,7 +1,7 @@
-use tnotes_core::{sync::envelope::Change, Connection};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex};
+use tnotes_core::{Connection, sync::envelope::Change};
+use tokio::sync::{Mutex, broadcast};
 
 /// Broadcast message sent over WebSockets when changes occur
 #[derive(Debug, Clone, Serialize, Deserialize)]

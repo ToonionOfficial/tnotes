@@ -1,6 +1,6 @@
 use axum::{
     extract::{Request, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     middleware::Next,
     response::Response,
 };
@@ -29,22 +29,24 @@ pub struct AuthenticatedDevice {
 /// falling back to the `tnotes_session` (or legacy `notat_session`) httpOnly cookie.
 pub fn extract_token_from_request(req: &Request) -> Option<String> {
     // 1. Check Authorization: Bearer <token>
-    if let Some(auth_val) = req
+    if let Some(token) = req
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|val| val.to_str().ok())
+        .and_then(|auth_val| auth_val.strip_prefix("Bearer "))
     {
-        if let Some(token) = auth_val.strip_prefix("Bearer ") {
-            let trimmed = token.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_string());
-            }
+        let trimmed = token.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
         }
     }
 
     // 2. Fallback to tnotes_session / notat_session cookie
     let jar = CookieJar::from_headers(req.headers());
-    if let Some(cookie) = jar.get(SESSION_COOKIE_NAME).or_else(|| jar.get(LEGACY_SESSION_COOKIE_NAME)) {
+    if let Some(cookie) = jar
+        .get(SESSION_COOKIE_NAME)
+        .or_else(|| jar.get(LEGACY_SESSION_COOKIE_NAME))
+    {
         let val = cookie.value().trim();
         if !val.is_empty() {
             return Some(val.to_string());
@@ -59,8 +61,10 @@ pub async fn require_auth(
     mut req: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, &'static str)> {
-    let token = extract_token_from_request(&req)
-        .ok_or((StatusCode::UNAUTHORIZED, "Missing authentication token or cookie"))?;
+    let token = extract_token_from_request(&req).ok_or((
+        StatusCode::UNAUTHORIZED,
+        "Missing authentication token or cookie",
+    ))?;
 
     let conn = state.db.lock().await;
 

@@ -1,10 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import {
-  FolderSync,
-  LogOut,
-  NotebookPen,
-  StickyNote,
-} from 'lucide-react'
+import { FolderSync, LogOut, NotebookPen, StickyNote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiFetch } from '@/lib/api'
 import type { LogoutResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
@@ -104,7 +99,8 @@ function DashboardPage() {
               Welcome back{me?.username ? `, ${me.username}` : ''}!
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Your server is securely connected and ready. Phase 2 notes list and Markdown editor coming next.
+              Your server is securely connected and ready. Phase 2 notes list and Markdown editor
+              coming next.
             </p>
           </div>
           <div className="flex gap-2.5 pt-2">

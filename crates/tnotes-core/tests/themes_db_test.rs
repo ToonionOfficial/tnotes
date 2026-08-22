@@ -21,7 +21,11 @@ fn test_theme_lifecycle_and_seeding() {
     let themes = list_themes(&conn).unwrap();
     assert_eq!(themes.len(), 2);
     assert!(themes.iter().any(|t| t.name == "Default Dark" && t.builtin));
-    assert!(themes.iter().any(|t| t.name == "Default Light" && t.builtin));
+    assert!(
+        themes
+            .iter()
+            .any(|t| t.name == "Default Light" && t.builtin)
+    );
 
     // 2. Cannot delete built-in theme
     let dark_id = "theme_builtin_dark";
@@ -31,7 +35,12 @@ fn test_theme_lifecycle_and_seeding() {
 
     // 3. Create custom theme for user
     let custom_schema = themes[0].schema.clone();
-    let mut custom_theme = Theme::new("Solarized Custom", custom_schema, "dev_1", Some(user.id.clone()));
+    let mut custom_theme = Theme::new(
+        "Solarized Custom",
+        custom_schema,
+        "dev_1",
+        Some(user.id.clone()),
+    );
     insert_theme(&conn, &custom_theme).unwrap();
 
     let fetched = get_theme_by_id(&conn, &custom_theme.id).unwrap().unwrap();

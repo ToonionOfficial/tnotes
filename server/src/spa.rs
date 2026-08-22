@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    http::{header, StatusCode, Uri},
+    http::{StatusCode, Uri, header},
     response::Response,
 };
 use rust_embed::Embed;
@@ -13,22 +13,20 @@ pub async fn spa_handler(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
 
     // 1. Try to serve the exact asset file (e.g. /assets/index-xxx.js, /favicon.ico, etc.)
-    if !path.is_empty() {
-        if let Some(file) = WebAssets::get(path) {
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
-            let cache_control = if path.starts_with("assets/") {
-                "public, max-age=31536000, immutable"
-            } else {
-                "public, max-age=3600"
-            };
+    if let Some(file) = WebAssets::get(path).filter(|_| !path.is_empty()) {
+        let mime = mime_guess::from_path(path).first_or_octet_stream();
+        let cache_control = if path.starts_with("assets/") {
+            "public, max-age=31536000, immutable"
+        } else {
+            "public, max-age=3600"
+        };
 
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, mime.as_ref())
-                .header(header::CACHE_CONTROL, cache_control)
-                .body(Body::from(file.data))
-                .unwrap();
-        }
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, mime.as_ref())
+            .header(header::CACHE_CONTROL, cache_control)
+            .body(Body::from(file.data))
+            .unwrap();
     }
 
     // 2. SPA Fallback: Serve index.html for all navigation routes (/, /setup, /login, /pair, etc.)

@@ -1,11 +1,14 @@
 use tnotes_core::{
-    auth::{password::{hash_password, verify_password}, token::create_session_for_device},
+    auth::{
+        password::{hash_password, verify_password},
+        token::create_session_for_device,
+    },
     db::{
         devices::upsert_device,
         migrations::open_in_memory,
         sessions::{
-            cleanup_expired_sessions, create_session, delete_session,
-            delete_sessions_by_device, get_session,
+            cleanup_expired_sessions, create_session, delete_session, delete_sessions_by_device,
+            get_session,
         },
         users::{create_user, get_user_by_id, get_user_by_username, has_any_user, update_password},
     },
@@ -74,7 +77,11 @@ fn test_session_lifecycle() {
     let now = tnotes_core::models::current_time_ms();
     let cleaned = cleanup_expired_sessions(&conn, now).unwrap();
     assert_eq!(cleaned, 1);
-    assert!(get_session(&conn, &expired_session.token).unwrap().is_none());
+    assert!(
+        get_session(&conn, &expired_session.token)
+            .unwrap()
+            .is_none()
+    );
 
     // Single session delete
     delete_session(&conn, &session_2.token).unwrap();

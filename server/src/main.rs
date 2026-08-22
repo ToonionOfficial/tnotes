@@ -10,8 +10,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "tnotes_server=info,tnotes_server=info,tower_http=debug".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "tnotes_server=info,tnotes_server=info,tower_http=debug".into()
+            }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -20,11 +21,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting TNotes server on {}:{}", config.host, config.port);
 
     std::fs::create_dir_all(&config.data_dir)?;
-    
+
     // Check if legacy notat.db exists, otherwise use tnotes.db
     let legacy_db = format!("{}/notat.db", config.data_dir);
     let primary_db = format!("{}/tnotes.db", config.data_dir);
-    let db_path = if std::path::Path::new(&legacy_db).exists() && !std::path::Path::new(&primary_db).exists() {
+    let db_path = if std::path::Path::new(&legacy_db).exists()
+        && !std::path::Path::new(&primary_db).exists()
+    {
         legacy_db
     } else {
         primary_db

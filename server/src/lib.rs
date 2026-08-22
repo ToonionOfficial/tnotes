@@ -6,15 +6,11 @@ pub mod tasks;
 pub mod ws;
 
 use axum::{
+    Router,
     middleware::from_fn_with_state,
     routing::{get, post},
-    Router,
 };
-use tower_http::{
-    compression::CompressionLayer,
-    cors::CorsLayer,
-    trace::TraceLayer,
-};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use crate::state::AppState;
 

@@ -1,18 +1,12 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { NotebookPen, Loader2 } from 'lucide-react'
 import { useForm } from '@tanstack/react-form'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Loader2, NotebookPen } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
 import type { LoginResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
 
@@ -46,10 +40,10 @@ const passwordSchema = z.string().min(1, 'Password is required')
 
 function getOrCreateDeviceId(): string {
   if (typeof window === 'undefined') return 'web_ssr'
-  let id = localStorage.getItem('notat_device_id')
+  let id = localStorage.getItem('tnotes_device_id')
   if (!id) {
-    id = 'web_' + Math.random().toString(36).substring(2, 11)
-    localStorage.setItem('notat_device_id', id)
+    id = `web_${Math.random().toString(36).substring(2, 11)}`
+    localStorage.setItem('tnotes_device_id', id)
   }
   return id
 }
@@ -120,9 +114,7 @@ function LoginPage() {
             <NotebookPen className="h-6 w-6" />
           </div>
           <CardTitle className="text-2xl font-bold">Sign In to TNotes</CardTitle>
-          <CardDescription>
-            Enter your credentials to access your notes
-          </CardDescription>
+          <CardDescription>Enter your credentials to access your notes</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -162,9 +154,7 @@ function LoginPage() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      {String(field.state.meta.errors[0])}
-                    </p>
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
@@ -193,23 +183,15 @@ function LoginPage() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">
-                      {String(field.state.meta.errors[0])}
-                    </p>
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
             </form.Field>
 
-            <form.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
-            >
+            <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
               {([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canSubmit || isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

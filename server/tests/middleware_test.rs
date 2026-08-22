@@ -1,27 +1,25 @@
 use axum::{
+    Json, Router,
     body::Body,
     extract::Extension,
     http::{Request, StatusCode},
     middleware::from_fn_with_state,
     response::IntoResponse,
     routing::get,
-    Json, Router,
 };
+use serde_json::json;
 use tnotes_core::{
     auth::token::create_session_for_device,
     db::{
-        devices::upsert_device,
-        migrations::open_in_memory,
-        sessions::create_session,
+        devices::upsert_device, migrations::open_in_memory, sessions::create_session,
         users::create_user,
     },
     models::{device::Device, user::User},
 };
 use tnotes_server::{
-    middleware::{require_auth, AuthenticatedDevice, SESSION_COOKIE_NAME},
+    middleware::{AuthenticatedDevice, SESSION_COOKIE_NAME, require_auth},
     state::{AppState, ServerConfig},
 };
-use serde_json::json;
 use tower::ServiceExt;
 
 async fn protected_test_handler(
@@ -64,7 +62,12 @@ async fn test_require_auth_middleware() {
     // 1. Missing Authorization header and Cookie -> 401
     let res = app
         .clone()
-        .oneshot(Request::builder().uri("/protected").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/protected")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
@@ -131,7 +134,10 @@ async fn test_require_auth_middleware() {
         .oneshot(
             Request::builder()
                 .uri("/protected")
-                .header("cookie", format!("{}={}", SESSION_COOKIE_NAME, session_valid.token))
+                .header(
+                    "cookie",
+                    format!("{}={}", SESSION_COOKIE_NAME, session_valid.token),
+                )
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -145,7 +151,10 @@ async fn test_require_auth_middleware() {
         .oneshot(
             Request::builder()
                 .uri("/protected")
-                .header("cookie", format!("{}={}", SESSION_COOKIE_NAME, session_expired.token))
+                .header(
+                    "cookie",
+                    format!("{}={}", SESSION_COOKIE_NAME, session_expired.token),
+                )
                 .body(Body::empty())
                 .unwrap(),
         )

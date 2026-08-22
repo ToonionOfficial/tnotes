@@ -1,8 +1,8 @@
 mod app;
-mod views;
-mod editor;
 mod components;
+mod editor;
 mod theme;
+mod views;
 
 fn main() {
     println!("tnotes-desktop");

@@ -1,28 +1,8 @@
-import {
-  createFileRoute,
-  redirect,
-  useNavigate,
-  useRouter,
-} from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
+import { Check, Copy, FolderSync, Globe, RefreshCw, Smartphone, Sparkles, User } from 'lucide-react'
 import { useState } from 'react'
-import {
-  Check,
-  Copy,
-  FolderSync,
-  Globe,
-  RefreshCw,
-  Smartphone,
-  Sparkles,
-  User,
-} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
 import type { MeResponse, PairingDataResponse } from '@/lib/types'
 
@@ -32,10 +12,7 @@ interface PairSearch {
 
 export const Route = createFileRoute('/pair')({
   validateSearch: (search: Record<string, unknown>): PairSearch => ({
-    welcome:
-      search.welcome === true || search.welcome === 'true'
-        ? true
-        : undefined,
+    welcome: search.welcome === true || search.welcome === 'true' ? true : undefined,
   }),
   beforeLoad: async () => {
     if (typeof window === 'undefined') return
@@ -79,11 +56,7 @@ function PairPage() {
       <Card className="w-full max-w-lg border-border/80 shadow-2xl">
         <CardHeader className="text-center pb-3">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-            {isWelcome ? (
-              <Sparkles className="h-7 w-7" />
-            ) : (
-              <FolderSync className="h-7 w-7" />
-            )}
+            {isWelcome ? <Sparkles className="h-7 w-7" /> : <FolderSync className="h-7 w-7" />}
           </div>
           <CardTitle className="text-2xl font-bold">
             {isWelcome ? "You're all set!" : 'Pair a Mobile Device'}
@@ -152,8 +125,12 @@ function PairPage() {
               <span>How to pair your phone:</span>
             </div>
             <ol className="list-decimal list-inside space-y-1 pl-1 text-[11px] leading-relaxed">
-              <li>Open the <strong>TNotes</strong> app on your iOS or Android device.</li>
-              <li>Tap <strong>"Scan QR Code"</strong> on the welcome screen.</li>
+              <li>
+                Open the <strong>TNotes</strong> app on your iOS or Android device.
+              </li>
+              <li>
+                Tap <strong>"Scan QR Code"</strong> on the welcome screen.
+              </li>
               <li>Point your camera at this QR code to connect and sync.</li>
             </ol>
           </div>

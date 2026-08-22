@@ -3,13 +3,13 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
+use serde_json::json;
 use tnotes_core::db::migrations::open_in_memory;
 use tnotes_server::{
     build_router,
     routes::auth::{LoginResponse, SetupResponse, SetupStatusResponse},
     state::{AppState, ServerConfig},
 };
-use serde_json::json;
 use tower::ServiceExt;
 
 #[tokio::test]

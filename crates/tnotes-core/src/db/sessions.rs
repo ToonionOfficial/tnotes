@@ -1,5 +1,5 @@
 use crate::models::session::Session;
-use rusqlite::{params, Connection, OptionalExtension, Result, Row};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 
 pub fn row_to_session(row: &Row) -> Result<Session> {
     Ok(Session {

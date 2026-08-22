@@ -38,36 +38,36 @@
   We only ship dark mode for now. Light mode can be added later.
 */
 :root {
-  --background: oklch(0.178 0.014 256.788);      /* #1e1e2e */
-  --foreground: oklch(0.87 0.017 252.894);        /* #cdd6f4 */
+  --background: oklch(0.178 0.014 256.788); /* #1e1e2e */
+  --foreground: oklch(0.87 0.017 252.894); /* #cdd6f4 */
 
-  --card: oklch(0.24 0.014 256.788);              /* #313244 */
+  --card: oklch(0.24 0.014 256.788); /* #313244 */
   --card-foreground: oklch(0.87 0.017 252.894);
 
   --popover: oklch(0.24 0.014 256.788);
   --popover-foreground: oklch(0.87 0.017 252.894);
 
-  --primary: oklch(0.73 0.1 248);                 /* #89b4fa blue */
+  --primary: oklch(0.73 0.1 248); /* #89b4fa blue */
   --primary-foreground: oklch(0.178 0.014 256.788);
 
-  --secondary: oklch(0.31 0.011 256.788);         /* #45475a */
+  --secondary: oklch(0.31 0.011 256.788); /* #45475a */
   --secondary-foreground: oklch(0.87 0.017 252.894);
 
   --muted: oklch(0.31 0.011 256.788);
-  --muted-foreground: oklch(0.73 0.014 252.894);  /* #a6adc8 */
+  --muted-foreground: oklch(0.73 0.014 252.894); /* #a6adc8 */
 
   --accent: oklch(0.31 0.011 256.788);
   --accent-foreground: oklch(0.87 0.017 252.894);
 
-  --destructive: oklch(0.66 0.14 16);             /* #f38ba8 red */
+  --destructive: oklch(0.66 0.14 16); /* #f38ba8 red */
   --destructive-foreground: oklch(0.178 0.014 256.788);
 
-  --border: oklch(0.31 0.011 256.788);            /* #45475a */
+  --border: oklch(0.31 0.011 256.788); /* #45475a */
   --input: oklch(0.31 0.011 256.788);
   --ring: oklch(0.73 0.1 248);
 
   --radius: 0.75rem;
-  --success: oklch(0.78 0.12 149);                /* #a6e3a1 green */
+  --success: oklch(0.78 0.12 149); /* #a6e3a1 green */
 }
 
 * {
@@ -75,7 +75,9 @@
   border-color: var(--border);
 }
 
-html, body, #app {
+html,
+body,
+#app {
   min-height: 100%;
 }
 

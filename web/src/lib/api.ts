@@ -5,10 +5,7 @@ export function getApiBase() {
   return process.env.TNOTES_SERVER_URL || process.env.NOTAT_SERVER_URL || 'http://localhost:8787'
 }
 
-export async function apiFetch<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const base = getApiBase()
   const res = await fetch(`${base}${path}`, {
     credentials: 'same-origin',

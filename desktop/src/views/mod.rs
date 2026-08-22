@@ -1,5 +1,5 @@
-pub mod sidebar;
-pub mod note_list;
 pub mod editor;
-pub mod settings;
 pub mod login;
+pub mod note_list;
+pub mod settings;
+pub mod sidebar;

@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection, OptionalExtension, Result};
 use crate::db::{folders::row_to_folder, notes::row_to_note, themes::row_to_theme};
 use crate::sync::envelope::{Change, EntityType};
+use rusqlite::{Connection, OptionalExtension, Result, params};
 
 /// Collect all entity changes (notes, folders, themes) that have been modified since `since_timestamp`
 /// for a specific `user_id`. Optionally excludes changes that originated from `exclude_device_id`.
@@ -31,9 +31,8 @@ pub fn get_changes_since(
     };
 
     for note in notes {
-        let payload = serde_json::to_value(&note).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let payload = serde_json::to_value(&note)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
         changes.push(Change {
             entity_type: EntityType::Note,
@@ -64,9 +63,8 @@ pub fn get_changes_since(
     };
 
     for folder in folders {
-        let payload = serde_json::to_value(&folder).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let payload = serde_json::to_value(&folder)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
         changes.push(Change {
             entity_type: EntityType::Folder,
@@ -97,9 +95,8 @@ pub fn get_changes_since(
     };
 
     for theme in themes {
-        let payload = serde_json::to_value(&theme).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        let payload = serde_json::to_value(&theme)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
         changes.push(Change {
             entity_type: EntityType::Theme,

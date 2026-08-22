@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     extract::{Extension, State},
     http::StatusCode,
-    Json,
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use crate::{
     state::AppState,
 };
 use tnotes_core::{
+    Ulid,
     auth::{
         password::{hash_password, verify_password},
         token::create_session_for_device,
@@ -23,7 +24,6 @@ use tnotes_core::{
         users::{create_user, get_user_by_id, get_user_by_username, has_any_user},
     },
     models::{current_time_ms, device::Device, user::User},
-    Ulid,
 };
 
 pub fn build_session_cookie(token: &str, expires_at: i64) -> Cookie<'static> {
