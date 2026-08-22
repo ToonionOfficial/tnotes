@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use notat_core::sync::{
+use tnotes_core::sync::{
     engine::process_sync_envelope,
     envelope::{SyncEnvelope, SyncResponse},
 };

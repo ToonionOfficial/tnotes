@@ -122,7 +122,7 @@ function SetupPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <NotebookPen className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome to Notat</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to TNotes</CardTitle>
           <CardDescription>
             Create your owner account to start taking notes and syncing devices.
           </CardDescription>

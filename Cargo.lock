@@ -1114,50 +1114,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "notat-core"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "blake3",
- "rand 0.8.7",
- "rand_core 0.6.4",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "ulid",
-]
-
-[[package]]
-name = "notat-desktop"
-version = "0.1.0"
-
-[[package]]
-name = "notat-server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-extra",
- "futures-util",
- "http-body-util",
- "mime_guess",
- "notat-core",
- "qrcode-generator",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tokio-tungstenite 0.26.2",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "validator",
-]
-
-[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2041,6 +1997,50 @@ checksum = "b1e27c91459209c2986af3dcf603a5a74a4368754ce37414f59acc971167f643"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "tnotes-core"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "blake3",
+ "rand 0.8.7",
+ "rand_core 0.6.4",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ulid",
+]
+
+[[package]]
+name = "tnotes-desktop"
+version = "0.1.0"
+
+[[package]]
+name = "tnotes-server"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-extra",
+ "futures-util",
+ "http-body-util",
+ "mime_guess",
+ "qrcode-generator",
+ "reqwest",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "time",
+ "tnotes-core",
+ "tokio",
+ "tokio-tungstenite 0.26.2",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "validator",
 ]
 
 [[package]]

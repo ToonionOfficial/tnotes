@@ -12,7 +12,7 @@ use crate::{
     middleware::{AuthenticatedDevice, SESSION_COOKIE_NAME},
     state::AppState,
 };
-use notat_core::{
+use tnotes_core::{
     auth::{
         password::{hash_password, verify_password},
         token::create_session_for_device,

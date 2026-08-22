@@ -3,8 +3,8 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use notat_core::db::migrations::open_in_memory;
-use notat_server::{
+use tnotes_core::db::migrations::open_in_memory;
+use tnotes_server::{
     build_router,
     routes::auth::LoginResponse,
     routes::pair::PairingDataResponse,

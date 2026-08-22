@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Notat",
-    "slug": "notat",
+    "name": "TNotes",
+    "slug": "tnotes",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "notat",
+    "scheme": "tnotes",
     "splash": {
       "backgroundColor": "#ffffff"
     },

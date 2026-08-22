@@ -5,5 +5,5 @@ mod components;
 mod theme;
 
 fn main() {
-    println!("notat-desktop");
+    println!("tnotes-desktop");
 }

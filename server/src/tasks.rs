@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use notat_core::{
+use tnotes_core::{
     Connection,
     db::{notes::delete_trashed_older_than, sessions::cleanup_expired_sessions},
     models::current_time_ms,

@@ -1,17 +1,17 @@
 services:
-  notat-server:
+  tnotes-server:
     build:
       context: .
       dockerfile: server/Dockerfile
     ports:
       - "8787:8787"
     volumes:
-      - notat-data:/data
+      - tnotes-data:/data
     environment:
-      - NOTAT_DATA_DIR=/data
-      - NOTAT_HOST=0.0.0.0
-      - NOTAT_PORT=8787
-      - RUST_LOG=notat_server=info,tower_http=info
+      - TNOTES_DATA_DIR=/data
+      - TNOTES_HOST=0.0.0.0
+      - TNOTES_PORT=8787
+      - RUST_LOG=tnotes_server=info,tnotes_server=info,tower_http=info
 
   caddy:
     image: caddy:2-alpine
@@ -23,9 +23,9 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      - notat-server
+      - tnotes-server
 
 volumes:
-  notat-data:
+  tnotes-data:
   caddy-data:
   caddy-config:

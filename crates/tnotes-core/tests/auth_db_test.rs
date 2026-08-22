@@ -1,4 +1,4 @@
-use notat_core::{
+use tnotes_core::{
     auth::{password::{hash_password, verify_password}, token::create_session_for_device},
     db::{
         devices::upsert_device,
@@ -71,7 +71,7 @@ fn test_session_lifecycle() {
     assert_eq!(fetched.device_id, "phone_1");
 
     // Cleanup expired sessions (now timestamp = current_time_ms)
-    let now = notat_core::models::current_time_ms();
+    let now = tnotes_core::models::current_time_ms();
     let cleaned = cleanup_expired_sessions(&conn, now).unwrap();
     assert_eq!(cleaned, 1);
     assert!(get_session(&conn, &expired_session.token).unwrap().is_none());

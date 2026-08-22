@@ -59,7 +59,7 @@ function DashboardPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <NotebookPen className="h-4 w-4" />
           </div>
-          <span className="font-bold tracking-tight text-foreground">Notat</span>
+          <span className="font-bold tracking-tight text-foreground">TNotes</span>
         </div>
 
         <div className="flex items-center gap-3">

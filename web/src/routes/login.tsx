@@ -119,7 +119,7 @@ function LoginPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <NotebookPen className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl font-bold">Sign In to Notat</CardTitle>
+          <CardTitle className="text-2xl font-bold">Sign In to TNotes</CardTitle>
           <CardDescription>
             Enter your credentials to access your notes
           </CardDescription>

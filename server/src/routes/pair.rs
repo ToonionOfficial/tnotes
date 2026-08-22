@@ -3,7 +3,7 @@ use axum::{
     extract::{Extension, State},
     http::{HeaderMap, StatusCode, header},
 };
-use notat_core::{
+use tnotes_core::{
     Ulid,
     auth::token::{create_session_for_device, generate_pairing_code},
     db::{devices::upsert_device, sessions::create_session, users::get_user_by_id},

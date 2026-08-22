@@ -5,7 +5,7 @@ use axum::{
     response::Response,
 };
 use axum_extra::extract::cookie::CookieJar;
-use notat_core::{
+use tnotes_core::{
     db::{
         devices::{get_device_by_id, touch_device},
         sessions::{delete_session, get_session},
@@ -15,7 +15,8 @@ use notat_core::{
 
 use crate::state::AppState;
 
-pub const SESSION_COOKIE_NAME: &str = "notat_session";
+pub const SESSION_COOKIE_NAME: &str = "tnotes_session";
+pub const LEGACY_SESSION_COOKIE_NAME: &str = "notat_session";
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedDevice {
@@ -25,7 +26,7 @@ pub struct AuthenticatedDevice {
 }
 
 /// Extracts session token from Authorization: Bearer header,
-/// falling back to the `notat_session` httpOnly cookie.
+/// falling back to the `tnotes_session` (or legacy `notat_session`) httpOnly cookie.
 pub fn extract_token_from_request(req: &Request) -> Option<String> {
     // 1. Check Authorization: Bearer <token>
     if let Some(auth_val) = req
@@ -41,9 +42,9 @@ pub fn extract_token_from_request(req: &Request) -> Option<String> {
         }
     }
 
-    // 2. Fallback to notat_session cookie
+    // 2. Fallback to tnotes_session / notat_session cookie
     let jar = CookieJar::from_headers(req.headers());
-    if let Some(cookie) = jar.get(SESSION_COOKIE_NAME) {
+    if let Some(cookie) = jar.get(SESSION_COOKIE_NAME).or_else(|| jar.get(LEGACY_SESSION_COOKIE_NAME)) {
         let val = cookie.value().trim();
         if !val.is_empty() {
             return Some(val.to_string());

@@ -152,7 +152,7 @@ function PairPage() {
               <span>How to pair your phone:</span>
             </div>
             <ol className="list-decimal list-inside space-y-1 pl-1 text-[11px] leading-relaxed">
-              <li>Open the <strong>Notat</strong> app on your iOS or Android device.</li>
+              <li>Open the <strong>TNotes</strong> app on your iOS or Android device.</li>
               <li>Tap <strong>"Scan QR Code"</strong> on the welcome screen.</li>
               <li>Point your camera at this QR code to connect and sync.</li>
             </ol>

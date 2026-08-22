@@ -1,7 +1,7 @@
-use notat_core::{Connection, sync::envelope::Change};
+use tnotes_core::{sync::envelope::Change, Connection};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::{broadcast, Mutex};
 
 /// Broadcast message sent over WebSockets when changes occur
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,13 +22,22 @@ pub struct ServerConfig {
 
 impl ServerConfig {
     pub fn from_env() -> Self {
-        let host = std::env::var("NOTAT_HOST").unwrap_or_else(|_| "0.0.0.0".into());
-        let port: u16 = std::env::var("NOTAT_PORT")
+        let host = std::env::var("TNOTES_HOST")
+            .or_else(|_| std::env::var("NOTAT_HOST"))
+            .unwrap_or_else(|_| "0.0.0.0".into());
+
+        let port: u16 = std::env::var("TNOTES_PORT")
+            .or_else(|_| std::env::var("NOTAT_PORT"))
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or(8787);
-        let data_dir = std::env::var("NOTAT_DATA_DIR").unwrap_or_else(|_| "./data".into());
-        let server_url = std::env::var("NOTAT_SERVER_URL")
+
+        let data_dir = std::env::var("TNOTES_DATA_DIR")
+            .or_else(|_| std::env::var("NOTAT_DATA_DIR"))
+            .unwrap_or_else(|_| "./data".into());
+
+        let server_url = std::env::var("TNOTES_SERVER_URL")
+            .or_else(|_| std::env::var("NOTAT_SERVER_URL"))
             .unwrap_or_else(|_| format!("http://localhost:{}", port));
 
         Self {

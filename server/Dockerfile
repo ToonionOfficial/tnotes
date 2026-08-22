@@ -11,7 +11,7 @@ RUN apk add --no-cache musl-dev gcc
 WORKDIR /app
 COPY . .
 COPY --from=web-builder /app/web/dist /app/web/dist
-RUN cargo build --release -p notat-server
+RUN cargo build --release -p tnotes-server
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata && \
@@ -19,7 +19,7 @@ RUN apk add --no-cache ca-certificates tzdata && \
     mkdir -p /data && \
     chown -R notat:notat /data
 
-COPY --from=server-builder /app/target/release/notat-server /usr/local/bin/notat-server
+COPY --from=server-builder /app/target/release/tnotes-server /usr/local/bin/tnotes-server
 
 USER notat
 WORKDIR /data
@@ -29,4 +29,4 @@ ENV NOTAT_DATA_DIR=/data
 ENV NOTAT_HOST=0.0.0.0
 ENV NOTAT_PORT=8787
 
-CMD ["notat-server"]
+CMD ["tnotes-server"]

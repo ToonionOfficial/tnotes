@@ -1,4 +1,4 @@
-use notat_core::{
+use tnotes_core::{
     db::{
         folders::{
             delete_folder_permanently, get_folder_by_id, get_folder_tree,

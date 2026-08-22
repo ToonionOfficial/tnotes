@@ -1,4 +1,4 @@
-use notat_core::{
+use tnotes_core::{
     db::{
         folders::insert_folder,
         migrations::open_in_memory,

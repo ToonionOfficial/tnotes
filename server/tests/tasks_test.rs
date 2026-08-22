@@ -1,4 +1,4 @@
-use notat_core::{
+use tnotes_core::{
     auth::token::create_session_for_device,
     db::{
         devices::upsert_device,
@@ -9,7 +9,7 @@ use notat_core::{
     },
     models::{current_time_ms, device::Device, note::Note, user::User},
 };
-use notat_server::tasks::run_housekeeping;
+use tnotes_server::tasks::run_housekeeping;
 
 #[tokio::test]
 async fn test_housekeeping_task() {

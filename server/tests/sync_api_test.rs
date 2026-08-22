@@ -3,7 +3,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use notat_core::{
+use tnotes_core::{
     auth::token::create_session_for_device,
     db::{
         devices::upsert_device,
@@ -15,7 +15,7 @@ use notat_core::{
     models::{device::Device, note::Note, user::User},
     sync::envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
 };
-use notat_server::{
+use tnotes_server::{
     build_router,
     state::{AppState, ServerConfig},
 };

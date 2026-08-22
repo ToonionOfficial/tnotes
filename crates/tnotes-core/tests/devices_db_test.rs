@@ -1,4 +1,4 @@
-use notat_core::{
+use tnotes_core::{
     db::{
         devices::{delete_device, get_device_by_id, list_devices, list_devices_by_user, touch_device, upsert_device},
         migrations::open_in_memory,

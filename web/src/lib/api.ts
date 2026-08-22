@@ -2,7 +2,7 @@ export function getApiBase() {
   if (typeof window !== 'undefined') {
     return ''
   }
-  return process.env.NOTAT_SERVER_URL || 'http://localhost:8787'
+  return process.env.TNOTES_SERVER_URL || process.env.NOTAT_SERVER_URL || 'http://localhost:8787'
 }
 
 export async function apiFetch<T>(

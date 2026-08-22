@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::{SinkExt, StreamExt};
-use notat_core::{
+use tnotes_core::{
     db::{devices::{get_device_by_id, touch_device}, sessions::get_session},
     models::current_time_ms,
 };
