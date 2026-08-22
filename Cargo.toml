@@ -1,3 +1,10 @@
 [workspace]
 members = ["crates/notat-core", "server", "desktop"]
 resolver = "3"
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
