@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/*
+  Catppuccin Mocha — dark-first theme for Notat.
+  We only ship dark mode for now. Light mode can be added later.
+*/
+:root {
+  --background: oklch(0.178 0.014 256.788);      /* #1e1e2e */
+  --foreground: oklch(0.87 0.017 252.894);        /* #cdd6f4 */
+
+  --card: oklch(0.24 0.014 256.788);              /* #313244 */
+  --card-foreground: oklch(0.87 0.017 252.894);
+
+  --popover: oklch(0.24 0.014 256.788);
+  --popover-foreground: oklch(0.87 0.017 252.894);
+
+  --primary: oklch(0.73 0.1 248);                 /* #89b4fa blue */
+  --primary-foreground: oklch(0.178 0.014 256.788);
+
+  --secondary: oklch(0.31 0.011 256.788);         /* #45475a */
+  --secondary-foreground: oklch(0.87 0.017 252.894);
+
+  --muted: oklch(0.31 0.011 256.788);
+  --muted-foreground: oklch(0.73 0.014 252.894);  /* #a6adc8 */
+
+  --accent: oklch(0.31 0.011 256.788);
+  --accent-foreground: oklch(0.87 0.017 252.894);
+
+  --destructive: oklch(0.66 0.14 16);             /* #f38ba8 red */
+  --destructive-foreground: oklch(0.178 0.014 256.788);
+
+  --border: oklch(0.31 0.011 256.788);            /* #45475a */
+  --input: oklch(0.31 0.011 256.788);
+  --ring: oklch(0.73 0.1 248);
+
+  --radius: 0.75rem;
+  --success: oklch(0.78 0.12 149);                /* #a6e3a1 green */
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html, body, #app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
