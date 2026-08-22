@@ -27,6 +27,7 @@ async fn index_handler() -> Html<&'static str> {
 pub fn build_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/api/sync", post(routes::sync::sync_handler))
+        .route("/api/pair", get(routes::pair::pair_handler))
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 
     Router::new()
@@ -36,7 +37,6 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/setup/status", get(routes::auth::setup_status_handler))
         .route("/api/setup", post(routes::auth::setup_handler))
         .route("/api/login", post(routes::auth::login_handler))
-        .route("/api/pair", get(routes::pair::pair_handler))
         .merge(protected_routes)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())

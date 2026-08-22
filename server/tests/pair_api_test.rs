@@ -6,9 +6,11 @@ use http_body_util::BodyExt;
 use notat_core::db::migrations::open_in_memory;
 use notat_server::{
     build_router,
+    routes::auth::LoginResponse,
     routes::pair::PairingDataResponse,
     state::{AppState, ServerConfig},
 };
+use serde_json::json;
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -35,12 +37,70 @@ async fn test_web_index_and_pair_api() {
     assert!(html.to_lowercase().contains("<!doctype html>"));
     assert!(html.contains("Notat"));
 
-    // 2. GET /api/pair returns valid pairing payload with SVG QR Code
+    // 2. GET /api/pair without auth → 401 Unauthorized
     let res = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri("/api/pair")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    // 3. Setup admin user
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/setup")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({ "username": "admin", "password": "password123!" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+
+    // 4. Login to get a session token
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "username": "admin",
+                        "password": "password123!",
+                        "device_id": "web_test",
+                        "device_name": "Test Browser",
+                        "platform": "web"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = res.into_body().collect().await.unwrap().to_bytes();
+    let login_res: LoginResponse = serde_json::from_slice(&body).unwrap();
+    let token = login_res.token;
+
+    // 5. GET /api/pair with valid Bearer token → 200 OK
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/pair")
+                .header("authorization", format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
         )
