@@ -1,5 +1,6 @@
 pub mod middleware;
 pub mod routes;
+pub mod spa;
 pub mod state;
 pub mod tasks;
 pub mod ws;
@@ -32,6 +33,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/setup", post(routes::auth::setup_handler))
         .route("/api/login", post(routes::auth::login_handler))
         .merge(protected_routes)
+        .fallback(spa::spa_handler)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .layer(CompressionLayer::new())

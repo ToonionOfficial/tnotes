@@ -1,23 +1,26 @@
-import { defineConfig } from "vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from 'vite'
+import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
+import viteReact from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
-const config = defineConfig({
+export default defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [
+    tailwindcss(),
+    TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
+    viteReact(),
+  ],
   server: {
+    port: 3000,
     proxy: {
-      "/api": {
-        target: "http://localhost:8787",
+      '/api': {
+        target: 'http://localhost:8787',
         changeOrigin: true,
       },
-      "/ws": {
-        target: "ws://localhost:8787",
+      '/ws': {
+        target: 'ws://localhost:8787',
         ws: true,
       },
     },
   },
-});
-
-export default config;
+})

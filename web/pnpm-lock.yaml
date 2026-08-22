@@ -54,6 +54,9 @@ importers:
       '@tanstack/router-cli':
         specifier: ^1.132.0
         version: 1.167.32
+      '@tanstack/router-plugin':
+        specifier: ^1.168.34
+        version: 1.168.34(@tanstack/react-router@1.170.31(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(rolldown@1.2.5)(vite@8.2.2(@types/node@22.20.1)(jiti@2.7.0))
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
