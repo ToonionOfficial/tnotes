@@ -1,0 +1,1 @@
+//! Sync status indicator component.

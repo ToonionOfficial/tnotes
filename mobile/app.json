@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Notat",
+    "slug": "notat",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "notat",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store"]
+  }
+}

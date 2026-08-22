@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/notat-core", "server", "desktop"]
+resolver = "2"

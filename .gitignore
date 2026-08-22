@@ -1,0 +1,26 @@
+# Rust
+target/
+*.swp
+*.swo
+
+# Node / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

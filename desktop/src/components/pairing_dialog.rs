@@ -1,0 +1,1 @@
+//! Pairing code entry dialog.

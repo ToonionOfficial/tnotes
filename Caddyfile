@@ -1,0 +1,3 @@
+{$NOTAT_DOMAIN:localhost} {
+    reverse_proxy notat-server:8787
+}

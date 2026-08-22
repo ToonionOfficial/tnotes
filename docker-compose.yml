@@ -1,0 +1,27 @@
+services:
+  notat-server:
+    build: ./server
+    ports:
+      - "8787:8787"
+    volumes:
+      - notat-data:/data
+    environment:
+      - NOTAT_DATA_DIR=/data
+      - RUST_LOG=notat=info
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - notat-server
+
+volumes:
+  notat-data:
+  caddy-data:
+  caddy-config:
