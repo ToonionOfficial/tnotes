@@ -42,4 +42,45 @@ impl Folder {
             device_id: device_id.into(),
         }
     }
+
+    /// Renames the folder and bumps version + timestamp
+    pub fn rename(&mut self, name: impl Into<String>, device_id: impl Into<String>) {
+        self.name = name.into();
+        self.version += 1;
+        self.updated_at = current_time_ms();
+        self.device_id = device_id.into();
+    }
+
+    /// Moves the folder to a new parent folder
+    pub fn move_to(&mut self, parent_id: Option<String>, device_id: impl Into<String>) {
+        self.parent_id = parent_id;
+        self.version += 1;
+        self.updated_at = current_time_ms();
+        self.device_id = device_id.into();
+    }
+
+    /// Sets the icon emoji
+    pub fn set_icon(&mut self, icon: impl Into<String>, device_id: impl Into<String>) {
+        self.icon = icon.into();
+        self.version += 1;
+        self.updated_at = current_time_ms();
+        self.device_id = device_id.into();
+    }
+
+    /// Soft deletes the folder
+    pub fn soft_delete(&mut self, device_id: impl Into<String>) {
+        let now = current_time_ms();
+        self.deleted_at = Some(now);
+        self.version += 1;
+        self.updated_at = now;
+        self.device_id = device_id.into();
+    }
+
+    /// Restores a soft-deleted folder
+    pub fn restore(&mut self, device_id: impl Into<String>) {
+        self.deleted_at = None;
+        self.version += 1;
+        self.updated_at = current_time_ms();
+        self.device_id = device_id.into();
+    }
 }
