@@ -1,6 +1,6 @@
 -- Notat schema v1
 
-CREATE TABLE IF NOT EXISTS user (
+CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
     username        TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
