@@ -6,6 +6,9 @@ export interface SetupResponse {
   ok: boolean
   user_id: string
   username: string
+  token: string
+  device_id: string
+  expires_at: number
 }
 
 export interface LoginResponse {
@@ -14,10 +17,24 @@ export interface LoginResponse {
   expires_at: number
 }
 
+export interface MeResponse {
+  user_id: string
+  username: string
+  device_id: string
+  device_name: string
+  platform: string
+}
+
+export interface LogoutResponse {
+  ok: boolean
+}
+
 export interface PairingDataResponse {
   url: string
   token: string
   device_id: string
+  user_id: string
+  username: string
   pairing_code: string
   qr_svg: string
   qr_payload: string

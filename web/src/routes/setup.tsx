@@ -68,7 +68,8 @@ function SetupPage() {
             password: value.password,
           }),
         })
-        navigate({ to: '/login' })
+        // Automatically logged in via httpOnly cookie -> navigate to pair onboarding
+        navigate({ to: '/pair', search: { welcome: true } })
       } catch (err) {
         setServerError(err instanceof Error ? err.message : 'Setup failed')
       }
@@ -77,14 +78,14 @@ function SetupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-5">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <NotebookPen className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl">Welcome to Notat</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to Notat</CardTitle>
           <CardDescription>
-            Create your admin account to get started
+            Create your owner account to start taking notes and syncing devices.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,12 +114,12 @@ function SetupPage() {
             >
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Admin Username</Label>
+                  <Label htmlFor={field.name}>Username</Label>
                   <Input
                     id={field.name}
                     name={field.name}
                     type="text"
-                    placeholder="admin"
+                    placeholder="e.g. alex"
                     autoComplete="username"
                     value={field.state.value}
                     onBlur={field.handleBlur}
@@ -144,7 +145,7 @@ function SetupPage() {
             >
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Master Password</Label>
+                  <Label htmlFor={field.name}>Password</Label>
                   <Input
                     id={field.name}
                     name={field.name}
@@ -214,7 +215,7 @@ function SetupPage() {
                       Setting up…
                     </>
                   ) : (
-                    'Complete Setup'
+                    'Create Account & Continue'
                   )}
                 </Button>
               )}

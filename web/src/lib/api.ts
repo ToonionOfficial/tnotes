@@ -11,6 +11,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const base = getApiBase()
   const res = await fetch(`${base}${path}`, {
+    credentials: 'same-origin',
     ...options,
     headers: {
       'Content-Type': 'application/json',
