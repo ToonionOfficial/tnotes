@@ -1,16 +1,17 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::db::{
-    changes::{get_changes_after_seq, record_change, upsert_device_cursor},
+    changes::{get_changes_after_seq, get_device_cursor, record_change, upsert_device_cursor},
     folders::{get_folder_by_id, upsert_folder},
     notes::{get_note_by_id, upsert_note},
 };
 use crate::errors::{Error, Result};
 use crate::models::{current_time_ms, folder::Folder, note::Note};
 use crate::sync::{
-    conflict::{VersionMeta, should_apply_remote},
+    conflict::{should_apply_remote, VersionMeta},
     envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
+    integrity::{check_proposed_folder_parent, CycleCheckResult},
 };
 
 /// Summary of applied vs skipped changes in a sync batch
@@ -20,17 +21,60 @@ pub struct SyncApplyReport {
     pub skipped: usize,
 }
 
-/// Applies a single incoming change using conflict resolution.
-/// Returns Ok(true) if applied, or Ok(false) if skipped.
-pub fn apply_single_change(conn: &Connection, change: &Change) -> Result<bool> {
+/// Metadata derived directly from a validated and applied entity
+#[derive(Debug, Clone)]
+pub struct AppliedChange {
+    pub entity_id: String,
+    pub version: u64,
+    pub updated_at: i64,
+    pub is_tombstone: bool,
+    pub payload: serde_json::Value,
+}
+
+fn folder_exists_and_owned_by_user(
+    conn: &Connection,
+    folder_id: &str,
+    user_id: &str,
+) -> Result<bool> {
+    let exists = conn
+        .query_row(
+            "SELECT 1 FROM folders WHERE id = ?1 AND user_id = ?2",
+            rusqlite::params![folder_id, user_id],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some();
+    Ok(exists)
+}
+
+/// Applies a single incoming change using conflict resolution and user ownership validation.
+/// Returns Ok(Some(AppliedChange)) if applied, or Ok(None) if skipped/rejected.
+pub fn apply_single_change(
+    conn: &Connection,
+    change: &Change,
+    authenticated_user_id: &str,
+) -> Result<Option<AppliedChange>> {
     match change.entity_type {
         EntityType::Note => {
-            let remote_note: Note =
+            let mut remote_note: Note =
                 serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
+
+            // Enforce authenticated user ownership
+            remote_note.user_id = authenticated_user_id.to_string();
+
+            // Validate parent folder belongs to the same user
+            if let Some(ref fid) = remote_note.folder_id {
+                if !folder_exists_and_owned_by_user(conn, fid, authenticated_user_id)? {
+                    remote_note.folder_id = None;
+                }
+            }
 
             let local_note = get_note_by_id(conn, &remote_note.id)?;
             let should_apply = match &local_note {
                 Some(local) => {
+                    if local.user_id != authenticated_user_id {
+                        return Ok(None);
+                    }
                     let local_meta =
                         VersionMeta::new(local.version, local.updated_at, &local.device_id);
                     let remote_meta = VersionMeta::new(
@@ -45,18 +89,43 @@ pub fn apply_single_change(conn: &Connection, change: &Change) -> Result<bool> {
 
             if should_apply {
                 upsert_note(conn, &remote_note)?;
-                Ok(true)
+                let version = remote_note.version;
+                let updated_at = remote_note.updated_at;
+                let is_tombstone = remote_note.trashed;
+                let entity_id = remote_note.id.clone();
+                let payload = serde_json::to_value(&remote_note).map_err(Error::Json)?;
+
+                Ok(Some(AppliedChange {
+                    entity_id,
+                    version,
+                    updated_at,
+                    is_tombstone,
+                    payload,
+                }))
             } else {
-                Ok(false)
+                Ok(None)
             }
         }
         EntityType::Folder => {
-            let remote_folder: Folder =
+            let mut remote_folder: Folder =
                 serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
+
+            // Enforce authenticated user ownership
+            remote_folder.user_id = authenticated_user_id.to_string();
+
+            // Validate parent folder belongs to the same user
+            if let Some(ref pid) = remote_folder.parent_id {
+                if !folder_exists_and_owned_by_user(conn, pid, authenticated_user_id)? {
+                    remote_folder.parent_id = None;
+                }
+            }
 
             let local_folder = get_folder_by_id(conn, &remote_folder.id)?;
             let should_apply = match &local_folder {
                 Some(local) => {
+                    if local.user_id != authenticated_user_id {
+                        return Ok(None);
+                    }
                     let local_meta =
                         VersionMeta::new(local.version, local.updated_at, &local.device_id);
                     let remote_meta = VersionMeta::new(
@@ -70,10 +139,35 @@ pub fn apply_single_change(conn: &Connection, change: &Change) -> Result<bool> {
             };
 
             if should_apply {
+                match check_proposed_folder_parent(
+                    conn,
+                    &remote_folder.id,
+                    remote_folder.parent_id.as_deref(),
+                    50,
+                )? {
+                    CycleCheckResult::CycleDetected => remote_folder.parent_id = None,
+                    // Do not write the folder before rejecting an over-deep hierarchy.
+                    CycleCheckResult::DepthLimitExceeded => return Ok(None),
+                    CycleCheckResult::NoCycle => {}
+                }
+
                 upsert_folder(conn, &remote_folder)?;
-                Ok(true)
+
+                let version = remote_folder.version;
+                let updated_at = remote_folder.updated_at;
+                let is_tombstone = remote_folder.deleted_at.is_some();
+                let entity_id = remote_folder.id.clone();
+                let payload = serde_json::to_value(&remote_folder).map_err(Error::Json)?;
+
+                Ok(Some(AppliedChange {
+                    entity_id,
+                    version,
+                    updated_at,
+                    is_tombstone,
+                    payload,
+                }))
             } else {
-                Ok(false)
+                Ok(None)
             }
         }
     }
@@ -84,12 +178,13 @@ pub fn apply_single_change(conn: &Connection, change: &Change) -> Result<bool> {
 pub fn apply_incoming_changes(
     conn: &mut Connection,
     changes: &[Change],
+    authenticated_user_id: &str,
 ) -> Result<SyncApplyReport> {
     let mut report = SyncApplyReport::default();
     let tx = conn.transaction()?;
 
     for change in changes {
-        if apply_single_change(&tx, change)? {
+        if apply_single_change(&tx, change, authenticated_user_id)?.is_some() {
             report.applied += 1;
         } else {
             report.skipped += 1;
@@ -102,7 +197,8 @@ pub fn apply_incoming_changes(
 
 /// Server-side sync endpoint processor:
 /// 1. Applies client's incoming changes atomically and logs them in `changes`.
-/// 2. Queries server's changes since `last_seq` cursor (excluding client's device ID) for `user_id`.
+/// 2. Queries server's changes since the server-recorded device cursor (excluding the client's
+///    device ID) for `user_id`.
 /// 3. Updates device cursor and returns the `SyncResponse` envelope.
 pub fn process_sync_envelope(
     conn: &mut Connection,
@@ -113,7 +209,7 @@ pub fn process_sync_envelope(
     let server_time = current_time_ms();
 
     for change in &envelope.changes {
-        if apply_single_change(&tx, change)? {
+        if let Some(applied) = apply_single_change(&tx, change, user_id)? {
             let entity_type_str = match change.entity_type {
                 EntityType::Note => "note",
                 EntityType::Folder => "folder",
@@ -122,28 +218,28 @@ pub fn process_sync_envelope(
                 &tx,
                 user_id,
                 entity_type_str,
-                &change.entity_id,
+                &applied.entity_id,
                 &envelope.device_id,
-                change.version,
-                change.updated_at,
-                change.tombstone,
-                &change.payload,
+                applied.version,
+                applied.updated_at,
+                applied.is_tombstone,
+                &applied.payload,
             )?;
         }
     }
 
-    let (change_records, has_more) = get_changes_after_seq(
-        &tx,
-        user_id,
-        envelope.last_seq,
-        &envelope.device_id,
-        500,
-    )?;
+    // Never trust a cursor claimed by the client. Advancing a cursor beyond changes actually
+    // returned by this server can make tombstone retention unsafe.
+    let recorded_cursor = get_device_cursor(&tx, &envelope.device_id)?
+        .map(|(last_seq, _)| last_seq)
+        .unwrap_or(0);
+    let (change_records, has_more) =
+        get_changes_after_seq(&tx, user_id, recorded_cursor, &envelope.device_id, 500)?;
 
     let new_cursor = change_records
         .last()
         .map(|r| r.seq)
-        .unwrap_or(envelope.last_seq);
+        .unwrap_or(recorded_cursor);
 
     upsert_device_cursor(&tx, &envelope.device_id, new_cursor, server_time)?;
 
@@ -178,9 +274,8 @@ pub fn process_sync_envelope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::migrations::open_in_memory;
-    use crate::db::users::create_user;
-    use crate::models::user::User;
+    use crate::db::{devices::upsert_device, migrations::open_in_memory, users::create_user};
+    use crate::models::{device::Device, user::User};
 
     #[test]
     fn test_sync_apply_new_and_conflict() {
@@ -199,7 +294,7 @@ mod tests {
             payload: serde_json::to_value(&note_a).unwrap(),
         };
 
-        let report = apply_incoming_changes(&mut conn, &[change_a]).unwrap();
+        let report = apply_incoming_changes(&mut conn, &[change_a], &user.id).unwrap();
         assert_eq!(report.applied, 1);
         assert_eq!(report.skipped, 0);
 
@@ -216,7 +311,7 @@ mod tests {
             payload: serde_json::to_value(&old_note_b).unwrap(),
         };
 
-        let report = apply_incoming_changes(&mut conn, &[change_old]).unwrap();
+        let report = apply_incoming_changes(&mut conn, &[change_old], &user.id).unwrap();
         assert_eq!(report.applied, 0);
         assert_eq!(report.skipped, 1);
 
@@ -236,7 +331,7 @@ mod tests {
             payload: serde_json::to_value(&new_note_b).unwrap(),
         };
 
-        let report = apply_incoming_changes(&mut conn, &[change_new]).unwrap();
+        let report = apply_incoming_changes(&mut conn, &[change_new], &user.id).unwrap();
         assert_eq!(report.applied, 1);
         assert_eq!(report.skipped, 0);
 
@@ -328,5 +423,204 @@ mod tests {
         // Server contains both notes
         assert!(get_note_by_id(&conn, &note_a.id).unwrap().is_some());
         assert!(get_note_by_id(&conn, &note_b.id).unwrap().is_some());
+    }
+
+    #[test]
+    fn test_sync_does_not_advance_cursor_from_client_claim() {
+        let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let sender = Device::new("sender", "Sender", "desktop", &user.id);
+        let receiver = Device::new("receiver", "Receiver", "mobile", &user.id);
+        upsert_device(&conn, &sender).unwrap();
+        upsert_device(&conn, &receiver).unwrap();
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "pending-tombstone",
+            &sender.id,
+            1,
+            1,
+            true,
+            &serde_json::json!({}),
+        )
+        .unwrap();
+
+        let response = process_sync_envelope(
+            &mut conn,
+            &SyncEnvelope {
+                device_id: receiver.id.clone(),
+                last_seq: i64::MAX,
+                last_sync_at: 0,
+                changes: vec![],
+            },
+            &user.id,
+        )
+        .unwrap();
+
+        assert_eq!(response.changes.len(), 1);
+        assert_eq!(response.changes[0].entity_id, "pending-tombstone");
+        assert_eq!(response.cursor, 1);
+        assert_eq!(
+            get_device_cursor(&conn, &receiver.id).unwrap(),
+            Some((1, response.server_time))
+        );
+    }
+
+    #[test]
+    fn test_sync_folder_cycle_auto_break() {
+        let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let dev_a = Device::new("dev_a", "Device A", "desktop", &user.id);
+        let dev_b = Device::new("dev_b", "Device B", "mobile", &user.id);
+        upsert_device(&conn, &dev_a).unwrap();
+        upsert_device(&conn, &dev_b).unwrap();
+
+        // 1. Initially: Folder A is root, Folder B has parent A
+        let mut folder_a = Folder::new("Folder A", None, None, 0, &dev_a.id, &user.id);
+        folder_a.id = "folder_a".into();
+        let mut folder_b = Folder::new(
+            "Folder B",
+            None,
+            Some("folder_a".into()),
+            0,
+            &dev_a.id,
+            &user.id,
+        );
+        folder_b.id = "folder_b".into();
+
+        upsert_folder(&conn, &folder_a).unwrap();
+        upsert_folder(&conn, &folder_b).unwrap();
+
+        // 2. Dev B offline moves Folder A inside Folder B (creating cycle B -> A -> B)
+        folder_a.parent_id = Some("folder_b".into());
+        folder_a.version = 2;
+        folder_a.updated_at += 1000;
+        folder_a.device_id = dev_b.id.clone();
+
+        let envelope = SyncEnvelope {
+            device_id: dev_b.id.clone(),
+            last_seq: 0,
+            last_sync_at: 0,
+            changes: vec![Change {
+                entity_type: EntityType::Folder,
+                entity_id: folder_a.id.clone(),
+                version: folder_a.version,
+                updated_at: folder_a.updated_at,
+                tombstone: false,
+                payload: serde_json::to_value(&folder_a).unwrap(),
+            }],
+        };
+
+        // Process sync envelope from dev_b
+        let res = process_sync_envelope(&mut conn, &envelope, &user.id).unwrap();
+        assert_eq!(res.changes.len(), 0);
+        assert_eq!(res.cursor, 0);
+
+        // Verify that the cycle was automatically detected and broken (folder_a.parent_id is None)
+        let resolved_a = get_folder_by_id(&conn, "folder_a").unwrap().unwrap();
+        assert!(resolved_a.parent_id.is_none());
+
+        let resolved_b = get_folder_by_id(&conn, "folder_b").unwrap().unwrap();
+        assert_eq!(resolved_b.parent_id.as_deref(), Some("folder_a"));
+
+        // 3. dev_a pulls: verify dev_a receives the REPAIRED payload (parent_id: null)
+        let envelope_a = SyncEnvelope {
+            device_id: dev_a.id.clone(),
+            last_seq: 0,
+            last_sync_at: 0,
+            changes: vec![],
+        };
+        let res_a = process_sync_envelope(&mut conn, &envelope_a, &user.id).unwrap();
+        assert_eq!(res_a.changes.len(), 1);
+        let pulled_folder: Folder =
+            serde_json::from_value(res_a.changes[0].payload.clone()).unwrap();
+        assert_eq!(pulled_folder.id, "folder_a");
+        assert!(pulled_folder.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_sync_user_ownership_and_cross_user_isolation() {
+        let mut conn = open_in_memory().unwrap();
+        let user1 = User::new("user1", "hash");
+        let user2 = User::new("user2", "hash");
+        create_user(&conn, &user1).unwrap();
+        create_user(&conn, &user2).unwrap();
+
+        let dev1 = Device::new("dev1", "Dev 1", "desktop", &user1.id);
+        let dev2 = Device::new("dev2", "Dev 2", "desktop", &user2.id);
+        upsert_device(&conn, &dev1).unwrap();
+        upsert_device(&conn, &dev2).unwrap();
+
+        // 1. User 1 creates Folder 1
+        let mut folder1 = Folder::new("User 1 Folder", None, None, 0, &dev1.id, &user1.id);
+        folder1.id = "f1".into();
+        upsert_folder(&conn, &folder1).unwrap();
+
+        // 2. User 2 tries to push a note pointing to User 1's folder
+        let malicious_note = Note::new(
+            "Attacker Note",
+            "Body",
+            Some("f1".into()),
+            &dev2.id,
+            &user2.id,
+        );
+        let change = Change {
+            entity_type: EntityType::Note,
+            entity_id: malicious_note.id.clone(),
+            version: 1,
+            updated_at: 1000,
+            tombstone: false,
+            payload: serde_json::to_value(&malicious_note).unwrap(),
+        };
+
+        let env2 = SyncEnvelope {
+            device_id: dev2.id.clone(),
+            last_seq: 0,
+            last_sync_at: 0,
+            changes: vec![change],
+        };
+
+        process_sync_envelope(&mut conn, &env2, &user2.id).unwrap();
+
+        // The note was saved under user2, but folder_id was sanitized to None (cross-user relationship stripped)
+        let saved_note = get_note_by_id(&conn, &malicious_note.id).unwrap().unwrap();
+        assert_eq!(saved_note.user_id, user2.id);
+        assert!(saved_note.folder_id.is_none());
+    }
+
+    #[test]
+    fn test_sync_rejects_over_deep_folder_without_persisting_it() {
+        let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let mut parent_id = None;
+        for index in 0..51 {
+            let mut folder = Folder::new("Nested", None, parent_id, 0, "dev", &user.id);
+            folder.id = format!("folder_{index}");
+            parent_id = Some(folder.id.clone());
+            upsert_folder(&conn, &folder).unwrap();
+        }
+
+        let mut too_deep = Folder::new("Too deep", None, parent_id, 0, "dev", &user.id);
+        too_deep.id = "too_deep".into();
+        let change = Change {
+            entity_type: EntityType::Folder,
+            entity_id: too_deep.id.clone(),
+            version: too_deep.version,
+            updated_at: too_deep.updated_at,
+            tombstone: false,
+            payload: serde_json::to_value(&too_deep).unwrap(),
+        };
+
+        let report = apply_incoming_changes(&mut conn, &[change], &user.id).unwrap();
+        assert_eq!(report.applied, 0);
+        assert_eq!(report.skipped, 1);
+        assert!(get_folder_by_id(&conn, &too_deep.id).unwrap().is_none());
     }
 }

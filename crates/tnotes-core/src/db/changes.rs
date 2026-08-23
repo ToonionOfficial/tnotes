@@ -149,6 +149,31 @@ pub fn min_device_cursor_for_user(conn: &Connection, user_id: &str) -> Result<i6
     Ok(min_seq.unwrap_or(0))
 }
 
+pub fn purge_tombstones_safely(conn: &Connection, cutoff_time: i64) -> Result<usize> {
+    let affected = conn.execute(
+        "DELETE FROM changes
+         WHERE is_tombstone = 1
+           AND created_at < ?1
+           AND (
+               (
+                   EXISTS (SELECT 1 FROM devices WHERE user_id = changes.user_id)
+                   AND seq <= (
+                       SELECT COALESCE(MIN(dc.last_seq), 0)
+                       FROM devices d
+                       LEFT JOIN device_cursors dc ON d.id = dc.device_id
+                       WHERE d.user_id = changes.user_id
+                   )
+               )
+               OR
+               (
+                   NOT EXISTS (SELECT 1 FROM devices WHERE user_id = changes.user_id)
+               )
+           )",
+        params![cutoff_time],
+    )?;
+    Ok(affected)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,5 +280,172 @@ mod tests {
         upsert_device_cursor(&conn, "dev1", 30, 2000).unwrap();
         assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 25);
     }
-}
 
+    #[test]
+    fn test_purge_tombstones_safely_scenarios() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let dev1 = Device::new("dev1", "Device 1", "desktop", &user.id);
+        let dev2 = Device::new("dev2", "Device 2", "mobile", &user.id);
+        upsert_device(&conn, &dev1).unwrap();
+        upsert_device(&conn, &dev2).unwrap();
+
+        let now = 1_000_000_000;
+        let cutoff = now - (30 * 24 * 60 * 60 * 1000); // 30 days ago
+        let old_time = cutoff - 1000; // 30 days + 1 sec ago
+        let recent_time = cutoff + 1000; // 29 days ago
+
+        // 1. Record changes:
+        // seq 1: Active note (created long ago) -> must NEVER be purged by tombstone GC
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n1",
+            "dev1",
+            1,
+            old_time,
+            false,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 2: Tombstone note (old, seq 2)
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n2",
+            "dev1",
+            2,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 3: Tombstone note (recent, seq 3) -> must NOT be purged because it's too recent
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n3",
+            "dev1",
+            3,
+            recent_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 4: Tombstone note (old, seq 4)
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n4",
+            "dev1",
+            4,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+
+        // Simulate historical creation timestamps in the changes table
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n1'",
+            params![old_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n2'",
+            params![old_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n3'",
+            params![recent_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n4'",
+            params![old_time],
+        )
+        .unwrap();
+
+        // 2. Both devices at cursor 0 -> min_cursor = 0 -> 0 tombstones purged
+        let purged = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged, 0);
+
+        // 3. dev1 at cursor 4, but dev2 at cursor 2 -> min_cursor = 2
+        upsert_device_cursor(&conn, "dev1", 4, now).unwrap();
+        upsert_device_cursor(&conn, "dev2", 2, now).unwrap();
+
+        // Purge: seq 2 (tombstone, old, seq <= 2) is purged. seq 4 is kept because dev2 hasn't reached it.
+        let purged = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged, 1);
+
+        // Verify seq 1 (active) and seq 4 (unseen tombstone) and seq 3 (recent tombstone) still exist
+        let (remaining, _) = get_changes_after_seq(&conn, &user.id, 0, "other_dev", 10).unwrap();
+        let remaining_seqs: Vec<i64> = remaining.into_iter().map(|r| r.seq).collect();
+        assert_eq!(remaining_seqs, vec![1, 3, 4]);
+
+        // 4. dev2 advances to cursor 4 -> min_cursor = 4
+        upsert_device_cursor(&conn, "dev2", 4, now).unwrap();
+        let purged2 = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged2, 1); // seq 4 is purged
+
+        // Remaining is seq 1 (active) and seq 3 (recent tombstone)
+        let (final_remaining, _) =
+            get_changes_after_seq(&conn, &user.id, 0, "other_dev", 10).unwrap();
+        let final_seqs: Vec<i64> = final_remaining.into_iter().map(|r| r.seq).collect();
+        assert_eq!(final_seqs, vec![1, 3]);
+    }
+
+    #[test]
+    fn test_purge_tombstones_safely_purges_aged_tombstones_for_user_without_devices() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("device-free-user", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let cutoff = 1_000_000;
+        let old_time = cutoff - 1;
+
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "old-tombstone",
+            "retired-device",
+            1,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "active-change",
+            "retired-device",
+            1,
+            old_time,
+            false,
+            &json!({}),
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE user_id = ?2",
+            params![old_time, user.id],
+        )
+        .unwrap();
+
+        assert_eq!(purge_tombstones_safely(&conn, cutoff).unwrap(), 1);
+
+        let (changes, _) = get_changes_after_seq(&conn, &user.id, 0, "other-device", 10).unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].entity_id, "active-change");
+        assert!(!changes[0].is_tombstone);
+    }
+}
