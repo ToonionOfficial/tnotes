@@ -1,5 +1,5 @@
 use crate::models::current_time_ms;
-use rusqlite::{Connection, Result, Row, params};
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -106,11 +106,56 @@ pub fn get_changes_after_seq(
     Ok((records, has_more))
 }
 
+pub fn upsert_device_cursor(
+    conn: &Connection,
+    device_id: &str,
+    last_seq: i64,
+    last_sync_at: i64,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO device_cursors (device_id, last_seq, last_sync_at)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(device_id) DO UPDATE SET
+             last_seq = excluded.last_seq,
+             last_sync_at = excluded.last_sync_at",
+        params![device_id, last_seq, last_sync_at],
+    )?;
+    Ok(())
+}
+
+pub fn get_device_cursor(
+    conn: &Connection,
+    device_id: &str,
+) -> Result<Option<(i64, i64)>> {
+    conn.query_row(
+        "SELECT last_seq, last_sync_at FROM device_cursors WHERE device_id = ?1",
+        params![device_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .optional()
+}
+
+pub fn min_device_cursor_for_user(conn: &Connection, user_id: &str) -> Result<i64> {
+    let mut stmt = conn.prepare(
+        "SELECT MIN(COALESCE(dc.last_seq, 0))
+         FROM devices d
+         LEFT JOIN device_cursors dc ON d.id = dc.device_id
+         WHERE d.user_id = ?1",
+    )?;
+    let min_seq: Option<i64> = stmt
+        .query_row(params![user_id], |row| row.get(0))
+        .optional()?
+        .flatten();
+    Ok(min_seq.unwrap_or(0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::devices::upsert_device;
     use crate::db::migrations::open_in_memory;
     use crate::db::users::create_user;
+    use crate::models::device::Device;
     use crate::models::user::User;
     use serde_json::json;
 
@@ -180,6 +225,35 @@ mod tests {
         assert_eq!(remaining.len(), 1);
         assert!(!has_more_rem);
         assert_eq!(remaining[0].seq, 3);
+    }
+
+    #[test]
+    fn test_device_cursor_tracking_and_min() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let dev1 = Device::new("dev1", "Device 1", "desktop", &user.id);
+        let dev2 = Device::new("dev2", "Device 2", "mobile", &user.id);
+        upsert_device(&conn, &dev1).unwrap();
+        upsert_device(&conn, &dev2).unwrap();
+
+        // Initially no cursors recorded, min should be 0
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 0);
+
+        upsert_device_cursor(&conn, "dev1", 10, 1000).unwrap();
+        assert_eq!(get_device_cursor(&conn, "dev1").unwrap(), Some((10, 1000)));
+
+        // dev2 has no cursor yet, so min across devices is still 0
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 0);
+
+        upsert_device_cursor(&conn, "dev2", 25, 1500).unwrap();
+        // Now dev1=10, dev2=25 -> min is 10
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 10);
+
+        // dev1 catches up to 30 -> min is now 25 (dev2)
+        upsert_device_cursor(&conn, "dev1", 30, 2000).unwrap();
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 25);
     }
 }
 
