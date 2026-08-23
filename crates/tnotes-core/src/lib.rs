@@ -5,5 +5,5 @@ pub mod models;
 pub mod sync;
 
 pub use errors::{Error, Result};
-pub use rusqlite::{params, Connection};
+pub use rusqlite::{Connection, params};
 pub use ulid::Ulid;

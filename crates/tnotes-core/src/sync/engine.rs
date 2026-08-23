@@ -10,9 +10,9 @@ use crate::db::{
 use crate::errors::{Error, Result};
 use crate::models::{current_time_ms, folder::Folder, note::Note};
 use crate::sync::{
-    conflict::{should_apply_remote, VersionMeta},
+    conflict::{VersionMeta, should_apply_remote},
     envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
-    integrity::{check_proposed_folder_parent, CycleCheckResult},
+    integrity::{CycleCheckResult, check_proposed_folder_parent},
 };
 
 /// Summary of applied vs skipped changes in a sync batch

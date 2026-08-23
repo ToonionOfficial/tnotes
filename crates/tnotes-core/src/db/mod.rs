@@ -6,4 +6,3 @@ pub mod notes;
 pub mod sessions;
 pub mod sync;
 pub mod users;
-

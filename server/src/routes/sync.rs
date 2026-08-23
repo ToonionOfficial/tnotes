@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     extract::{Extension, State},
     http::StatusCode,
-    Json,
 };
 use tnotes_core::sync::{
     engine::process_sync_envelope,

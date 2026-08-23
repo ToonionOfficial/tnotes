@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension, Result};
+use rusqlite::{Connection, OptionalExtension, Result, params};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

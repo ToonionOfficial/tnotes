@@ -52,11 +52,41 @@ async fn test_housekeeping_task() {
     // seq 2: 5 days old tombstone
     let old_change_time = now - (35 * ms_per_day);
     let recent_change_time = now - (5 * ms_per_day);
-    record_change(&conn, &user.id, "note", "n_old", "device_active", 1, old_change_time, true, &json!({})).unwrap();
-    record_change(&conn, &user.id, "note", "n_rec", "device_active", 2, recent_change_time, true, &json!({})).unwrap();
+    record_change(
+        &conn,
+        &user.id,
+        "note",
+        "n_old",
+        "device_active",
+        1,
+        old_change_time,
+        true,
+        &json!({}),
+    )
+    .unwrap();
+    record_change(
+        &conn,
+        &user.id,
+        "note",
+        "n_rec",
+        "device_active",
+        2,
+        recent_change_time,
+        true,
+        &json!({}),
+    )
+    .unwrap();
 
-    conn.execute("UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_old'", params![old_change_time]).unwrap();
-    conn.execute("UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_rec'", params![recent_change_time]).unwrap();
+    conn.execute(
+        "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_old'",
+        params![old_change_time],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_rec'",
+        params![recent_change_time],
+    )
+    .unwrap();
 
     // Both devices have reached seq 2
     upsert_device_cursor(&conn, "device_active", 2, now).unwrap();

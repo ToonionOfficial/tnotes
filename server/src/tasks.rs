@@ -2,8 +2,7 @@ use std::sync::Arc;
 use tnotes_core::{
     Connection,
     db::{
-        changes::purge_tombstones_safely,
-        notes::delete_trashed_older_than,
+        changes::purge_tombstones_safely, notes::delete_trashed_older_than,
         sessions::cleanup_expired_sessions,
     },
     models::current_time_ms,

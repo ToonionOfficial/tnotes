@@ -123,10 +123,7 @@ pub fn upsert_device_cursor(
     Ok(())
 }
 
-pub fn get_device_cursor(
-    conn: &Connection,
-    device_id: &str,
-) -> Result<Option<(i64, i64)>> {
+pub fn get_device_cursor(conn: &Connection, device_id: &str) -> Result<Option<(i64, i64)>> {
     conn.query_row(
         "SELECT last_seq, last_sync_at FROM device_cursors WHERE device_id = ?1",
         params![device_id],
@@ -220,15 +217,38 @@ mod tests {
         let payload = json!({"data": "sample"});
 
         // 3 changes from dev1 for user
-        record_change(&conn, &user.id, "note", "n1", "dev1", 1, 100, false, &payload).unwrap();
-        record_change(&conn, &user.id, "note", "n2", "dev1", 1, 200, false, &payload).unwrap();
-        record_change(&conn, &user.id, "note", "n3", "dev1", 1, 300, false, &payload).unwrap();
+        record_change(
+            &conn, &user.id, "note", "n1", "dev1", 1, 100, false, &payload,
+        )
+        .unwrap();
+        record_change(
+            &conn, &user.id, "note", "n2", "dev1", 1, 200, false, &payload,
+        )
+        .unwrap();
+        record_change(
+            &conn, &user.id, "note", "n3", "dev1", 1, 300, false, &payload,
+        )
+        .unwrap();
 
         // 1 change from dev2 for user
-        record_change(&conn, &user.id, "note", "n4", "dev2", 1, 400, false, &payload).unwrap();
+        record_change(
+            &conn, &user.id, "note", "n4", "dev2", 1, 400, false, &payload,
+        )
+        .unwrap();
 
         // 1 change for other user
-        record_change(&conn, &other_user.id, "note", "n5", "dev1", 1, 500, false, &payload).unwrap();
+        record_change(
+            &conn,
+            &other_user.id,
+            "note",
+            "n5",
+            "dev1",
+            1,
+            500,
+            false,
+            &payload,
+        )
+        .unwrap();
 
         // dev2 queries after seq 0: should receive 3 changes from dev1 (excluding dev2)
         let (records, has_more) = get_changes_after_seq(&conn, &user.id, 0, "dev2", 10).unwrap();
@@ -239,14 +259,16 @@ mod tests {
         assert_eq!(records[2].entity_id, "n3");
 
         // dev2 queries with limit = 2 (pagination)
-        let (paged_records, has_more_paged) = get_changes_after_seq(&conn, &user.id, 0, "dev2", 2).unwrap();
+        let (paged_records, has_more_paged) =
+            get_changes_after_seq(&conn, &user.id, 0, "dev2", 2).unwrap();
         assert_eq!(paged_records.len(), 2);
         assert!(has_more_paged);
         assert_eq!(paged_records[0].seq, 1);
         assert_eq!(paged_records[1].seq, 2);
 
         // query remaining page after seq 2
-        let (remaining, has_more_rem) = get_changes_after_seq(&conn, &user.id, 2, "dev2", 2).unwrap();
+        let (remaining, has_more_rem) =
+            get_changes_after_seq(&conn, &user.id, 2, "dev2", 2).unwrap();
         assert_eq!(remaining.len(), 1);
         assert!(!has_more_rem);
         assert_eq!(remaining[0].seq, 3);

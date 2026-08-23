@@ -32,10 +32,7 @@ pub enum WsServerMessage {
         count: usize,
     },
     #[serde(rename = "sync_required")]
-    SyncRequired {
-        reason: String,
-        skipped: u64,
-    },
+    SyncRequired { reason: String, skipped: u64 },
     #[serde(rename = "pong")]
     Pong,
 }

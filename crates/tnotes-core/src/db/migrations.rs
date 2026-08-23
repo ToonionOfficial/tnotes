@@ -55,10 +55,13 @@ mod tests {
     #[test]
     fn test_migrations_create_schema_v2() {
         let conn = open_in_memory().unwrap();
-        let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0)).unwrap();
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(version, 2);
 
         conn.execute("SELECT seq FROM changes LIMIT 0", []).unwrap();
-        conn.execute("SELECT last_seq FROM device_cursors LIMIT 0", []).unwrap();
+        conn.execute("SELECT last_seq FROM device_cursors LIMIT 0", [])
+            .unwrap();
     }
 }
