@@ -5,10 +5,9 @@ use crate::db::{
     changes::{get_changes_after_seq, record_change, upsert_device_cursor},
     folders::{get_folder_by_id, upsert_folder},
     notes::{get_note_by_id, upsert_note},
-    themes::{get_theme_by_id, upsert_theme},
 };
 use crate::errors::{Error, Result};
-use crate::models::{current_time_ms, folder::Folder, note::Note, theme::Theme};
+use crate::models::{current_time_ms, folder::Folder, note::Note};
 use crate::sync::{
     conflict::{VersionMeta, should_apply_remote},
     envelope::{Change, EntityType, SyncEnvelope, SyncResponse},
@@ -77,32 +76,6 @@ pub fn apply_single_change(conn: &Connection, change: &Change) -> Result<bool> {
                 Ok(false)
             }
         }
-        EntityType::Theme => {
-            let remote_theme: Theme =
-                serde_json::from_value(change.payload.clone()).map_err(Error::Json)?;
-
-            let local_theme = get_theme_by_id(conn, &remote_theme.id)?;
-            let should_apply = match &local_theme {
-                Some(local) => {
-                    let local_meta =
-                        VersionMeta::new(local.version, local.updated_at, &local.device_id);
-                    let remote_meta = VersionMeta::new(
-                        remote_theme.version,
-                        remote_theme.updated_at,
-                        &remote_theme.device_id,
-                    );
-                    should_apply_remote(&local_meta, &remote_meta)
-                }
-                None => true,
-            };
-
-            if should_apply {
-                upsert_theme(conn, &remote_theme)?;
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
     }
 }
 
@@ -144,7 +117,6 @@ pub fn process_sync_envelope(
             let entity_type_str = match change.entity_type {
                 EntityType::Note => "note",
                 EntityType::Folder => "folder",
-                EntityType::Theme => "theme",
             };
             record_change(
                 &tx,
@@ -181,9 +153,7 @@ pub fn process_sync_envelope(
         .into_iter()
         .map(|r| {
             let entity_type = match r.entity_type.as_str() {
-                "note" => EntityType::Note,
                 "folder" => EntityType::Folder,
-                "theme" => EntityType::Theme,
                 _ => EntityType::Note,
             };
             Change {

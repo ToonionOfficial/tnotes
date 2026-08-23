@@ -60,6 +60,5 @@ mod tests {
 
         conn.execute("SELECT seq FROM changes LIMIT 0", []).unwrap();
         conn.execute("SELECT last_seq FROM device_cursors LIMIT 0", []).unwrap();
-        conn.execute("SELECT deleted_at FROM themes LIMIT 0", []).unwrap();
     }
 }

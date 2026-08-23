@@ -40,7 +40,6 @@ pub struct SyncResponse {
 pub enum EntityType {
     Note,
     Folder,
-    Theme,
 }
 
 #[cfg(test)]

@@ -19,5 +19,3 @@ CREATE TABLE IF NOT EXISTS device_cursors (
     last_seq     INTEGER NOT NULL DEFAULT 0,
     last_sync_at INTEGER NOT NULL DEFAULT 0
 );
-
-ALTER TABLE themes ADD COLUMN deleted_at INTEGER;

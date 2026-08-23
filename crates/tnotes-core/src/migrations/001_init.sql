@@ -76,19 +76,6 @@ CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
     INSERT INTO notes_fts(rowid, title, body) VALUES (new.rowid, new.title, new.body);
 END;
 
-CREATE TABLE IF NOT EXISTS themes (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
-    name        TEXT NOT NULL,
-    builtin     INTEGER NOT NULL DEFAULT 0,
-    schema      TEXT NOT NULL,
-    version     INTEGER NOT NULL DEFAULT 1,
-    updated_at  INTEGER NOT NULL,
-    created_at  INTEGER NOT NULL,
-    device_id   TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_themes_user ON themes(user_id);
-
 CREATE TABLE IF NOT EXISTS sync_meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL

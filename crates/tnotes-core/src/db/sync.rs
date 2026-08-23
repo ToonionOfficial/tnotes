@@ -1,8 +1,8 @@
-use crate::db::{folders::row_to_folder, notes::row_to_note, themes::row_to_theme};
+use crate::db::{folders::row_to_folder, notes::row_to_note};
 use crate::sync::envelope::{Change, EntityType};
 use rusqlite::{Connection, OptionalExtension, Result, params};
 
-/// Collect all entity changes (notes, folders, themes) that have been modified since `since_timestamp`
+/// Collect all entity changes (notes, folders) that have been modified since `since_timestamp`
 /// for a specific `user_id`. Optionally excludes changes that originated from `exclude_device_id`.
 pub fn get_changes_since(
     conn: &Connection,
@@ -72,38 +72,6 @@ pub fn get_changes_since(
             version: folder.version,
             updated_at: folder.updated_at,
             tombstone: folder.deleted_at.is_some(),
-            payload,
-        });
-    }
-
-    // 3. Collect Theme changes (custom synced themes for this user)
-    let themes = match exclude_device_id {
-        Some(dev_id) => {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM themes WHERE (user_id = ?1 OR builtin = 1) AND updated_at > ?2 AND device_id != ?3 AND builtin = 0 ORDER BY updated_at ASC",
-            )?;
-            stmt.query_map(params![user_id, since_timestamp, dev_id], row_to_theme)?
-                .collect::<Result<Vec<_>>>()?
-        }
-        None => {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM themes WHERE (user_id = ?1 OR builtin = 1) AND updated_at > ?2 AND builtin = 0 ORDER BY updated_at ASC",
-            )?;
-            stmt.query_map(params![user_id, since_timestamp], row_to_theme)?
-                .collect::<Result<Vec<_>>>()?
-        }
-    };
-
-    for theme in themes {
-        let payload = serde_json::to_value(&theme)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-
-        changes.push(Change {
-            entity_type: EntityType::Theme,
-            entity_id: theme.id,
-            version: theme.version,
-            updated_at: theme.updated_at,
-            tombstone: false,
             payload,
         });
     }

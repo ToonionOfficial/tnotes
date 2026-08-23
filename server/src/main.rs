@@ -36,8 +36,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Opening database at {}", db_path);
 
     let conn = tnotes_core::db::migrations::open_connection(&db_path)?;
-    tnotes_core::db::themes::seed_default_themes(&conn)?;
-
     let state = AppState::new(conn, config.clone());
 
     // Start background housekeeping task (runs every 1 hour)
