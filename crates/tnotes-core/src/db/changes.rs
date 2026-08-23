@@ -37,6 +37,9 @@ pub fn row_to_change_record(row: &Row) -> Result<ChangeRecord> {
     })
 }
 
+// The change record is a flat persistence boundary; keeping these fields explicit avoids
+// constructing an intermediate object solely for one INSERT operation.
+#[allow(clippy::too_many_arguments)]
 pub fn record_change(
     conn: &Connection,
     user_id: &str,

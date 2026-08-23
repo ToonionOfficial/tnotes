@@ -64,10 +64,10 @@ pub fn apply_single_change(
             remote_note.user_id = authenticated_user_id.to_string();
 
             // Validate parent folder belongs to the same user
-            if let Some(ref fid) = remote_note.folder_id {
-                if !folder_exists_and_owned_by_user(conn, fid, authenticated_user_id)? {
-                    remote_note.folder_id = None;
-                }
+            if let Some(ref fid) = remote_note.folder_id
+                && !folder_exists_and_owned_by_user(conn, fid, authenticated_user_id)?
+            {
+                remote_note.folder_id = None;
             }
 
             let local_note = get_note_by_id(conn, &remote_note.id)?;
@@ -115,10 +115,10 @@ pub fn apply_single_change(
             remote_folder.user_id = authenticated_user_id.to_string();
 
             // Validate parent folder belongs to the same user
-            if let Some(ref pid) = remote_folder.parent_id {
-                if !folder_exists_and_owned_by_user(conn, pid, authenticated_user_id)? {
-                    remote_folder.parent_id = None;
-                }
+            if let Some(ref pid) = remote_folder.parent_id
+                && !folder_exists_and_owned_by_user(conn, pid, authenticated_user_id)?
+            {
+                remote_folder.parent_id = None;
             }
 
             let local_folder = get_folder_by_id(conn, &remote_folder.id)?;
