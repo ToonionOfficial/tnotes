@@ -33,13 +33,6 @@
   --color-ring: var(--ring);
 }
 
-/*
-  DankShell (DankMaterialShell / Matugen) — dark-first theme for tnotes.
-  Matches ~/.config/gtk-4.0/dank-colors.css:
-    window #141318 · surface #201F24 · text #E6E1E9
-    accent #CABEFF (on #32285F) · error #FFB4AB (on #690005)
-  We only ship dark mode for now. Light mode can be added later.
-*/
 :root {
   --background: #141318; /* window bg */
   --foreground: #e6e1e9; /* window fg */
