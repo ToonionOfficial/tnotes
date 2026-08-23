@@ -1,0 +1,476 @@
+use crate::models::current_time_ms;
+use rusqlite::{Connection, OptionalExtension, Result, Row, params};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChangeRecord {
+    pub seq: i64,
+    pub user_id: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub device_id: String,
+    pub entity_version: u64,
+    pub entity_updated_at: i64,
+    pub is_tombstone: bool,
+    pub payload: Value,
+    pub created_at: i64,
+}
+
+pub fn row_to_change_record(row: &Row) -> Result<ChangeRecord> {
+    let payload_str: String = row.get("payload")?;
+    let payload: Value = serde_json::from_str(&payload_str).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })?;
+
+    Ok(ChangeRecord {
+        seq: row.get("seq")?,
+        user_id: row.get("user_id")?,
+        entity_type: row.get("entity_type")?,
+        entity_id: row.get("entity_id")?,
+        device_id: row.get("device_id")?,
+        entity_version: row.get::<_, i64>("entity_version")? as u64,
+        entity_updated_at: row.get("entity_updated_at")?,
+        is_tombstone: row.get::<_, i64>("is_tombstone")? != 0,
+        payload,
+        created_at: row.get("created_at")?,
+    })
+}
+
+// The change record is a flat persistence boundary; keeping these fields explicit avoids
+// constructing an intermediate object solely for one INSERT operation.
+#[allow(clippy::too_many_arguments)]
+pub fn record_change(
+    conn: &Connection,
+    user_id: &str,
+    entity_type: &str,
+    entity_id: &str,
+    device_id: &str,
+    entity_version: u64,
+    entity_updated_at: i64,
+    is_tombstone: bool,
+    payload: &Value,
+) -> Result<i64> {
+    let now = current_time_ms();
+    let payload_str = payload.to_string();
+
+    conn.execute(
+        "INSERT INTO changes (
+            user_id, entity_type, entity_id, device_id,
+            entity_version, entity_updated_at, is_tombstone,
+            payload, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            user_id,
+            entity_type,
+            entity_id,
+            device_id,
+            entity_version as i64,
+            entity_updated_at,
+            if is_tombstone { 1 } else { 0 },
+            payload_str,
+            now,
+        ],
+    )?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn get_changes_after_seq(
+    conn: &Connection,
+    user_id: &str,
+    after_seq: i64,
+    exclude_device_id: &str,
+    limit: i64,
+) -> Result<(Vec<ChangeRecord>, bool)> {
+    let fetch_limit = limit.max(1) + 1;
+    let mut stmt = conn.prepare(
+        "SELECT seq, user_id, entity_type, entity_id, device_id,
+                entity_version, entity_updated_at, is_tombstone,
+                payload, created_at
+         FROM changes
+         WHERE user_id = ?1 AND seq > ?2 AND device_id != ?3
+         ORDER BY seq ASC
+         LIMIT ?4",
+    )?;
+
+    let mut records = stmt
+        .query_map(
+            params![user_id, after_seq, exclude_device_id, fetch_limit],
+            row_to_change_record,
+        )?
+        .collect::<Result<Vec<_>>>()?;
+
+    let has_more = records.len() > limit as usize;
+    if has_more {
+        records.truncate(limit as usize);
+    }
+
+    Ok((records, has_more))
+}
+
+pub fn upsert_device_cursor(
+    conn: &Connection,
+    device_id: &str,
+    last_seq: i64,
+    last_sync_at: i64,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO device_cursors (device_id, last_seq, last_sync_at)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(device_id) DO UPDATE SET
+             last_seq = excluded.last_seq,
+             last_sync_at = excluded.last_sync_at",
+        params![device_id, last_seq, last_sync_at],
+    )?;
+    Ok(())
+}
+
+pub fn get_device_cursor(conn: &Connection, device_id: &str) -> Result<Option<(i64, i64)>> {
+    conn.query_row(
+        "SELECT last_seq, last_sync_at FROM device_cursors WHERE device_id = ?1",
+        params![device_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .optional()
+}
+
+pub fn min_device_cursor_for_user(conn: &Connection, user_id: &str) -> Result<i64> {
+    let mut stmt = conn.prepare(
+        "SELECT MIN(COALESCE(dc.last_seq, 0))
+         FROM devices d
+         LEFT JOIN device_cursors dc ON d.id = dc.device_id
+         WHERE d.user_id = ?1",
+    )?;
+    let min_seq: Option<i64> = stmt
+        .query_row(params![user_id], |row| row.get(0))
+        .optional()?
+        .flatten();
+    Ok(min_seq.unwrap_or(0))
+}
+
+pub fn purge_tombstones_safely(conn: &Connection, cutoff_time: i64) -> Result<usize> {
+    let affected = conn.execute(
+        "DELETE FROM changes
+         WHERE is_tombstone = 1
+           AND created_at < ?1
+           AND (
+               (
+                   EXISTS (SELECT 1 FROM devices WHERE user_id = changes.user_id)
+                   AND seq <= (
+                       SELECT COALESCE(MIN(dc.last_seq), 0)
+                       FROM devices d
+                       LEFT JOIN device_cursors dc ON d.id = dc.device_id
+                       WHERE d.user_id = changes.user_id
+                   )
+               )
+               OR
+               (
+                   NOT EXISTS (SELECT 1 FROM devices WHERE user_id = changes.user_id)
+               )
+           )",
+        params![cutoff_time],
+    )?;
+    Ok(affected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::devices::upsert_device;
+    use crate::db::migrations::open_in_memory;
+    use crate::db::users::create_user;
+    use crate::models::device::Device;
+    use crate::models::user::User;
+    use serde_json::json;
+
+    #[test]
+    fn test_record_change_monotonic_seq() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let payload = json!({"title": "test"});
+
+        let seq1 = record_change(
+            &conn, &user.id, "note", "n1", "d1", 1, 1000, false, &payload,
+        )
+        .unwrap();
+        let seq2 = record_change(
+            &conn, &user.id, "note", "n2", "d1", 1, 1001, false, &payload,
+        )
+        .unwrap();
+        let seq3 =
+            record_change(&conn, &user.id, "note", "n1", "d1", 2, 1002, true, &payload).unwrap();
+
+        assert_eq!(seq1, 1);
+        assert_eq!(seq2, 2);
+        assert_eq!(seq3, 3);
+    }
+
+    #[test]
+    fn test_get_changes_after_seq_filtering_and_pagination() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let other_user = User::new("otheruser", "hash");
+        create_user(&conn, &other_user).unwrap();
+
+        let payload = json!({"data": "sample"});
+
+        // 3 changes from dev1 for user
+        record_change(
+            &conn, &user.id, "note", "n1", "dev1", 1, 100, false, &payload,
+        )
+        .unwrap();
+        record_change(
+            &conn, &user.id, "note", "n2", "dev1", 1, 200, false, &payload,
+        )
+        .unwrap();
+        record_change(
+            &conn, &user.id, "note", "n3", "dev1", 1, 300, false, &payload,
+        )
+        .unwrap();
+
+        // 1 change from dev2 for user
+        record_change(
+            &conn, &user.id, "note", "n4", "dev2", 1, 400, false, &payload,
+        )
+        .unwrap();
+
+        // 1 change for other user
+        record_change(
+            &conn,
+            &other_user.id,
+            "note",
+            "n5",
+            "dev1",
+            1,
+            500,
+            false,
+            &payload,
+        )
+        .unwrap();
+
+        // dev2 queries after seq 0: should receive 3 changes from dev1 (excluding dev2)
+        let (records, has_more) = get_changes_after_seq(&conn, &user.id, 0, "dev2", 10).unwrap();
+        assert_eq!(records.len(), 3);
+        assert!(!has_more);
+        assert_eq!(records[0].entity_id, "n1");
+        assert_eq!(records[1].entity_id, "n2");
+        assert_eq!(records[2].entity_id, "n3");
+
+        // dev2 queries with limit = 2 (pagination)
+        let (paged_records, has_more_paged) =
+            get_changes_after_seq(&conn, &user.id, 0, "dev2", 2).unwrap();
+        assert_eq!(paged_records.len(), 2);
+        assert!(has_more_paged);
+        assert_eq!(paged_records[0].seq, 1);
+        assert_eq!(paged_records[1].seq, 2);
+
+        // query remaining page after seq 2
+        let (remaining, has_more_rem) =
+            get_changes_after_seq(&conn, &user.id, 2, "dev2", 2).unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert!(!has_more_rem);
+        assert_eq!(remaining[0].seq, 3);
+    }
+
+    #[test]
+    fn test_device_cursor_tracking_and_min() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let dev1 = Device::new("dev1", "Device 1", "desktop", &user.id);
+        let dev2 = Device::new("dev2", "Device 2", "mobile", &user.id);
+        upsert_device(&conn, &dev1).unwrap();
+        upsert_device(&conn, &dev2).unwrap();
+
+        // Initially no cursors recorded, min should be 0
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 0);
+
+        upsert_device_cursor(&conn, "dev1", 10, 1000).unwrap();
+        assert_eq!(get_device_cursor(&conn, "dev1").unwrap(), Some((10, 1000)));
+
+        // dev2 has no cursor yet, so min across devices is still 0
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 0);
+
+        upsert_device_cursor(&conn, "dev2", 25, 1500).unwrap();
+        // Now dev1=10, dev2=25 -> min is 10
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 10);
+
+        // dev1 catches up to 30 -> min is now 25 (dev2)
+        upsert_device_cursor(&conn, "dev1", 30, 2000).unwrap();
+        assert_eq!(min_device_cursor_for_user(&conn, &user.id).unwrap(), 25);
+    }
+
+    #[test]
+    fn test_purge_tombstones_safely_scenarios() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let dev1 = Device::new("dev1", "Device 1", "desktop", &user.id);
+        let dev2 = Device::new("dev2", "Device 2", "mobile", &user.id);
+        upsert_device(&conn, &dev1).unwrap();
+        upsert_device(&conn, &dev2).unwrap();
+
+        let now = 1_000_000_000;
+        let cutoff = now - (30 * 24 * 60 * 60 * 1000); // 30 days ago
+        let old_time = cutoff - 1000; // 30 days + 1 sec ago
+        let recent_time = cutoff + 1000; // 29 days ago
+
+        // 1. Record changes:
+        // seq 1: Active note (created long ago) -> must NEVER be purged by tombstone GC
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n1",
+            "dev1",
+            1,
+            old_time,
+            false,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 2: Tombstone note (old, seq 2)
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n2",
+            "dev1",
+            2,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 3: Tombstone note (recent, seq 3) -> must NOT be purged because it's too recent
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n3",
+            "dev1",
+            3,
+            recent_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        // seq 4: Tombstone note (old, seq 4)
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "n4",
+            "dev1",
+            4,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+
+        // Simulate historical creation timestamps in the changes table
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n1'",
+            params![old_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n2'",
+            params![old_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n3'",
+            params![recent_time],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n4'",
+            params![old_time],
+        )
+        .unwrap();
+
+        // 2. Both devices at cursor 0 -> min_cursor = 0 -> 0 tombstones purged
+        let purged = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged, 0);
+
+        // 3. dev1 at cursor 4, but dev2 at cursor 2 -> min_cursor = 2
+        upsert_device_cursor(&conn, "dev1", 4, now).unwrap();
+        upsert_device_cursor(&conn, "dev2", 2, now).unwrap();
+
+        // Purge: seq 2 (tombstone, old, seq <= 2) is purged. seq 4 is kept because dev2 hasn't reached it.
+        let purged = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged, 1);
+
+        // Verify seq 1 (active) and seq 4 (unseen tombstone) and seq 3 (recent tombstone) still exist
+        let (remaining, _) = get_changes_after_seq(&conn, &user.id, 0, "other_dev", 10).unwrap();
+        let remaining_seqs: Vec<i64> = remaining.into_iter().map(|r| r.seq).collect();
+        assert_eq!(remaining_seqs, vec![1, 3, 4]);
+
+        // 4. dev2 advances to cursor 4 -> min_cursor = 4
+        upsert_device_cursor(&conn, "dev2", 4, now).unwrap();
+        let purged2 = purge_tombstones_safely(&conn, cutoff).unwrap();
+        assert_eq!(purged2, 1); // seq 4 is purged
+
+        // Remaining is seq 1 (active) and seq 3 (recent tombstone)
+        let (final_remaining, _) =
+            get_changes_after_seq(&conn, &user.id, 0, "other_dev", 10).unwrap();
+        let final_seqs: Vec<i64> = final_remaining.into_iter().map(|r| r.seq).collect();
+        assert_eq!(final_seqs, vec![1, 3]);
+    }
+
+    #[test]
+    fn test_purge_tombstones_safely_purges_aged_tombstones_for_user_without_devices() {
+        let conn = open_in_memory().unwrap();
+        let user = User::new("device-free-user", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let cutoff = 1_000_000;
+        let old_time = cutoff - 1;
+
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "old-tombstone",
+            "retired-device",
+            1,
+            old_time,
+            true,
+            &json!({}),
+        )
+        .unwrap();
+        record_change(
+            &conn,
+            &user.id,
+            "note",
+            "active-change",
+            "retired-device",
+            1,
+            old_time,
+            false,
+            &json!({}),
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE changes SET created_at = ?1 WHERE user_id = ?2",
+            params![old_time, user.id],
+        )
+        .unwrap();
+
+        assert_eq!(purge_tombstones_safely(&conn, cutoff).unwrap(), 1);
+
+        let (changes, _) = get_changes_after_seq(&conn, &user.id, 0, "other-device", 10).unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].entity_id, "active-change");
+        assert!(!changes[0].is_tombstone);
+    }
+}

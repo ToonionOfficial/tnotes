@@ -1,17 +1,21 @@
 use std::sync::Arc;
 use tnotes_core::{
     Connection,
-    db::{notes::delete_trashed_older_than, sessions::cleanup_expired_sessions},
+    db::{
+        changes::purge_tombstones_safely, notes::delete_trashed_older_than,
+        sessions::cleanup_expired_sessions,
+    },
     models::current_time_ms,
 };
 use tokio::sync::Mutex;
 
-pub fn run_housekeeping(conn: &Connection) -> (usize, usize) {
+pub fn run_housekeeping(conn: &Connection) -> (usize, usize, usize) {
     let now = current_time_ms();
     let thirty_days_ago = now - (30 * 24 * 60 * 60 * 1000);
 
     let expired_sessions = cleanup_expired_sessions(conn, now).unwrap_or(0);
     let purged_notes = delete_trashed_older_than(conn, thirty_days_ago).unwrap_or(0);
+    let purged_tombstones = purge_tombstones_safely(conn, thirty_days_ago).unwrap_or(0);
 
     if expired_sessions > 0 {
         tracing::info!(
@@ -25,8 +29,14 @@ pub fn run_housekeeping(conn: &Connection) -> (usize, usize) {
             purged_notes
         );
     }
+    if purged_tombstones > 0 {
+        tracing::info!(
+            "Housekeeping: purged {} tombstone changes past retention and device cursors",
+            purged_tombstones
+        );
+    }
 
-    (expired_sessions, purged_notes)
+    (expired_sessions, purged_notes, purged_tombstones)
 }
 
 pub fn start_housekeeping_task(

@@ -18,6 +18,13 @@ pub async fn sync_handler(
     Extension(auth): Extension<AuthenticatedDevice>,
     Json(envelope): Json<SyncEnvelope>,
 ) -> Result<Json<SyncResponse>, (StatusCode, String)> {
+    if envelope.device_id != auth.device_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Sync envelope device does not match authenticated device".to_string(),
+        ));
+    }
+
     let mut conn = state.db.lock().await;
 
     let response = process_sync_envelope(&mut conn, &envelope, &auth.user_id)

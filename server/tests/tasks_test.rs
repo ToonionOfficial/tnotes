@@ -1,6 +1,8 @@
+use serde_json::json;
 use tnotes_core::{
     auth::token::create_session_for_device,
     db::{
+        changes::{get_changes_after_seq, record_change, upsert_device_cursor},
         devices::upsert_device,
         migrations::open_in_memory,
         notes::{get_note_by_id, insert_note},
@@ -8,6 +10,7 @@ use tnotes_core::{
         users::create_user,
     },
     models::{current_time_ms, device::Device, note::Note, user::User},
+    params,
 };
 use tnotes_server::tasks::run_housekeeping;
 
@@ -44,12 +47,58 @@ async fn test_housekeeping_task() {
     insert_note(&conn, &recent_trashed).unwrap();
     insert_note(&conn, &old_trashed).unwrap();
 
-    // 3. Execute Housekeeping Run
-    let (purged_sessions, purged_notes) = run_housekeeping(&conn);
+    // 3. Setup Changes:
+    // seq 1: 35 days old tombstone
+    // seq 2: 5 days old tombstone
+    let old_change_time = now - (35 * ms_per_day);
+    let recent_change_time = now - (5 * ms_per_day);
+    record_change(
+        &conn,
+        &user.id,
+        "note",
+        "n_old",
+        "device_active",
+        1,
+        old_change_time,
+        true,
+        &json!({}),
+    )
+    .unwrap();
+    record_change(
+        &conn,
+        &user.id,
+        "note",
+        "n_rec",
+        "device_active",
+        2,
+        recent_change_time,
+        true,
+        &json!({}),
+    )
+    .unwrap();
+
+    conn.execute(
+        "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_old'",
+        params![old_change_time],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE changes SET created_at = ?1 WHERE entity_id = 'n_rec'",
+        params![recent_change_time],
+    )
+    .unwrap();
+
+    // Both devices have reached seq 2
+    upsert_device_cursor(&conn, "device_active", 2, now).unwrap();
+    upsert_device_cursor(&conn, "device_expired", 2, now).unwrap();
+
+    // 4. Execute Housekeeping Run
+    let (purged_sessions, purged_notes, purged_tombstones) = run_housekeeping(&conn);
     assert_eq!(purged_sessions, 1);
     assert_eq!(purged_notes, 1);
+    assert_eq!(purged_tombstones, 1); // seq 1 was purged, seq 2 kept (only 5 days old)
 
-    // 4. Verify outcomes
+    // 5. Verify outcomes
     // Expired session should be gone
     assert!(
         get_session(&conn, &expired_session.token)
@@ -63,4 +112,9 @@ async fn test_housekeeping_task() {
     assert!(get_note_by_id(&conn, &old_trashed.id).unwrap().is_none());
     // 5-day-old trashed note should still exist in trash
     assert!(get_note_by_id(&conn, &recent_trashed.id).unwrap().is_some());
+
+    // seq 1 change should be gone, seq 2 change should still exist
+    let (changes, _) = get_changes_after_seq(&conn, &user.id, 0, "other", 10).unwrap();
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].seq, 2);
 }
