@@ -48,6 +48,7 @@ async fn test_sync_api_flow() {
     // 1. Unauthenticated request -> 401 Unauthorized
     let envelope = SyncEnvelope {
         device_id: "device_desktop".into(),
+        last_seq: 0,
         last_sync_at: 0,
         changes: vec![],
     };
@@ -77,6 +78,7 @@ async fn test_sync_api_flow() {
 
     let push_envelope = SyncEnvelope {
         device_id: "device_desktop".into(),
+        last_seq: 0,
         last_sync_at: 0,
         changes: vec![Change {
             entity_type: EntityType::Note,
@@ -118,6 +120,7 @@ async fn test_sync_api_flow() {
     // 4. Client 2 syncs with last_sync_at = 0 -> receives Client 1's note
     let pull_envelope = SyncEnvelope {
         device_id: "device_mobile".into(),
+        last_seq: 0,
         last_sync_at: 0,
         changes: vec![],
     };

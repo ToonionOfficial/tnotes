@@ -87,6 +87,7 @@ async fn test_websocket_realtime_broadcast() {
     );
     let envelope = SyncEnvelope {
         device_id: "device_a".into(),
+        last_seq: 0,
         last_sync_at: 0,
         changes: vec![Change {
             entity_type: EntityType::Note,

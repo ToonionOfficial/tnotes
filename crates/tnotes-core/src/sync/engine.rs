@@ -140,6 +140,8 @@ pub fn process_sync_envelope(
     // 3. Return response with current server timestamp
     Ok(SyncResponse {
         server_time: current_time_ms(),
+        cursor: 0,
+        has_more: false,
         changes: outgoing_changes,
     })
 }
@@ -228,6 +230,7 @@ mod tests {
         let note_client = Note::new("Client Note", "From dev_b", None, "dev_b", &user.id);
         let envelope = SyncEnvelope {
             device_id: "dev_b".to_string(),
+            last_seq: 0,
             last_sync_at: 0,
             changes: vec![Change {
                 entity_type: EntityType::Note,
