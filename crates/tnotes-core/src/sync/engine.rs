@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::{
     changes::{get_changes_after_seq, get_device_cursor, record_change, upsert_device_cursor},
+    devices::get_device_by_id,
     folders::{get_folder_by_id, upsert_folder},
     notes::{get_note_by_id, upsert_note},
 };
@@ -91,7 +92,7 @@ pub fn apply_single_change(
                 upsert_note(conn, &remote_note)?;
                 let version = remote_note.version;
                 let updated_at = remote_note.updated_at;
-                let is_tombstone = remote_note.trashed;
+                let is_tombstone = remote_note.trashed || remote_note.deleted_at.is_some();
                 let entity_id = remote_note.id.clone();
                 let payload = serde_json::to_value(&remote_note).map_err(Error::Json)?;
 
@@ -205,6 +206,14 @@ pub fn process_sync_envelope(
     envelope: &SyncEnvelope,
     user_id: &str,
 ) -> Result<SyncResponse> {
+    let device = get_device_by_id(conn, &envelope.device_id)?
+        .ok_or_else(|| Error::Auth("Unknown sync device".to_string()))?;
+    if device.user_id != user_id {
+        return Err(Error::Auth(
+            "Sync device does not belong to the authenticated user".to_string(),
+        ));
+    }
+
     let tx = conn.transaction()?;
     let server_time = current_time_ms();
 
@@ -467,6 +476,80 @@ mod tests {
             get_device_cursor(&conn, &receiver.id).unwrap(),
             Some((1, response.server_time))
         );
+    }
+
+    #[test]
+    fn test_sync_rejects_envelope_for_another_users_device() {
+        let mut conn = open_in_memory().unwrap();
+        let user_a = User::new("user-a", "hash");
+        let user_b = User::new("user-b", "hash");
+        create_user(&conn, &user_a).unwrap();
+        create_user(&conn, &user_b).unwrap();
+
+        let device_b = Device::new("device-b", "Device B", "desktop", &user_b.id);
+        upsert_device(&conn, &device_b).unwrap();
+
+        let result = process_sync_envelope(
+            &mut conn,
+            &SyncEnvelope {
+                device_id: device_b.id.clone(),
+                last_seq: 0,
+                last_sync_at: 0,
+                changes: vec![],
+            },
+            &user_a.id,
+        );
+
+        assert!(matches!(result, Err(Error::Auth(_))));
+        assert!(get_device_cursor(&conn, &device_b.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_note_deleted_at_is_logged_as_a_tombstone() {
+        let mut conn = open_in_memory().unwrap();
+        let user = User::new("testuser", "hash");
+        create_user(&conn, &user).unwrap();
+
+        let sender = Device::new("sender", "Sender", "desktop", &user.id);
+        let receiver = Device::new("receiver", "Receiver", "mobile", &user.id);
+        upsert_device(&conn, &sender).unwrap();
+        upsert_device(&conn, &receiver).unwrap();
+
+        let mut note = Note::new("Deleted", "Body", None, &sender.id, &user.id);
+        note.deleted_at = Some(note.updated_at);
+        let response = process_sync_envelope(
+            &mut conn,
+            &SyncEnvelope {
+                device_id: sender.id.clone(),
+                last_seq: 0,
+                last_sync_at: 0,
+                changes: vec![Change {
+                    entity_type: EntityType::Note,
+                    entity_id: note.id.clone(),
+                    version: note.version,
+                    updated_at: note.updated_at,
+                    tombstone: false,
+                    payload: serde_json::to_value(&note).unwrap(),
+                }],
+            },
+            &user.id,
+        )
+        .unwrap();
+        assert!(response.changes.is_empty());
+
+        let receiver_response = process_sync_envelope(
+            &mut conn,
+            &SyncEnvelope {
+                device_id: receiver.id,
+                last_seq: 0,
+                last_sync_at: 0,
+                changes: vec![],
+            },
+            &user.id,
+        )
+        .unwrap();
+        assert_eq!(receiver_response.changes.len(), 1);
+        assert!(receiver_response.changes[0].tombstone);
     }
 
     #[test]

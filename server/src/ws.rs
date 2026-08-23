@@ -31,6 +31,11 @@ pub enum WsServerMessage {
         sender_device_id: String,
         count: usize,
     },
+    #[serde(rename = "sync_required")]
+    SyncRequired {
+        reason: String,
+        skipped: u64,
+    },
     #[serde(rename = "pong")]
     Pong,
 }
@@ -151,6 +156,16 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                         tracing::warn!("WebSocket receiver for device {} lagged by {} messages", device_id, skipped);
+                        let notification = WsServerMessage::SyncRequired {
+                            reason: "buffer_lagged".to_string(),
+                            skipped,
+                        };
+                        if let Ok(json) = serde_json::to_string(&notification) {
+                            let send_err = sender.send(Message::Text(json.into())).await.is_err();
+                            if send_err {
+                                break;
+                            }
+                        }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                         break;

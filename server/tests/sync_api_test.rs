@@ -66,7 +66,31 @@ async fn test_sync_api_flow() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
-    // 2. Client 1 pushes a new note
+    // 2. A valid session cannot impersonate another device owned by the same user.
+    let mismatched_device_envelope = SyncEnvelope {
+        device_id: "device_mobile".into(),
+        last_seq: 0,
+        last_sync_at: 0,
+        changes: vec![],
+    };
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/sync")
+                .header("authorization", format!("Bearer {}", session1.token))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&mismatched_device_envelope).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::FORBIDDEN);
+
+    // 3. Client 1 pushes a new note
     let note1 = Note::new(
         "Rust Concurrency",
         "Fearless concurrency with Tokio",
@@ -110,7 +134,7 @@ async fn test_sync_api_flow() {
     assert_eq!(sync_res.cursor, 0);
     assert!(!sync_res.has_more);
 
-    // 3. Verify note is persisted in DB
+    // 4. Verify note is persisted in DB
     {
         let db = state.db.lock().await;
         let saved_note = get_note_by_id(&db, &note1.id).unwrap().unwrap();
@@ -119,7 +143,7 @@ async fn test_sync_api_flow() {
         assert_eq!(saved_note.user_id, user.id);
     }
 
-    // 4. Client 2 syncs with last_seq = 0 -> receives Client 1's note (seq 1)
+    // 5. Client 2 syncs with last_seq = 0 -> receives Client 1's note (seq 1)
     let pull_envelope = SyncEnvelope {
         device_id: "device_mobile".into(),
         last_seq: 0,
@@ -150,7 +174,7 @@ async fn test_sync_api_flow() {
     assert_eq!(sync_res.cursor, 1);
     assert!(!sync_res.has_more);
 
-    // 5. Client 2 syncs again with last_seq = 1 -> receives 0 changes
+    // 6. Client 2 syncs again with last_seq = 1 -> receives 0 changes
     let pull_envelope_2 = SyncEnvelope {
         device_id: "device_mobile".into(),
         last_seq: 1,
