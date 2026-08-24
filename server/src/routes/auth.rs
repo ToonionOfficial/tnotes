@@ -37,7 +37,7 @@ pub fn build_session_cookie(token: &str, expires_at: i64) -> Cookie<'static> {
     Cookie::build((SESSION_COOKIE_NAME, token.to_string()))
         .path("/")
         .http_only(true)
-        .same_site(SameSite::Lax)
+        .same_site(SameSite::Strict)
         .max_age(Duration::seconds(max_age_secs))
         .build()
 }

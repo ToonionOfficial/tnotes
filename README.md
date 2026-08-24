@@ -1,19 +1,85 @@
-# TNotes
-
 <p align="center">
-  <img src="web/public/logo.png" alt="TNotes logo" width="128" />
+  <img src="web/public/logo-transparent.png" alt="TNotes logo" width="112" />
 </p>
 
-A personal, self-hosted, markdown note-taking app with multi-device sync.
+<h1 align="center">TNotes</h1>
 
-- **Web & Server** — Embedded React/TanStack SPA inside a tiny single Rust (Axum) binary with SQLite
-- **Mobile** — React Native (Expo) with offline-first local SQLite and QR code pairing
-- **Desktop** — Native GPU-accelerated app built with GPUI
+<p align="center">A personal, self-hosted Markdown notebook with multi-device sync.</p>
 
-## Status
+> TNotes is in early development. Expect unfinished features, changing APIs, and rough edges.
 
-Early development.
+## What is here
+
+- **Web** — React, TanStack Router, and Tailwind CSS, served by the Rust server.
+- **Server** — Axum and SQLite, with authentication, device pairing, HTTP sync, and WebSocket notifications.
+- **Mobile** — Expo/React Native with local SQLite storage and QR-code pairing foundations.
+- **Desktop** — A GPUI-based Rust client in active development.
+
+## Quick start
+
+### Web and server
+
+Build the web frontend first, then start the server from the repository root:
+
+```bash
+cd web
+pnpm install
+pnpm run build
+cd ..
+cargo run -p tnotes-server
+```
+
+Open [http://localhost:8787](http://localhost:8787). The first visit walks through server setup.
+
+For a containerized server, use:
+
+```bash
+docker compose up --build
+```
+
+The server stores its SQLite data in `./data` locally or in the `tnotes-data` Docker volume. Configuration can be adjusted with `TNOTES_HOST`, `TNOTES_PORT`, `TNOTES_DATA_DIR`, and `TNOTES_SERVER_URL`.
+
+### Mobile
+
+```bash
+cd mobile
+pnpm install
+pnpm start
+```
+
+Use the Expo CLI to open the app on a simulator or device. The mobile client is not yet distributed as a finished release.
+
+## Development commands
+
+```bash
+cargo test --workspace
+cd web && pnpm run typecheck && pnpm run lint
+```
+
+The release build script builds the frontend and server together:
+
+```bash
+./scripts/build.sh
+```
+
+## Project layout
+
+```text
+crates/tnotes-core/  Shared models, database, auth, and sync logic
+server/              Axum API, WebSocket sync, and embedded web app
+web/                 Browser client
+mobile/              Expo client
+desktop/             GPUI desktop client
+docs/                Design and deployment notes
+```
+
+## Documentation
+
+- [Web app development](web/README.md)
+- [Self-hosting](docs/SELF_HOSTING.md)
+- [Sync protocol](docs/SYNC_PROTOCOL.md)
+- [Theming](docs/THEMING.md)
 
 ## License
 
-MIT
+TNotes is available under the [MIT License](LICENSE).
