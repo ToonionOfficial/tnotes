@@ -1,1 +1,0 @@
-// Hook for theme context.
