@@ -1,9 +1,15 @@
-import { Text, View } from "react-native"
+import { useLocalSearchParams } from "expo-router"
+import { NoteEditor } from "@/components/editor/NoteEditor"
 
 export default function NoteScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const isNew = id === "new"
+
   return (
-    <View>
-      <Text>Note</Text>
-    </View>
+    <NoteEditor
+      placeholder={isNew ? "Title..." : "Start writing..."}
+      autofocus={isNew}
+      headerTitle="Notes"
+    />
   )
 }

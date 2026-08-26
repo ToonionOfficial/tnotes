@@ -20,6 +20,7 @@
     "@10play/tentap-editor": "^1.0.1",
     "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~57.0.13",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "expo": "~57.0.16",
     "expo-camera": "~57.0.4",
     "expo-constants": "~57.0.14",
