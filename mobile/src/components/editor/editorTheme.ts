@@ -47,13 +47,11 @@ export const noteEditorCss = `
     color: ${EDITOR_FOREGROUND} !important;
   }
 
-  /* Placeholder */
+  /* Placeholder suppressed */
+  .is-editor-empty:first-child::before,
   .ProseMirror p.is-editor-empty:first-child::before {
-    color: ${EDITOR_MUTED} !important;
-    content: attr(data-placeholder);
-    float: left;
-    height: 0;
-    pointer-events: none;
+    display: none !important;
+    content: none !important;
   }
 
   /* Headings */

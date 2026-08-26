@@ -1,9 +1,8 @@
-import { PlaceholderBridge, TenTapStartKit, useEditorBridge } from "@10play/tentap-editor"
+import { TenTapStartKit, useEditorBridge } from "@10play/tentap-editor"
 import { noteEditorTheme, ThemeBridge } from "./editorTheme"
 
 export interface UseNoteEditorOptions {
   initialContent?: string
-  placeholder?: string
   autofocus?: boolean
   editable?: boolean
   onChange?: () => void
@@ -11,17 +10,14 @@ export interface UseNoteEditorOptions {
 
 export function useNoteEditor({
   initialContent,
-  placeholder = "Start writing...",
   autofocus = true,
   editable = true,
   onChange,
 }: UseNoteEditorOptions = {}) {
+  const extensions = TenTapStartKit.filter((ext) => ext.name !== "placeholder")
+
   const editor = useEditorBridge({
-    bridgeExtensions: [
-      ...TenTapStartKit,
-      PlaceholderBridge.configureExtension({ placeholder }),
-      ThemeBridge,
-    ],
+    bridgeExtensions: [...extensions, ThemeBridge],
     initialContent,
     autofocus,
     avoidIosKeyboard: true,

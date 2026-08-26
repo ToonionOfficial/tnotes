@@ -8,7 +8,6 @@ import { useNoteEditor } from "./useNoteEditorBridge"
 
 interface NoteEditorProps {
   initialContent?: string
-  placeholder?: string
   autofocus?: boolean
   headerTitle?: string
   onBack?: () => void
@@ -17,7 +16,6 @@ interface NoteEditorProps {
 
 export function NoteEditor({
   initialContent,
-  placeholder = "Start writing...",
   autofocus = true,
   headerTitle = "Notes",
   onBack,
@@ -27,7 +25,6 @@ export function NoteEditor({
 
   const editor = useNoteEditor({
     initialContent,
-    placeholder,
     autofocus,
     onChange,
   })
@@ -47,13 +44,10 @@ export function NoteEditor({
   return (
     <View className="flex-1 bg-background">
       <EditorHeader editor={editor} title={headerTitle} onBack={onBack} />
-
       <View className="flex-1">
         <RichText editor={editor} />
       </View>
-
       <EditorToolbar editor={editor} onOpenFormat={() => setIsFormatOpen(true)} />
-
       <FormatSheet editor={editor} isOpen={isFormatOpen} onClose={() => setIsFormatOpen(false)} />
     </View>
   )

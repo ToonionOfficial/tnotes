@@ -5,11 +5,5 @@ export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const isNew = id === "new"
 
-  return (
-    <NoteEditor
-      placeholder={isNew ? "Title..." : "Start writing..."}
-      autofocus={isNew}
-      headerTitle="Notes"
-    />
-  )
+  return <NoteEditor autofocus={isNew} headerTitle="Notes" />
 }

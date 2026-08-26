@@ -51,7 +51,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
       }}
       className="z-10 flex-row items-center justify-between px-4 py-2"
     >
-      {/* Left: Circular Back Button */}
       <Pressable
         onPress={handleBack}
         hitSlop={8}
@@ -64,11 +63,8 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
         )}
       </Pressable>
 
-      {/* Right Controls: Center Action Island + Circular Done Button */}
       <View className="flex-row items-center gap-3">
-        {/* Island Capsule: Undo, Share, More */}
         <View className="h-10 flex-row items-center rounded-full bg-white/10 px-1.5">
-          {/* Undo */}
           <Pressable
             onPress={() => editor.undo()}
             disabled={!editorState.canUndo}
@@ -89,7 +85,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             )}
           </Pressable>
 
-          {/* Share */}
           <Pressable
             onPress={onShare}
             hitSlop={6}
@@ -107,7 +102,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             )}
           </Pressable>
 
-          {/* More */}
           <Pressable
             onPress={onMore}
             hitSlop={6}
@@ -121,7 +115,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
           </Pressable>
         </View>
 
-        {/* Circular Done Button */}
         <Pressable
           onPress={handleDone}
           hitSlop={8}
