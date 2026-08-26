@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/.expo", "!!**/dist"]
+    "includes": ["**", "!!**/.expo", "!!**/dist", "!!**/uniwind-types.d.ts"]
   },
   "formatter": {
     "enabled": true,
@@ -18,6 +18,12 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
+      "correctness": {
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
+      },
       "security": {
         "noDangerouslySetInnerHtml": "off"
       }

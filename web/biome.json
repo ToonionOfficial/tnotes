@@ -18,6 +18,12 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
+      "correctness": {
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
+      },
       "security": {
         "noDangerouslySetInnerHtml": "off"
       }

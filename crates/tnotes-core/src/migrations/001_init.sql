@@ -1,4 +1,4 @@
--- Notat schema v1
+-- TNotes schema v1
 
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
