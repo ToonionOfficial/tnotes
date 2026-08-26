@@ -9,12 +9,10 @@ import {
 import { GlassView } from "expo-glass-effect"
 import { useRouter } from "expo-router"
 import { SymbolView } from "expo-symbols"
-import { useRef } from "react"
-import { Platform, Pressable, TextInput, View } from "react-native"
-import Animated, {
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-} from "react-native-reanimated"
+import { useEffect, useRef, useState } from "react"
+import { Keyboard, Platform, Pressable, TextInput, View } from "react-native"
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
+import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface BottomBarProps {
@@ -28,26 +26,41 @@ const NEW_NOTE_ICON = Icon.select({
   android: import("@expo/material-symbols/edit_note.xml"),
 })
 
-export function BottomBar({
-  onPressNewNote,
-  searchValue,
-  onSearchChange,
-}: BottomBarProps) {
+const CLOSE_ICON = Icon.select({
+  ios: "xmark",
+  android: import("@expo/material-symbols/close.xml"),
+})
+
+export function BottomBar({ onPressNewNote, searchValue, onSearchChange }: BottomBarProps) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const inputRef = useRef<TextInput>(null)
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
 
-  const keyboard = useAnimatedKeyboard({
-    isStatusBarTranslucentAndroid: true,
-  })
+  const { height, progress } = useReanimatedKeyboardAnimation()
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true),
+    )
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false),
+    )
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   const animatedContainerStyle = useAnimatedStyle(() => {
-    const keyboardHeight = keyboard.height.value
     const safeBottom = Math.max(insets.bottom - 8, 0)
-    const offset = Math.max(0, keyboardHeight - safeBottom)
+    const offset = interpolate(progress.value, [0, 1], [0, safeBottom])
+    const translateY = Math.min(0, height.value + offset)
 
     return {
-      transform: [{ translateY: -offset }],
+      transform: [{ translateY }],
     }
   })
 
@@ -56,6 +69,15 @@ export function BottomBar({
       onPressNewNote()
     } else {
       router.push("/notes/new")
+    }
+  }
+
+  const handleRightButtonPress = () => {
+    if (isKeyboardVisible) {
+      inputRef.current?.blur()
+      Keyboard.dismiss()
+    } else {
+      handleNewNote()
     }
   }
 
@@ -104,12 +126,7 @@ export function BottomBar({
               hitSlop={8}
               className="items-center justify-center"
             >
-              <SymbolView
-                name="magnifyingglass"
-                size={18}
-                tintColor="#C6C2CD"
-                type="monochrome"
-              />
+              <SymbolView name="magnifyingglass" size={18} tintColor="#C6C2CD" type="monochrome" />
             </Pressable>
 
             <TextInput
@@ -132,38 +149,40 @@ export function BottomBar({
                 hitSlop={10}
                 className="size-6 items-center justify-center rounded-full bg-white/15 active:opacity-60"
               >
-                <SymbolView
-                  name="xmark"
-                  size={11}
-                  tintColor="#E6E1E9"
-                  type="monochrome"
-                />
+                <SymbolView name="xmark" size={11} tintColor="#E6E1E9" type="monochrome" />
               </Pressable>
             )}
           </View>
         </GlassView>
 
-        {/* New note */}
+        {/* New note / Dismiss button */}
         <Host matchContents ignoreSafeArea="all">
           <Button
             variant="filled"
-            onPress={handleNewNote}
+            onPress={handleRightButtonPress}
             modifiers={
               Platform.OS === "ios"
-                ? [
-                    buttonStyle("glassProminent"),
-                    controlSize("large"),
-                    buttonBorderShape("circle"),
-                    tint("#CABEFF"),
-                    foregroundStyle("#32285F"),
-                  ]
+                ? isKeyboardVisible
+                  ? [
+                      buttonStyle("glass"),
+                      controlSize("large"),
+                      buttonBorderShape("circle"),
+                      foregroundStyle("#E6E1E9"),
+                    ]
+                  : [
+                      buttonStyle("glassProminent"),
+                      controlSize("large"),
+                      buttonBorderShape("circle"),
+                      tint("#CABEFF"),
+                      foregroundStyle("#32285F"),
+                    ]
                 : undefined
             }
           >
             <Icon
-              name={NEW_NOTE_ICON}
-              size={22}
-              color="#32285F"
+              name={isKeyboardVisible ? CLOSE_ICON : NEW_NOTE_ICON}
+              size={isKeyboardVisible ? 18 : 22}
+              color={isKeyboardVisible ? "#E6E1E9" : "#32285F"}
             />
           </Button>
         </Host>

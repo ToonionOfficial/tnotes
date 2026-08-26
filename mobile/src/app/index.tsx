@@ -8,7 +8,7 @@ export default function Index() {
         <Text className="text-foreground">Notes list</Text>
       </View>
 
-      <BottomBar onSearchChange={() => {}} searchValue=""/>
+      <BottomBar onSearchChange={() => {}} searchValue="" />
     </View>
   )
 }
