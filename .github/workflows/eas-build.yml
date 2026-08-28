@@ -111,7 +111,10 @@ jobs:
           retention-days: 14
 
       - name: Upload to Firebase App Distribution
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != '' }}
+        if: ${{ env.FIREBASE_SERVICE_ACCOUNT != '' && env.FIREBASE_ANDROID_APP_ID != '' }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
@@ -196,7 +199,10 @@ jobs:
           retention-days: 14
 
       - name: Upload to Firebase App Distribution
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_IOS_APP_ID != '' }}
+        if: ${{ env.FIREBASE_SERVICE_ACCOUNT != '' && env.FIREBASE_IOS_APP_ID != '' }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID }}
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
