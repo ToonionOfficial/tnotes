@@ -26,23 +26,40 @@ if [[ ! "$PROFILE" =~ ^(development|preview|production)$ ]]; then
   exit 1
 fi
 
-# Resolve repo from git remote
+# Resolve repo from git remote and current branch
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+BRANCH=$(git branch --show-current)
+
+# Check if current branch is pushed to remote
+if ! git rev-parse --verify "origin/${BRANCH}" >/dev/null 2>&1; then
+  echo "⚠️  Branch '${BRANCH}' does not exist on remote yet."
+  echo "   Pushing branch to GitHub so GitHub Actions can build it..."
+  git push -u origin "${BRANCH}"
+  echo ""
+elif git log "origin/${BRANCH}..${BRANCH}" 2>/dev/null | grep -q 'commit'; then
+  echo "⚠️  You have unpushed commits on branch '${BRANCH}'."
+  echo "   Pushing your commits so GitHub Actions has the latest code..."
+  git push origin "${BRANCH}"
+  echo ""
+fi
 
 echo "🚀 Triggering ${PLATFORM} ${PROFILE} build..."
-echo "   Repo: ${REPO}"
+echo "   Repo:   ${REPO}"
+echo "   Branch: ${BRANCH}"
 echo ""
 
 gh workflow run "${WORKFLOW}" \
+  --ref "${BRANCH}" \
   -f platform="${PLATFORM}" \
   -f profile="${PROFILE}"
 
 echo "⏳ Waiting for run to start..."
 sleep 5
 
-# Get the latest run ID for this workflow
+# Get the latest run ID for this workflow and branch
 RUN_ID=$(gh run list \
   --workflow "${WORKFLOW}" \
+  --branch "${BRANCH}" \
   --limit 1 \
   --json databaseId \
   --jq '.[0].databaseId')

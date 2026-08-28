@@ -39,7 +39,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for device pairing."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,5 +1,5 @@
 import { RichText } from "@10play/tentap-editor"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Keyboard, Platform, View } from "react-native"
 import { EditorHeader } from "./EditorHeader"
 import { EditorToolbar } from "./EditorToolbar"
@@ -11,7 +11,8 @@ interface NoteEditorProps {
   autofocus?: boolean
   headerTitle?: string
   onBack?: () => void
-  onChange?: () => void
+  onDone?: () => void
+  onSave?: (html: string, text: string) => void
 }
 
 export function NoteEditor({
@@ -19,14 +20,44 @@ export function NoteEditor({
   autofocus = true,
   headerTitle = "Notes",
   onBack,
-  onChange,
+  onDone,
+  onSave,
 }: NoteEditorProps) {
   const [isFormatOpen, setIsFormatOpen] = useState(false)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleFlushSave = async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    if (onSave) {
+      try {
+        const html = await editor.getHTML()
+        const text = await editor.getText()
+        onSave(html, text)
+      } catch {}
+    }
+  }
+
+  const handleChange = () => {
+    if (!onSave) return
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const html = await editor.getHTML()
+        const text = await editor.getText()
+        onSave(html, text)
+      } catch {}
+    }, 400)
+  }
 
   const editor = useNoteEditor({
     initialContent,
     autofocus,
-    onChange,
+    onChange: handleChange,
   })
 
   useEffect(() => {
@@ -38,12 +69,27 @@ export function NoteEditor({
         }
       },
     )
-    return () => showSub.remove()
+    return () => {
+      showSub.remove()
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
   }, [isFormatOpen])
+
+  const handleBack = async () => {
+    await handleFlushSave()
+    onBack?.()
+  }
+
+  const handleDone = async () => {
+    await handleFlushSave()
+    onDone?.()
+  }
 
   return (
     <View className="flex-1 bg-background">
-      <EditorHeader editor={editor} title={headerTitle} onBack={onBack} />
+      <EditorHeader editor={editor} title={headerTitle} onBack={handleBack} onDone={handleDone} />
       <View className="flex-1">
         <RichText editor={editor} />
       </View>
