@@ -110,8 +110,18 @@ jobs:
           path: mobile/build-output/tnotes.apk
           retention-days: 14
 
+      - name: Upload to Firebase App Distribution
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_ANDROID_APP_ID != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
+          file: mobile/build-output/tnotes.apk
+          releaseNotes: "Android (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"
+
   build-ios:
-    if: ${{ inputs.platform == 'ios' || inputs.platform == 'both' }}
+    if: ${{ inputs.platform == 'ios' || inputs.platform == 'all' }}
     name: 🍎 iOS Build (${{ inputs.profile }})
     runs-on: macos-latest
     timeout-minutes: 90
@@ -184,3 +194,13 @@ jobs:
           name: ios-${{ inputs.profile }}-build
           path: mobile/build-output/tnotes.ipa
           retention-days: 14
+
+      - name: Upload to Firebase App Distribution
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_IOS_APP_ID != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
+          file: mobile/build-output/tnotes.ipa
+          releaseNotes: "iOS (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"

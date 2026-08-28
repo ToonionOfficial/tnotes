@@ -55,8 +55,8 @@ read -rp "Watch the build live? [Y/n] " REPLY
 if [[ ! "${REPLY:-Y}" =~ ^[Nn]$ ]]; then
   gh run watch "${RUN_ID}" --exit-status && {
     echo ""
-    echo "✅ Build succeeded! Deploy it from your server:"
-    echo "   ./scripts/deploy-mobile.sh ${PLATFORM} ${PROFILE}"
+    echo "✅ Build succeeded and uploaded to Firebase App Distribution!"
+    echo "   Check your email or Firebase App Distribution for the install link."
   } || {
     echo ""
     echo "❌ Build failed. Check the logs:"
