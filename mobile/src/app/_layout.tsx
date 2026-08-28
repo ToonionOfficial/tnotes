@@ -54,7 +54,7 @@ export default function RootLayout() {
             <Stack
               screenOptions={{
                 headerStyle: { backgroundColor: "#141318" },
-                headerTintColor: "#CABEFF",
+                headerTintColor: "#ffffff",
                 headerTitleStyle: { color: "#FFFFFF", fontWeight: "bold" },
                 headerLargeTitleStyle: { color: "#FFFFFF", fontWeight: "bold" },
                 headerShadowVisible: false,
@@ -74,7 +74,7 @@ export default function RootLayout() {
                 options={{
                   headerLargeTitle: true,
                   headerShown: true,
-                  headerBackTitle: "Folders",
+                  headerBackButtonDisplayMode: "minimal",
                 }}
               />
               <Stack.Screen
