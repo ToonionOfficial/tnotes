@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Trigger EAS local builds on GitHub Actions and optionally watch + download artifacts.
+# Trigger EAS local builds on GitHub Actions and optionally watch progress.
 # Requires: gh (GitHub CLI) — https://cli.github.com
 #
 # Usage:
@@ -55,10 +55,8 @@ read -rp "Watch the build live? [Y/n] " REPLY
 if [[ ! "${REPLY:-Y}" =~ ^[Nn]$ ]]; then
   gh run watch "${RUN_ID}" --exit-status && {
     echo ""
-    echo "📦 Downloading build artifacts..."
-    mkdir -p ./build-output
-    gh run download "${RUN_ID}" --dir ./build-output
-    echo "✅ Artifacts saved to ./build-output/"
+    echo "✅ Build succeeded! Deploy it from your server:"
+    echo "   ./scripts/deploy-mobile.sh ${PLATFORM} ${PROFILE}"
   } || {
     echo ""
     echo "❌ Build failed. Check the logs:"
