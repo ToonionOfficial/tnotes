@@ -1,66 +1,66 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from "react-native";
-import { BottomBar } from "@/components/BottomBar";
-import { NoteListItem } from "@/components/NoteListItem";
-import NoteSectionHeader from "@/components/NoteSectionHeader";
-import type { SearchResult } from "@/db/queries";
-import type { Note } from "@/db/schema";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { useFolder } from "@/hooks/useFolders";
-import { useNotes } from "@/hooks/useNotes";
-import { groupNotesByDate } from "@/utils/date";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { ChevronLeft } from "lucide-react-native"
+import { useCallback, useMemo, useState } from "react"
+import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from "react-native"
+import { BottomBar } from "@/components/BottomBar"
+import { NoteListItem } from "@/components/NoteListItem"
+import NoteSectionHeader from "@/components/NoteSectionHeader"
+import type { SearchResult } from "@/db/queries"
+import type { Note } from "@/db/schema"
+import { useDebouncedValue } from "@/hooks/useDebouncedValue"
+import { useFolder } from "@/hooks/useFolders"
+import { useNotes } from "@/hooks/useNotes"
+import { groupNotesByDate } from "@/utils/date"
 
 type FlatNoteItem =
   | { type: "header"; id: string; title: string }
   | {
-      type: "note";
-      id: string;
-      item: Note | SearchResult;
-      isFirst: boolean;
-      isLast: boolean;
-    };
+      type: "note"
+      id: string
+      item: Note | SearchResult
+      isFirst: boolean
+      isLast: boolean
+    }
 
 export default function FolderNotesScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter()
+  const { id } = useLocalSearchParams<{ id: string }>()
 
-  const isAll = id === "all" || !id;
-  const isTrash = id === "trash";
-  const folderId = isAll || isTrash ? undefined : id;
+  const isAll = id === "all" || !id
+  const isTrash = id === "trash"
+  const folderId = isAll || isTrash ? undefined : id
 
-  const { data: folder } = useFolder(folderId ?? null);
+  const { data: folder } = useFolder(folderId ?? null)
 
   const title = useMemo(() => {
-    if (isAll) return "All Notes";
-    if (isTrash) return "Trash";
-    return folder?.name || "Notes";
-  }, [isAll, isTrash, folder?.name]);
+    if (isAll) return "All Notes"
+    if (isTrash) return "Trash"
+    return folder?.name || "Notes"
+  }, [isAll, isTrash, folder?.name])
 
-  const [searchValue, setSearchValue] = useState("");
-  const debouncedSearch = useDebouncedValue(searchValue, 150);
+  const [searchValue, setSearchValue] = useState("")
+  const debouncedSearch = useDebouncedValue(searchValue, 150)
 
   const { data: notesList, isLoading } = useNotes({
     search: debouncedSearch,
     folderId: isAll ? undefined : (folderId ?? null),
     trashed: Boolean(isTrash),
-  });
+  })
 
   const listData = useMemo<FlatNoteItem[]>(() => {
-    if (!notesList || notesList.length === 0) return [];
+    if (!notesList || notesList.length === 0) return []
 
-    const sections = groupNotesByDate(notesList);
-    const items: FlatNoteItem[] = [];
+    const sections = groupNotesByDate(notesList)
+    const items: FlatNoteItem[] = []
 
     for (const section of sections) {
       items.push({
         type: "header",
         id: `header-${section.title}`,
         title: section.title,
-      });
+      })
 
-      const len = section.data.length;
+      const len = section.data.length
       section.data.forEach((note, index) => {
         items.push({
           type: "note",
@@ -68,37 +68,37 @@ export default function FolderNotesScreen() {
           item: note,
           isFirst: index === 0,
           isLast: index === len - 1,
-        });
-      });
+        })
+      })
     }
 
-    return items;
-  }, [notesList]);
+    return items
+  }, [notesList])
 
-  const noteCount = notesList?.length ?? 0;
+  const noteCount = notesList?.length ?? 0
 
   const handlePressNote = useCallback(
     (noteId: string) => {
-      router.push(`/notes/${noteId}` as const);
+      router.push(`/notes/${noteId}` as const)
     },
     [router],
-  );
+  )
 
   const handlePressNewNote = () => {
     if (isTrash || !folderId) {
-      router.push("/notes/new" as const);
+      router.push("/notes/new" as const)
     } else {
       router.push({
         pathname: "/notes/[id]",
         params: { id: "new", folderId },
-      });
+      })
     }
-  };
+  }
 
   const renderItem = useCallback(
     ({ item }: { item: FlatNoteItem }) => {
       if (item.type === "header") {
-        return <NoteSectionHeader title={item.title} />;
+        return <NoteSectionHeader title={item.title} />
       }
 
       return (
@@ -108,12 +108,12 @@ export default function FolderNotesScreen() {
           isLast={item.isLast}
           onPress={handlePressNote}
         />
-      );
+      )
     },
     [handlePressNote],
-  );
+  )
 
-  const keyExtractor = useCallback((item: FlatNoteItem) => item.id, []);
+  const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
 
   return (
     <View className="flex-1 bg-background">
@@ -199,5 +199,5 @@ export default function FolderNotesScreen() {
         onPressNewNote={handlePressNewNote}
       />
     </View>
-  );
+  )
 }
