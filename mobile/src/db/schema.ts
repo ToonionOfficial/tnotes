@@ -18,7 +18,7 @@ export const folders = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     parentId: text("parent_id"),
     name: text("name").notNull(),
-    icon: text("icon").notNull().default("📁"),
+    icon: text("icon").notNull().default("folder"),
     sortOrder: integer("sort_order").notNull().default(0),
     version: integer("version").notNull().default(1),
     updatedAt: integer("updated_at").notNull(),

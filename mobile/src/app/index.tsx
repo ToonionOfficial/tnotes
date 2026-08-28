@@ -1,9 +1,10 @@
 import { Stack, useRouter } from "expo-router"
-import { ChevronRight, Folder as FolderIcon, Plus, Trash2 } from "lucide-react-native"
-import { useState } from "react"
+import { ChevronRight, Plus, Trash2 } from "lucide-react-native"
+import { useRef, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
-import { NewFolderForm } from "@/components/NewFolderForm"
+import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
+import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import type { Folder } from "@/db/schema"
 import { useFolders } from "@/hooks/useFolders"
 import { useNotes } from "@/hooks/useNotes"
@@ -14,7 +15,7 @@ export default function FoldersScreen() {
   const { data: allNotes = [] } = useNotes()
   const { data: trashedNotes = [] } = useNotes({ trashed: true })
 
-  const [isCreating, setIsCreating] = useState(false)
+  const sheetRef = useRef<NewFolderSheetRef>(null)
   const [searchValue, setSearchValue] = useState("")
 
   const getFolderCount = (folderId: string | null) => {
@@ -31,7 +32,7 @@ export default function FoldersScreen() {
           headerShown: true,
           headerRight: () => (
             <Pressable
-              onPress={() => setIsCreating((v) => !v)}
+              onPress={() => sheetRef.current?.open()}
               hitSlop={8}
               className="active:opacity-60"
             >
@@ -51,24 +52,14 @@ export default function FoldersScreen() {
           paddingBottom: 110,
         }}
       >
-        {isCreating && (
-          <NewFolderForm
-            onCreated={(folderId) => {
-              setIsCreating(false)
-              router.push(`/folders/${folderId}` as const)
-            }}
-            onCancel={() => setIsCreating(false)}
-          />
-        )}
-
         <View className="mb-5 overflow-hidden rounded-2xl bg-white/[0.07]">
           <Pressable
             onPress={() => router.push("/folders/all" as const)}
-            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/[0.12]"
+            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
           >
             <View className="flex-row items-center gap-3">
-              <View className="size-8 items-center justify-center rounded-lg bg-primary/15">
-                <FolderIcon size={18} color="#CABEFF" />
+              <View className="size-8 items-center justify-center rounded-lg">
+                <FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />
               </View>
               <Text className="text-[17px] text-foreground">All Notes</Text>
             </View>
@@ -80,14 +71,14 @@ export default function FoldersScreen() {
 
           {foldersList.map((folder: Folder) => (
             <View key={folder.id}>
-              <View className="ml-[60px] h-[0.5px] bg-white/[0.08]" />
+              <View className="ml-15 h-[0.5px] bg-white/8" />
               <Pressable
                 onPress={() => router.push(`/folders/${folder.id}` as const)}
-                className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/[0.12]"
+                className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="size-8 items-center justify-center rounded-lg bg-white/[0.06]">
-                    <Text className="text-[18px]">{folder.icon || "📁"}</Text>
+                  <View className="size-8 items-center justify-center rounded-lg bg-white/6">
+                    <FolderIcon name={folder.icon || DEFAULT_FOLDER_ICON} size={18} color="#CABEFF" />
                   </View>
                   <Text className="text-[17px] text-foreground">{folder.name}</Text>
                 </View>
@@ -105,7 +96,7 @@ export default function FoldersScreen() {
         <View className="overflow-hidden rounded-2xl bg-white/[0.07]">
           <Pressable
             onPress={() => router.push("/folders/trash" as const)}
-            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/[0.12]"
+            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
           >
             <View className="flex-row items-center gap-3">
               <View className="size-8 items-center justify-center rounded-lg bg-[#FF6B6B]/10">
@@ -125,6 +116,11 @@ export default function FoldersScreen() {
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         onPressNewNote={() => router.push("/notes/new" as const)}
+      />
+
+      <NewFolderSheet
+        ref={sheetRef}
+        onCreated={(folderId) => router.push(`/folders/${folderId}` as const)}
       />
     </View>
   )

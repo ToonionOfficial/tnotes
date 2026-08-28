@@ -36,7 +36,7 @@ export const NoteListItem = memo(function NoteListItem({
     <View>
       <Pressable
         onPress={() => onPress(item.id)}
-        className={`${roundingClass} bg-white/[0.07] px-4 py-3 active:bg-white/[0.12]`}
+        className={`${roundingClass} bg-white/[0.07] px-4 py-3 active:bg-white/12`}
       >
         <View className="flex-row items-center gap-2">
           {item.pinned && <Pin size={12} color="#CABEFF" fill="#CABEFF" />}
@@ -58,7 +58,7 @@ export const NoteListItem = memo(function NoteListItem({
           )}
         </View>
       </Pressable>
-      {!isLast && <View className="ml-4 h-[0.5px] bg-white/[0.08]" />}
+      {!isLast && <View className="ml-4 h-[0.5px] bg-white/8" />}
     </View>
   )
 })
