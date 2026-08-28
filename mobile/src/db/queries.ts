@@ -357,7 +357,9 @@ export function getNotes(filters?: NoteFilters): Note[] {
     })
     .from(notes)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(notes.pinned), desc(notes.updatedAt))
+    .orderBy(
+      ...(filters?.trashed ? [desc(notes.updatedAt)] : [desc(notes.pinned), desc(notes.updatedAt)]),
+    )
     .all()
 }
 

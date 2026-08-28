@@ -43,14 +43,14 @@ export default function FolderNotesScreen() {
 
   const { data: notesList, isLoading } = useNotes({
     search: debouncedSearch,
-    folderId: isAll ? undefined : (folderId ?? null),
+    folderId: isAll || isTrash ? undefined : folderId,
     trashed: Boolean(isTrash),
   })
 
   const listData = useMemo<FlatNoteItem[]>(() => {
     if (!notesList || notesList.length === 0) return []
 
-    const sections = groupNotesByDate(notesList)
+    const sections = groupNotesByDate(notesList, { ignorePinned: Boolean(isTrash) })
     const items: FlatNoteItem[] = []
 
     for (const section of sections) {
@@ -73,7 +73,7 @@ export default function FolderNotesScreen() {
     }
 
     return items
-  }, [notesList])
+  }, [notesList, isTrash])
 
   const noteCount = notesList?.length ?? 0
 
@@ -106,11 +106,12 @@ export default function FolderNotesScreen() {
           item={item.item}
           isFirst={item.isFirst}
           isLast={item.isLast}
+          isTrash={Boolean(isTrash)}
           onPress={handlePressNote}
         />
       )
     },
-    [handlePressNote],
+    [handlePressNote, isTrash],
   )
 
   const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])

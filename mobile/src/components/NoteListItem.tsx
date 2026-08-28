@@ -10,6 +10,7 @@ interface NoteListItemProps {
   item: Note | SearchResult
   isFirst: boolean
   isLast: boolean
+  isTrash?: boolean
   onPress: (noteId: string) => void
 }
 
@@ -17,6 +18,7 @@ export const NoteListItem = memo(function NoteListItem({
   item,
   isFirst,
   isLast,
+  isTrash = false,
   onPress,
 }: NoteListItemProps) {
   const isOnly = isFirst && isLast
@@ -39,7 +41,7 @@ export const NoteListItem = memo(function NoteListItem({
         className={`${roundingClass} bg-white/[0.07] px-4 py-3 active:bg-white/12`}
       >
         <View className="flex-row items-center gap-2">
-          {item.pinned && <Pin size={12} color="#CABEFF" fill="#CABEFF" />}
+          {!isTrash && item.pinned && <Pin size={12} color="#CABEFF" fill="#CABEFF" />}
           <Text numberOfLines={1} className="flex-1 text-[16px] font-semibold text-foreground">
             {item.title || "Untitled Note"}
           </Text>
