@@ -115,13 +115,15 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          groups: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
-          file: mobile/build-output/tnotes.apk
-          releaseNotes: "Android (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"
+          FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > ./firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/firebase-sa.json"
+          npx -y firebase-tools appdistribution:distribute ./build-output/tnotes.apk \
+            --app "$FIREBASE_ANDROID_APP_ID" \
+            --groups "$FIREBASE_TESTER_GROUPS" \
+            --release-notes "Android (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"
+          rm -f ./firebase-sa.json
 
   build-ios:
     if: ${{ inputs.platform == 'ios' || inputs.platform == 'all' }}
@@ -203,10 +205,12 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID }}
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          groups: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
-          file: mobile/build-output/tnotes.ipa
-          releaseNotes: "iOS (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"
+          FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > ./firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/firebase-sa.json"
+          npx -y firebase-tools appdistribution:distribute ./build-output/tnotes.ipa \
+            --app "$FIREBASE_IOS_APP_ID" \
+            --groups "$FIREBASE_TESTER_GROUPS" \
+            --release-notes "iOS (${{ inputs.profile }}) - Build #${{ github.run_number }} (${{ github.sha }})"
+          rm -f ./firebase-sa.json
