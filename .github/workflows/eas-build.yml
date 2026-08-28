@@ -1,0 +1,185 @@
+name: EAS Local Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build"
+        required: true
+        type: choice
+        options:
+          - android
+          - ios
+          - all
+        default: android
+      profile:
+        description: "Build profile"
+        required: true
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+        default: preview
+
+concurrency:
+  group: eas-build-${{ inputs.platform }}-${{ inputs.profile }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    if: ${{ inputs.platform == 'android' || inputs.platform == 'all' }}
+    name: 🤖 Android Build (${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Restore Android credentials
+        if: ${{ inputs.profile == 'production' || inputs.profile == 'preview' }}
+        run: |
+          mkdir -p ./credentials
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ./credentials/android-keystore.jks
+          cat > ./credentials.json <<EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "./credentials/android-keystore.jks",
+                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+                "keyAlias": "${{ secrets.ANDROID_KEY_ALIAS }}",
+                "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+              }
+            }
+          }
+          EOF
+
+      - name: Build Android
+        run: |
+          eas build \
+            --platform android \
+            --profile ${{ inputs.profile }} \
+            --local \
+            --non-interactive \
+            --output ./build-output/tnotes.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ inputs.profile }}-build
+          path: mobile/build-output/tnotes.apk
+          retention-days: 14
+
+  build-ios:
+    if: ${{ inputs.platform == 'ios' || inputs.platform == 'both' }}
+    name: 🍎 iOS Build (${{ inputs.profile }})
+    runs-on: macos-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: mobile/ios/Pods
+          key: pods-${{ hashFiles('mobile/ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      - name: Restore iOS credentials
+        run: |
+          mkdir -p ./credentials
+          echo "${{ secrets.IOS_DIST_CERT_BASE64 }}" | base64 -d > ./credentials/dist-cert.p12
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > ./credentials/profile.mobileprovision
+          cat > ./credentials.json <<EOF
+          {
+            "ios": {
+              "distributionCertificate": {
+                "path": "./credentials/dist-cert.p12",
+                "password": "${{ secrets.IOS_DIST_CERT_PASSWORD }}"
+              },
+              "provisioningProfilePath": "./credentials/profile.mobileprovision"
+            }
+          }
+          EOF
+
+      - name: Build iOS
+        run: |
+          eas build \
+            --platform ios \
+            --profile ${{ inputs.profile }} \
+            --local \
+            --non-interactive \
+            --output ./build-output/tnotes.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ inputs.profile }}-build
+          path: mobile/build-output/tnotes.ipa
+          retention-days: 14
