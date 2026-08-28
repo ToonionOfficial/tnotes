@@ -141,7 +141,7 @@ export default function FoldersScreen() {
               hitSlop={8}
               className="active:opacity-60"
             >
-              <Plus size={22} color="#CABEFF" />
+              <Plus size={22} color="#ffffff" />
             </Pressable>
           ),
         }}
