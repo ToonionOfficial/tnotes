@@ -152,6 +152,7 @@ jobs:
           restore-keys: pods-
 
       - name: Restore iOS credentials
+        if: ${{ inputs.profile == 'production' || inputs.profile == 'preview' }}
         run: |
           mkdir -p ./credentials
           echo "${{ secrets.IOS_DIST_CERT_BASE64 }}" | base64 -d > ./credentials/dist-cert.p12
