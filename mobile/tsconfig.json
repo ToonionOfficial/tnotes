@@ -8,6 +8,9 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "@/drizzle/*": [
+        "./drizzle/*"
       ]
     }
   },
