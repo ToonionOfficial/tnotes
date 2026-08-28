@@ -8,7 +8,7 @@ import {
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
 import { Keyboard, Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { useCreateFolder } from "@/hooks/useFolders"
-import { DEFAULT_FOLDER_ICON, FolderIcon, FOLDER_ICON_OPTIONS } from "./FolderIcon"
+import { DEFAULT_FOLDER_ICON, FOLDER_ICON_OPTIONS, FolderIcon } from "./FolderIcon"
 
 interface NewFolderSheetProps {
   onCreated: (folderId: string) => void

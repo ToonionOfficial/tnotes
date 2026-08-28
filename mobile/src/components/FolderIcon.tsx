@@ -8,6 +8,7 @@ import {
   Heart,
   Home,
   Lightbulb,
+  type LucideProps,
   Music,
   Palette,
   Rocket,
@@ -16,9 +17,8 @@ import {
   Target,
   Wallet,
   Zap,
-  type LucideProps,
 } from "lucide-react-native"
-import { memo, type ComponentType } from "react"
+import { type ComponentType, memo } from "react"
 
 const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
   folder: Folder,
