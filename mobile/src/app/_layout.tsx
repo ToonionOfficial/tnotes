@@ -51,8 +51,38 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <BottomSheetModalProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
+            <Stack
+              screenOptions={{
+                headerStyle: { backgroundColor: "#141318" },
+                headerTintColor: "#CABEFF",
+                headerTitleStyle: { color: "#FFFFFF", fontWeight: "bold" },
+                headerLargeTitleStyle: { color: "#FFFFFF", fontWeight: "bold" },
+                headerShadowVisible: false,
+                contentStyle: { backgroundColor: "#141318" },
+              }}
+            >
+              <Stack.Screen
+                name="index"
+                options={{
+                  title: "Folders",
+                  headerLargeTitle: true,
+                  headerShown: true,
+                }}
+              />
+              <Stack.Screen
+                name="folders/[id]"
+                options={{
+                  headerLargeTitle: true,
+                  headerShown: true,
+                  headerBackTitle: "Folders",
+                }}
+              />
+              <Stack.Screen
+                name="notes/[id]"
+                options={{
+                  headerShown: false,
+                }}
+              />
             </Stack>
           </BottomSheetModalProvider>
         </KeyboardProvider>
