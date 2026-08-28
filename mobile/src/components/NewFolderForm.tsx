@@ -105,7 +105,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
           <Pressable onPress={Keyboard.dismiss} accessible={false}>
             <Text className="mb-4 text-[19px] font-bold text-foreground">New Folder</Text>
 
-            <View className="mb-4 flex-row items-center overflow-hidden rounded-2xl bg-white/[0.07] px-4 py-3">
+            <View className="mb-4 flex-row items-center overflow-hidden rounded-3xl bg-white/[0.07] px-4 py-3">
               <View className="mr-3 items-center justify-center">
                 <FolderIcon name={selectedIcon} size={22} color="#CABEFF" fill="#CABEFF" />
               </View>
@@ -130,7 +130,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
 
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator={true}
             keyboardShouldPersistTaps="always"
             contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
             className="mb-5"
@@ -141,7 +141,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                 <Pressable
                   key={iconName}
                   onPress={() => setSelectedIcon(iconName)}
-                  className={`size-11 items-center justify-center rounded-xl ${
+                  className={`size-11 items-center justify-center rounded-2xl ${
                     isSelected ? "bg-primary/20" : "active:bg-white/10"
                   }`}
                 >
