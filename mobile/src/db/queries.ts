@@ -261,6 +261,52 @@ export function searchNotes(
   }))
 }
 
+export interface FolderNoteCounts {
+  total: number
+  byFolder: Record<string, number>
+  trash: number
+}
+
+/**
+ * Returns aggregated note counts (total active, per folder, and trash) using fast SQLite index scans.
+ */
+export function getFolderNoteCounts(): FolderNoteCounts {
+  const rows = db.all<{
+    folderId: string | null
+    activeCount: number
+    trashCount: number
+  }>(sql`
+    SELECT
+      folder_id AS folderId,
+      COUNT(CASE WHEN trashed = 0 THEN 1 END) AS activeCount,
+      COUNT(CASE WHEN trashed = 1 THEN 1 END) AS trashCount
+    FROM notes
+    GROUP BY folder_id
+  `)
+
+  let total = 0
+  let trash = 0
+  const byFolder: Record<string, number> = {}
+
+  for (const row of rows) {
+    const active = Number(row.activeCount)
+    const trashed = Number(row.trashCount)
+
+    total += active
+    trash += trashed
+
+    if (row.folderId) {
+      byFolder[row.folderId] = active
+    }
+  }
+
+  return {
+    total,
+    byFolder,
+    trash,
+  }
+}
+
 export function getNotes(filters?: NoteFilters): Note[] {
   // If search is requested, delegate to FTS5 for blazing speed
   if (filters?.search && filters.search.trim().length > 0) {

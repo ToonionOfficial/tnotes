@@ -1,27 +1,132 @@
 import { Stack, useRouter } from "expo-router"
 import { ChevronRight, Plus, Trash2 } from "lucide-react-native"
-import { useRef, useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { FlatList, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import type { Folder } from "@/db/schema"
 import { useFolders } from "@/hooks/useFolders"
-import { useNotes } from "@/hooks/useNotes"
+import { useFolderNoteCounts } from "@/hooks/useNotes"
+
+type FolderItem =
+  | { type: "all"; id: "all" }
+  | { type: "folder"; id: string; folder: Folder; isLast: boolean }
+  | { type: "trash"; id: "trash" }
 
 export default function FoldersScreen() {
   const router = useRouter()
   const { data: foldersList = [] } = useFolders()
-  const { data: allNotes = [] } = useNotes()
-  const { data: trashedNotes = [] } = useNotes({ trashed: true })
+  const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const [searchValue, setSearchValue] = useState("")
 
-  const getFolderCount = (folderId: string | null) => {
-    if (folderId === null) return allNotes.length
-    return allNotes.filter((n) => n.folderId === folderId).length
-  }
+  const getFolderCount = useCallback(
+    (folderId: string | null) => {
+      if (folderId === null) return counts.total
+      return counts.byFolder[folderId] ?? 0
+    },
+    [counts],
+  )
+
+  const listData = useMemo<FolderItem[]>(() => {
+    const items: FolderItem[] = [{ type: "all", id: "all" }]
+    foldersList.forEach((folder, index) => {
+      items.push({
+        type: "folder",
+        id: folder.id,
+        folder,
+        isLast: index === foldersList.length - 1,
+      })
+    })
+    items.push({ type: "trash", id: "trash" })
+    return items
+  }, [foldersList])
+
+  const renderItem = useCallback(
+    ({ item }: { item: FolderItem }) => {
+      if (item.type === "all") {
+        const hasCustomFolders = foldersList.length > 0
+        return (
+          <Pressable
+            onPress={() => router.push("/folders/all" as const)}
+            className={`flex-row items-center justify-between overflow-hidden bg-white/7 px-4 py-3.5 active:bg-white/12 ${
+              hasCustomFolders ? "rounded-t-3xl" : "rounded-3xl"
+            }`}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="size-8 items-center justify-center rounded-lg">
+                <FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />
+              </View>
+              <Text className="text-[17px] text-foreground">All Notes</Text>
+            </View>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-[15px] text-muted-foreground">{getFolderCount(null)}</Text>
+              <ChevronRight size={16} color="#8E8C99" />
+            </View>
+          </Pressable>
+        )
+      }
+
+      if (item.type === "folder") {
+        return (
+          <View className={`overflow-hidden bg-white/7 ${item.isLast ? "rounded-b-3xl" : ""}`}>
+            <View className="ml-15 h-[0.5px] bg-white/8" />
+            <Pressable
+              onPress={() => router.push(`/folders/${item.folder.id}` as const)}
+              className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${
+                item.isLast ? "rounded-b-3xl" : ""
+              }`}
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="size-8 items-center justify-center rounded-lg">
+                  <FolderIcon
+                    name={item.folder.icon || DEFAULT_FOLDER_ICON}
+                    size={20}
+                    color="#CABEFF"
+                    fill="#CABEFF"
+                  />
+                </View>
+                <Text className="text-[17px] text-foreground">{item.folder.name}</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-[15px] text-muted-foreground">
+                  {getFolderCount(item.folder.id)}
+                </Text>
+                <ChevronRight size={16} color="#8E8C99" />
+              </View>
+            </Pressable>
+          </View>
+        )
+      }
+
+      if (item.type === "trash") {
+        return (
+          <View className="mt-5 overflow-hidden rounded-3xl bg-white/7">
+            <Pressable
+              onPress={() => router.push("/folders/trash" as const)}
+              className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="size-8 items-center justify-center rounded-lg">
+                  <Trash2 size={18} color="#FF6B6B" />
+                </View>
+                <Text className="text-[17px] text-[#FF6B6B]">Trash</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-[15px] text-muted-foreground">{counts.trash}</Text>
+                <ChevronRight size={16} color="#8E8C99" />
+              </View>
+            </Pressable>
+          </View>
+        )
+      }
+
+      return null
+    },
+    [foldersList.length, getFolderCount, counts.trash, router],
+  )
 
   return (
     <View className="flex-1 bg-background">
@@ -42,7 +147,10 @@ export default function FoldersScreen() {
         }}
       />
 
-      <ScrollView
+      <FlatList
+        data={listData}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
@@ -51,66 +159,7 @@ export default function FoldersScreen() {
           paddingTop: 12,
           paddingBottom: 110,
         }}
-      >
-        <View className="mb-5 overflow-hidden rounded-2xl bg-white/[0.07]">
-          <Pressable
-            onPress={() => router.push("/folders/all" as const)}
-            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="size-8 items-center justify-center rounded-lg">
-                <FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />
-              </View>
-              <Text className="text-[17px] text-foreground">All Notes</Text>
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <Text className="text-[15px] text-muted-foreground">{getFolderCount(null)}</Text>
-              <ChevronRight size={16} color="#8E8C99" />
-            </View>
-          </Pressable>
-
-          {foldersList.map((folder: Folder) => (
-            <View key={folder.id}>
-              <View className="ml-15 h-[0.5px] bg-white/8" />
-              <Pressable
-                onPress={() => router.push(`/folders/${folder.id}` as const)}
-                className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
-              >
-                <View className="flex-row items-center gap-3">
-                  <View className="size-8 items-center justify-center rounded-lg bg-white/6">
-                    <FolderIcon name={folder.icon || DEFAULT_FOLDER_ICON} size={18} color="#CABEFF" />
-                  </View>
-                  <Text className="text-[17px] text-foreground">{folder.name}</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-[15px] text-muted-foreground">
-                    {getFolderCount(folder.id)}
-                  </Text>
-                  <ChevronRight size={16} color="#8E8C99" />
-                </View>
-              </Pressable>
-            </View>
-          ))}
-        </View>
-
-        <View className="overflow-hidden rounded-2xl bg-white/[0.07]">
-          <Pressable
-            onPress={() => router.push("/folders/trash" as const)}
-            className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="size-8 items-center justify-center rounded-lg bg-[#FF6B6B]/10">
-                <Trash2 size={16} color="#FF6B6B" />
-              </View>
-              <Text className="text-[17px] text-[#FF6B6B]">Trash</Text>
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <Text className="text-[15px] text-muted-foreground">{trashedNotes.length}</Text>
-              <ChevronRight size={16} color="#8E8C99" />
-            </View>
-          </Pressable>
-        </View>
-      </ScrollView>
+      />
 
       <BottomBar
         searchValue={searchValue}

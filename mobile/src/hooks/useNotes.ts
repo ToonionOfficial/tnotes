@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createNote,
   deleteNotePermanently,
+  getFolderNoteCounts,
   getNoteById,
   getNotes,
   type NoteFilters,
@@ -18,6 +19,7 @@ export const noteKeys = {
   list: (filters?: NoteFilters) => [...noteKeys.lists(), filters] as const,
   details: () => [...noteKeys.all, "detail"] as const,
   detail: (id: string) => [...noteKeys.details(), id] as const,
+  counts: () => [...noteKeys.all, "counts"] as const,
   search: (query: string, folderId?: string | null) =>
     [...noteKeys.all, "search", query, folderId] as const,
 }
@@ -26,6 +28,13 @@ export function useNotes(filters?: NoteFilters) {
   return useQuery({
     queryKey: noteKeys.list(filters),
     queryFn: async () => getNotes(filters),
+  })
+}
+
+export function useFolderNoteCounts() {
+  return useQuery({
+    queryKey: noteKeys.counts(),
+    queryFn: async () => getFolderNoteCounts(),
   })
 }
 
@@ -58,7 +67,7 @@ export function useCreateNote() {
       pinned?: boolean
     }) => createNote(input),
     onSuccess: (newNote) => {
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.setQueryData(noteKeys.detail(newNote.id), newNote)
     },
   })
@@ -80,7 +89,7 @@ export function useUpdateNote() {
       }
     }) => updateNote(id, input),
     onSuccess: (updatedNote) => {
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
     },
   })
