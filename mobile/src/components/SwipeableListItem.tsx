@@ -1,8 +1,17 @@
 import * as Haptics from "expo-haptics"
 import type { ReactNode } from "react"
-import { memo, useCallback, useEffect, useRef } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
-import { Swipeable } from "react-native-gesture-handler"
+import { memo, useCallback, useRef } from "react"
+import { Pressable, Text, View } from "react-native"
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from "react-native-gesture-handler/ReanimatedSwipeable"
+import Animated, {
+  interpolate,
+  runOnJS,
+  type SharedValue,
+  useAnimatedReaction,
+  useAnimatedStyle,
+} from "react-native-reanimated"
 
 export interface SwipeAction {
   label: string
@@ -23,9 +32,9 @@ const SWIPE_TO_CONFIRM_DISTANCE = 150
 interface SwipeActionViewProps {
   action: SwipeAction
   side: "left" | "right"
-  progress: Animated.AnimatedInterpolation<number>
-  translation: Animated.AnimatedInterpolation<number>
-  onDrag: (value: number) => void
+  progress: SharedValue<number>
+  translation: SharedValue<number>
+  onDragUpdate: (value: number) => void
   onPress: () => void
 }
 
@@ -34,34 +43,47 @@ function SwipeActionView({
   side,
   progress,
   translation,
-  onDrag,
+  onDragUpdate,
   onPress,
 }: SwipeActionViewProps) {
-  const onDragRef = useRef(onDrag)
-  onDragRef.current = onDrag
+  const triggerHaptic = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+  }, [])
 
-  useEffect(() => {
-    const listenerId = translation.addListener(({ value }) => {
-      onDragRef.current(value)
-    })
-    return () => translation.removeListener(listenerId)
-  }, [translation])
+  useAnimatedReaction(
+    () => Math.abs(translation.value),
+    (current, previous) => {
+      if (
+        current >= SWIPE_TO_CONFIRM_DISTANCE &&
+        (previous === null || previous < SWIPE_TO_CONFIRM_DISTANCE)
+      ) {
+        runOnJS(triggerHaptic)()
+      }
+      if (current > 0) {
+        runOnJS(onDragUpdate)(current)
+      }
+    },
+    [triggerHaptic, onDragUpdate],
+  )
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0, 1], [0, 1])
+    const translateX = interpolate(progress.value, [0, 1], [side === "left" ? -20 : 20, 0])
+    return {
+      opacity,
+      transform: [{ translateX }],
+    }
+  })
 
   return (
     <Animated.View
       className="w-[76px] items-center justify-center"
-      style={{
-        backgroundColor: action.color,
-        opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-        transform: [
-          {
-            translateX: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [side === "left" ? -20 : 20, 0],
-            }),
-          },
-        ],
-      }}
+      style={[
+        {
+          backgroundColor: action.color,
+        },
+        animatedStyle,
+      ]}
     >
       <View
         style={{
@@ -91,28 +113,20 @@ export const SwipeableListItem = memo(function SwipeableListItem({
   rightAction,
   rounded = "middle",
 }: SwipeableListItemProps) {
-  const swipeableRef = useRef<Swipeable>(null)
+  const swipeableRef = useRef<SwipeableMethods>(null)
   const maxSwipeDistance = useRef(0)
-  const hasTriggeredThreshold = useRef(false)
 
-  const handleDrag = useCallback((value: number) => {
-    const abs = Math.abs(value)
-    maxSwipeDistance.current = Math.max(maxSwipeDistance.current, abs)
-
-    if (abs >= SWIPE_TO_CONFIRM_DISTANCE && !hasTriggeredThreshold.current) {
-      hasTriggeredThreshold.current = true
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
-    } else if (abs < SWIPE_TO_CONFIRM_DISTANCE && hasTriggeredThreshold.current) {
-      hasTriggeredThreshold.current = false
-    }
+  const handleDragUpdate = useCallback((value: number) => {
+    maxSwipeDistance.current = Math.max(maxSwipeDistance.current, value)
   }, [])
 
   const renderAction = useCallback(
     (
       action: SwipeAction | undefined,
       side: "left" | "right",
-      progress: Animated.AnimatedInterpolation<number>,
-      translation: Animated.AnimatedInterpolation<number>,
+      progress: SharedValue<number>,
+      translation: SharedValue<number>,
+      swipeableMethods: SwipeableMethods,
     ) => {
       if (!action) return null
 
@@ -122,18 +136,17 @@ export const SwipeableListItem = memo(function SwipeableListItem({
           side={side}
           progress={progress}
           translation={translation}
-          onDrag={handleDrag}
+          onDragUpdate={handleDragUpdate}
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
-            swipeableRef.current?.close()
+            swipeableMethods.close()
             maxSwipeDistance.current = 0
-            hasTriggeredThreshold.current = false
             action.onPress()
           }}
         />
       )
     },
-    [handleDrag],
+    [handleDragUpdate],
   )
 
   const handleWillOpen = useCallback(
@@ -142,7 +155,6 @@ export const SwipeableListItem = memo(function SwipeableListItem({
         const action = direction === "left" ? leftAction : rightAction
         swipeableRef.current?.close()
         maxSwipeDistance.current = 0
-        hasTriggeredThreshold.current = false
         action?.onPress()
       }
     },
@@ -151,17 +163,22 @@ export const SwipeableListItem = memo(function SwipeableListItem({
 
   const handleClose = useCallback(() => {
     maxSwipeDistance.current = 0
-    hasTriggeredThreshold.current = false
   }, [])
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeableRef}
-      renderLeftActions={(progress, translation) =>
-        renderAction(leftAction, "left", progress, translation)
+      renderLeftActions={
+        leftAction
+          ? (progress, translation, methods) =>
+              renderAction(leftAction, "left", progress, translation, methods)
+          : undefined
       }
-      renderRightActions={(progress, translation) =>
-        renderAction(rightAction, "right", progress, translation)
+      renderRightActions={
+        rightAction
+          ? (progress, translation, methods) =>
+              renderAction(rightAction, "right", progress, translation, methods)
+          : undefined
       }
       onSwipeableWillOpen={handleWillOpen}
       onSwipeableClose={handleClose}
@@ -173,12 +190,11 @@ export const SwipeableListItem = memo(function SwipeableListItem({
         borderBottomRightRadius: rounded === "only" || rounded === "last" ? 24 : 0,
       }}
       friction={1}
-      overshootLeft
-      overshootRight
+      overshootLeft={Boolean(leftAction)}
+      overshootRight={Boolean(rightAction)}
       overshootFriction={1}
-      useNativeAnimations={false}
     >
       {children}
-    </Swipeable>
+    </ReanimatedSwipeable>
   )
 })
