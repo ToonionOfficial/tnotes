@@ -5,8 +5,9 @@ import { FlatList, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
+import { SwipeableListItem } from "@/components/SwipeableListItem"
 import type { Folder } from "@/db/schema"
-import { useFolders } from "@/hooks/useFolders"
+import { useDeleteFolder, useFolders } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
 type FolderItem =
@@ -17,6 +18,7 @@ type FolderItem =
 export default function FoldersScreen() {
   const router = useRouter()
   const { data: foldersList = [] } = useFolders()
+  const deleteFolder = useDeleteFolder()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
@@ -28,6 +30,13 @@ export default function FoldersScreen() {
       return counts.byFolder[folderId] ?? 0
     },
     [counts],
+  )
+
+  const handleDeleteFolder = useCallback(
+    (folderId: string) => {
+      deleteFolder.mutate(folderId)
+    },
+    [deleteFolder],
   )
 
   const listData = useMemo<FolderItem[]>(() => {
@@ -73,30 +82,39 @@ export default function FoldersScreen() {
         return (
           <View className={`overflow-hidden bg-white/7 ${item.isLast ? "rounded-b-3xl" : ""}`}>
             <View className="ml-15 h-[0.5px] bg-white/8" />
-            <Pressable
-              onPress={() => router.push(`/folders/${item.folder.id}` as const)}
-              className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${
-                item.isLast ? "rounded-b-3xl" : ""
-              }`}
+            <SwipeableListItem
+              rightAction={{
+                label: "Delete",
+                color: "#D94C5C",
+                icon: <Trash2 size={20} color="#FFFFFF" />,
+                onPress: () => handleDeleteFolder(item.folder.id),
+              }}
             >
-              <View className="flex-row items-center gap-3">
-                <View className="size-8 items-center justify-center rounded-lg">
-                  <FolderIcon
-                    name={item.folder.icon || DEFAULT_FOLDER_ICON}
-                    size={20}
-                    color="#CABEFF"
-                    fill="#CABEFF"
-                  />
+              <Pressable
+                onPress={() => router.push(`/folders/${item.folder.id}` as const)}
+                className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${
+                  item.isLast ? "rounded-b-3xl" : ""
+                }`}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="size-8 items-center justify-center rounded-lg">
+                    <FolderIcon
+                      name={item.folder.icon || DEFAULT_FOLDER_ICON}
+                      size={20}
+                      color="#CABEFF"
+                      fill="#CABEFF"
+                    />
+                  </View>
+                  <Text className="text-[17px] text-foreground">{item.folder.name}</Text>
                 </View>
-                <Text className="text-[17px] text-foreground">{item.folder.name}</Text>
-              </View>
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-[15px] text-muted-foreground">
-                  {getFolderCount(item.folder.id)}
-                </Text>
-                <ChevronRight size={16} color="#8E8C99" />
-              </View>
-            </Pressable>
+                <View className="flex-row items-center gap-1.5">
+                  <Text className="text-[15px] text-muted-foreground">
+                    {getFolderCount(item.folder.id)}
+                  </Text>
+                  <ChevronRight size={16} color="#8E8C99" />
+                </View>
+              </Pressable>
+            </SwipeableListItem>
           </View>
         )
       }
@@ -125,7 +143,7 @@ export default function FoldersScreen() {
 
       return null
     },
-    [foldersList.length, getFolderCount, counts.trash, router],
+    [counts.trash, foldersList.length, getFolderCount, handleDeleteFolder, router],
   )
 
   return (
