@@ -22,11 +22,11 @@ export const NoteListItem = memo(function NoteListItem({
   const isOnly = isFirst && isLast
   let roundingClass = "rounded-none"
   if (isOnly) {
-    roundingClass = "rounded-2xl"
+    roundingClass = "rounded-3xl"
   } else if (isFirst) {
-    roundingClass = "rounded-t-2xl"
+    roundingClass = "rounded-t-3xl"
   } else if (isLast) {
-    roundingClass = "rounded-b-2xl"
+    roundingClass = "rounded-b-3xl"
   }
 
   const previewText =

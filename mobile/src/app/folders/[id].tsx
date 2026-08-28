@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, SectionList, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
@@ -9,7 +9,17 @@ import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { useFolder } from "@/hooks/useFolders"
 import { useNotes } from "@/hooks/useNotes"
-import { groupNotesByDate, type NoteSection } from "@/utils/date"
+import { groupNotesByDate } from "@/utils/date"
+
+type FlatNoteItem =
+  | { type: "header"; id: string; title: string }
+  | {
+      type: "note"
+      id: string
+      item: Note | SearchResult
+      isFirst: boolean
+      isLast: boolean
+    }
 
 export default function FolderNotesScreen() {
   const router = useRouter()
@@ -36,8 +46,32 @@ export default function FolderNotesScreen() {
     trashed: Boolean(isTrash),
   })
 
-  const sections = useMemo(() => {
-    return groupNotesByDate(notesList ?? [])
+  const listData = useMemo<FlatNoteItem[]>(() => {
+    if (!notesList || notesList.length === 0) return []
+
+    const sections = groupNotesByDate(notesList)
+    const items: FlatNoteItem[] = []
+
+    for (const section of sections) {
+      items.push({
+        type: "header",
+        id: `header-${section.title}`,
+        title: section.title,
+      })
+
+      const len = section.data.length
+      section.data.forEach((note, index) => {
+        items.push({
+          type: "note",
+          id: note.id,
+          item: note,
+          isFirst: index === 0,
+          isLast: index === len - 1,
+        })
+      })
+    }
+
+    return items
   }, [notesList])
 
   const noteCount = notesList?.length ?? 0
@@ -60,35 +94,35 @@ export default function FolderNotesScreen() {
     }
   }
 
-  const renderSectionHeader = ({ section: { title: sectionTitle } }: { section: NoteSection }) => (
-    <NoteSectionHeader title={sectionTitle} />
+  const renderItem = useCallback(
+    ({ item }: { item: FlatNoteItem }) => {
+      if (item.type === "header") {
+        return <NoteSectionHeader title={item.title} />
+      }
+
+      return (
+        <NoteListItem
+          item={item.item}
+          isFirst={item.isFirst}
+          isLast={item.isLast}
+          onPress={handlePressNote}
+        />
+      )
+    },
+    [handlePressNote],
   )
 
-  const renderNoteItem = ({
-    item,
-    index,
-    section,
-  }: {
-    item: Note | SearchResult
-    index: number
-    section: NoteSection
-  }) => (
-    <NoteListItem
-      item={item}
-      isFirst={index === 0}
-      isLast={index === section.data.length - 1}
-      onPress={handlePressNote}
-    />
-  )
+  const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
 
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen
         options={{
           title,
-          headerLargeTitle: true,
-          headerBackTitle: "Folders",
+          headerLargeTitleEnabled: false,
+          headerLargeTitle: false,
           headerShown: true,
+          headerBackButtonDisplayMode: "minimal",
         }}
       />
 
@@ -97,13 +131,13 @@ export default function FolderNotesScreen() {
           <ActivityIndicator size="large" color="#CABEFF" />
         </View>
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          renderItem={renderNoteItem}
-          renderSectionHeader={renderSectionHeader}
-          stickySectionHeadersEnabled={false}
+        <FlatList
+          data={listData}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          className="flex-1"
           contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 4,

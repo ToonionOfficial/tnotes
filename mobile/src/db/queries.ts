@@ -173,7 +173,7 @@ export function searchNotes(
           n.user_id AS userId,
           n.folder_id AS folderId,
           n.title,
-          n.body,
+          substr(n.body, 1, 300) AS body,
           n.pinned,
           n.trashed,
           n.version,
@@ -198,7 +198,7 @@ export function searchNotes(
           n.user_id AS userId,
           n.folder_id AS folderId,
           n.title,
-          n.body,
+          substr(n.body, 1, 300) AS body,
           n.pinned,
           n.trashed,
           n.version,
@@ -224,7 +224,7 @@ export function searchNotes(
         n.user_id AS userId,
         n.folder_id AS folderId,
         n.title,
-        n.body,
+        substr(n.body, 1, 300) AS body,
         n.pinned,
         n.trashed,
         n.version,
@@ -340,7 +340,21 @@ export function getNotes(filters?: NoteFilters): Note[] {
   }
 
   return db
-    .select()
+    .select({
+      id: notes.id,
+      userId: notes.userId,
+      folderId: notes.folderId,
+      title: notes.title,
+      body: sql<string>`substr(${notes.body}, 1, 300)`,
+      pinned: notes.pinned,
+      trashed: notes.trashed,
+      version: notes.version,
+      createdAt: notes.createdAt,
+      updatedAt: notes.updatedAt,
+      deletedAt: notes.deletedAt,
+      deviceId: notes.deviceId,
+      checksum: notes.checksum,
+    })
     .from(notes)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(notes.pinned), desc(notes.updatedAt))
