@@ -67,8 +67,7 @@ export const HomeHeader = memo(function HomeHeader({
 
   if (Platform.OS === "ios") {
     return (
-      <View className="h-11 min-h-[44px] flex-row items-center justify-between">
-        {/* Left: Menu Glass Button */}
+      <View className="h-11 min-h-11 flex-row items-center justify-between">
         <Host matchContents ignoreSafeArea="all">
           <Button
             variant="filled"
@@ -88,9 +87,7 @@ export const HomeHeader = memo(function HomeHeader({
           </Button>
         </Host>
 
-        {/* Right: Cross-fading Actions Container */}
         <View className="relative h-11 items-center justify-center">
-          {/* Normal Mode Actions [Edit, Plus] */}
           <Animated.View
             style={normalActionsStyle}
             pointerEvents={isEditing ? "none" : "auto"}
@@ -134,7 +131,6 @@ export const HomeHeader = memo(function HomeHeader({
             </Host>
           </Animated.View>
 
-          {/* Edit Mode Actions [Trash, Done] */}
           <Animated.View
             style={[editingActionsStyle, { position: "absolute", right: 0 }]}
             pointerEvents={isEditing ? "auto" : "none"}
@@ -150,10 +146,8 @@ export const HomeHeader = memo(function HomeHeader({
     )
   }
 
-  // Android Fallback
   return (
-    <View className="h-11 min-h-[44px] flex-row items-center justify-between">
-      {/* Left: Menu Button */}
+    <View className="h-11 min-h-11 flex-row items-center justify-between">
       <Pressable
         onPress={() => {
           void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -165,9 +159,7 @@ export const HomeHeader = memo(function HomeHeader({
         <Menu size={22} color="#ffffff" />
       </Pressable>
 
-      {/* Right: Actions Container */}
       <View className="relative h-11 items-center justify-center">
-        {/* Normal Mode Actions */}
         <Animated.View
           style={normalActionsStyle}
           pointerEvents={isEditing ? "none" : "auto"}
@@ -197,7 +189,6 @@ export const HomeHeader = memo(function HomeHeader({
           </Pressable>
         </Animated.View>
 
-        {/* Edit Mode Actions */}
         <Animated.View
           style={[editingActionsStyle, { position: "absolute", right: 0 }]}
           pointerEvents={isEditing ? "auto" : "none"}
