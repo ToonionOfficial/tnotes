@@ -18,7 +18,6 @@ import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
 import { HomeHeader } from "@/components/HomeHeader"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
-import { PerformanceBenchmark } from "@/components/PerformanceBenchmark"
 import { SideDrawerContent } from "@/components/SideDrawerContent"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
@@ -261,8 +260,6 @@ export default function FoldersScreen() {
               <ActivityIndicator size="small" color="#CABEFF" />
             </View>
           )}
-
-          <PerformanceBenchmark />
         </ScrollView>
 
         <BottomBar

@@ -8,6 +8,8 @@ import {
   AboutSection,
   AppearanceSection,
   DataStorageSection,
+  ENABLE_BENCHMARK,
+  FlagsSection,
   ProfileSection,
   SettingsSearchBar,
   SyncServerSection,
@@ -52,6 +54,9 @@ export default function SettingsScreen() {
       about:
         !normalizedQuery ||
         "about version tnotes github repo license source".includes(normalizedQuery),
+      flags:
+        !normalizedQuery ||
+        "flags benchmark dev developer performance test tools".includes(normalizedQuery),
     }
   }, [normalizedQuery])
 
@@ -169,6 +174,7 @@ export default function SettingsScreen() {
 
         {matches.appearance && <AppearanceSection />}
         {matches.data && <DataStorageSection stats={stats} />}
+        {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
         {matches.about && <AboutSection />}
 
         {!hasAnyMatch && (

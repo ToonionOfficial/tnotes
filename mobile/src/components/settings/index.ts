@@ -1,6 +1,7 @@
 export * from "./AboutSection"
 export * from "./AppearanceSection"
 export * from "./DataStorageSection"
+export * from "./FlagsSection"
 export * from "./ProfileSection"
 export * from "./SettingsRow"
 export * from "./SettingsSearchBar"
