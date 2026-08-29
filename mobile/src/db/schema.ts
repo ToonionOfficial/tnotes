@@ -61,6 +61,12 @@ export const notes = sqliteTable(
     index("idx_notes_user_updated").on(table.userId, table.updatedAt),
     index("idx_notes_folder").on(table.folderId),
     index("idx_notes_trashed").on(table.trashed),
+    index("idx_notes_folder_trashed_pinned_updated").on(
+      table.folderId,
+      table.trashed,
+      table.pinned,
+      table.updatedAt,
+    ),
   ],
 )
 

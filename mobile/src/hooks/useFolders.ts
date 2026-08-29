@@ -1,11 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   batchDeleteFolders,
   createFolder,
   deleteFolder,
   type FolderFilters,
-  getFolderById,
-  getFolders,
+  getFolderByIdAsync,
+  getFoldersPageAsync,
   reorderFolders,
   restoreFolder,
   updateFolder,
@@ -17,22 +17,46 @@ export const folderKeys = {
   all: ["folders"] as const,
   lists: () => [...folderKeys.all, "list"] as const,
   list: (filters?: FolderFilters) => [...folderKeys.lists(), filters] as const,
+  infinite: (filters?: FolderFilters) => [...folderKeys.all, "infinite", filters] as const,
   details: () => [...folderKeys.all, "detail"] as const,
   detail: (id: string) => [...folderKeys.details(), id] as const,
 }
 
-export function useFolders(filters?: FolderFilters) {
-  return useQuery({
-    queryKey: folderKeys.list(filters),
-    queryFn: async () => getFolders(filters),
+const FOLDERS_PAGE_SIZE = 50
+const FOLDERS_QUERY_OPTIONS = {
+  staleTime: 1000 * 60,
+  gcTime: 1000 * 60 * 5,
+  refetchOnMount: false,
+} as const
+
+export function useInfiniteFolders(filters?: FolderFilters) {
+  return useInfiniteQuery({
+    queryKey: folderKeys.infinite(filters),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const folders = await getFoldersPageAsync({
+        ...filters,
+        limit: FOLDERS_PAGE_SIZE + 1,
+        offset: pageParam,
+      })
+      return {
+        folders: folders.slice(0, FOLDERS_PAGE_SIZE),
+        nextOffset: folders.length > FOLDERS_PAGE_SIZE ? pageParam + FOLDERS_PAGE_SIZE : undefined,
+      }
+    },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    ...FOLDERS_QUERY_OPTIONS,
   })
 }
 
-export function useFolder(id: string | undefined | null) {
+export function useFolder(id: string | undefined | null, enabled = true) {
   return useQuery({
     queryKey: folderKeys.detail(id ?? ""),
-    queryFn: async () => (id ? getFolderById(id) : null),
-    enabled: Boolean(id),
+    queryFn: () => (id ? getFolderByIdAsync(id) : null),
+    enabled: Boolean(id) && enabled,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   })
 }
 
@@ -46,7 +70,7 @@ export function useCreateFolder() {
       sortOrder?: number
     }) => createFolder(input),
     onSuccess: (newFolder) => {
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.setQueryData(folderKeys.detail(newFolder.id), newFolder)
     },
   })
@@ -68,7 +92,7 @@ export function useUpdateFolder() {
       }
     }) => updateFolder(id, input),
     onSuccess: (updatedFolder) => {
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.setQueryData(folderKeys.detail(updatedFolder.id), updatedFolder)
     },
   })
@@ -141,7 +165,7 @@ export function useReorderFolders() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
     },
   })
 }

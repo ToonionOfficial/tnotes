@@ -1,25 +1,40 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Plus, Trash2 } from "lucide-react-native"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ActivityIndicator,
+  Alert,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
+import { PerformanceBenchmark } from "@/components/PerformanceBenchmark"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
 import {
   useBatchDeleteFolders,
   useDeleteFolder,
-  useFolders,
+  useInfiniteFolders,
   useReorderFolders,
 } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
 export default function FoldersScreen() {
   const router = useRouter()
-  const { data: foldersList = [] } = useFolders()
+  const { data: folderPages, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteFolders()
+  const foldersList = useMemo(
+    () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
+    [folderPages],
+  )
   const deleteFolder = useDeleteFolder()
   const batchDeleteFolders = useBatchDeleteFolders()
   const reorderFolders = useReorderFolders()
@@ -93,6 +108,25 @@ export default function FoldersScreen() {
     },
     [reorderFolders],
   )
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent
+      const paddingToBottom = 300
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+        if (hasNextPage && !isFetchingNextPage) {
+          void fetchNextPage()
+        }
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  )
+
+  useEffect(() => {
+    if (isEditing && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    }
+  }, [isEditing, hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const getFolderCount = useCallback(
     (folderId: string | null) => {
@@ -246,6 +280,8 @@ export default function FoldersScreen() {
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 12,
@@ -271,6 +307,12 @@ export default function FoldersScreen() {
           onReorder={handleReorder}
         />
 
+        {isFetchingNextPage && (
+          <View className="py-4 items-center justify-center">
+            <ActivityIndicator size="small" color="#CABEFF" />
+          </View>
+        )}
+
         <VirtualFolderCard
           title="Trash"
           icon={<Trash2 size={18} color="#FF6B6B" />}
@@ -280,6 +322,8 @@ export default function FoldersScreen() {
           textColor="text-[#FF6B6B]"
           onPress={() => router.push("/folders/trash" as const)}
         />
+
+        <PerformanceBenchmark />
       </ScrollView>
 
       <BottomBar
