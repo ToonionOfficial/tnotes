@@ -17,6 +17,7 @@ use crate::state::AppState;
 pub fn build_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/api/sync", post(routes::sync::sync_handler))
+        .route("/api/stats", get(routes::sync::stats_handler))
         .route("/api/pair", get(routes::pair::pair_handler))
         .route("/api/me", get(routes::auth::me_handler))
         .route("/api/devices", get(routes::devices::list_devices_handler))

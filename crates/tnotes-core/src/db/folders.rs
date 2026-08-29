@@ -187,3 +187,13 @@ pub fn get_folder_tree(conn: &Connection, user_id: &str) -> Result<Vec<FolderNod
 
     Ok(nodes)
 }
+
+/// Returns total non-deleted folders count for a user
+pub fn count_active_folders_for_user(conn: &Connection, user_id: &str) -> Result<usize> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM folders WHERE user_id = ?1 AND deleted_at IS NULL",
+        params![user_id],
+        |row| row.get(0),
+    )?;
+    Ok(count as usize)
+}

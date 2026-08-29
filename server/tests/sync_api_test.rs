@@ -332,3 +332,111 @@ async fn test_sync_api_pagination() {
     assert_eq!(page2_res.cursor, 520);
     assert!(!page2_res.has_more);
 }
+
+#[tokio::test]
+async fn test_stats_api() {
+    let conn = open_in_memory().unwrap();
+    let config = ServerConfig {
+        host: "127.0.0.1".into(),
+        port: 8787,
+        data_dir: ":memory:".into(),
+        server_url: "http://localhost:8787".into(),
+    };
+
+    let user = User::new("statsuser", "hash");
+    create_user(&conn, &user).unwrap();
+
+    let dev = Device::new("dev_stats", "StatsDev", "desktop", &user.id);
+    upsert_device(&conn, &dev).unwrap();
+
+    let session = create_session_for_device("dev_stats", None);
+    create_session(&conn, &session).unwrap();
+
+    let state = AppState::new(conn, config);
+    let app = build_router(state.clone());
+
+    // 1. Initial stats should be 0 notes, 0 folders, 1 device
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/stats")
+                .header("authorization", format!("Bearer {}", session.token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = res.into_body().collect().await.unwrap().to_bytes();
+    let stats: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(stats["notes_count"], 0);
+    assert_eq!(stats["folders_count"], 0);
+    assert_eq!(stats["devices_count"], 1);
+
+    // 2. Sync 2 notes to server
+    let note1 = Note::new("Note 1", "Body 1", None, "dev_stats", &user.id);
+    let note2 = Note::new("Note 2", "Body 2", None, "dev_stats", &user.id);
+
+    let envelope = SyncEnvelope {
+        device_id: "dev_stats".into(),
+        last_seq: 0,
+        last_sync_at: 0,
+        changes: vec![
+            Change {
+                entity_type: EntityType::Note,
+                entity_id: note1.id.clone(),
+                version: note1.version,
+                updated_at: note1.updated_at,
+                tombstone: false,
+                payload: serde_json::to_value(&note1).unwrap(),
+            },
+            Change {
+                entity_type: EntityType::Note,
+                entity_id: note2.id.clone(),
+                version: note2.version,
+                updated_at: note2.updated_at,
+                tombstone: false,
+                payload: serde_json::to_value(&note2).unwrap(),
+            },
+        ],
+    };
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/sync")
+                .header("authorization", format!("Bearer {}", session.token))
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_string(&envelope).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    // 3. Stats should now reflect 2 notes
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/stats")
+                .header("authorization", format!("Bearer {}", session.token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = res.into_body().collect().await.unwrap().to_bytes();
+    let stats: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(stats["notes_count"], 2);
+    assert_eq!(stats["folders_count"], 0);
+    assert_eq!(stats["devices_count"], 1);
+}

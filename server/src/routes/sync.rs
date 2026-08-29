@@ -3,15 +3,46 @@ use axum::{
     extract::{Extension, State},
     http::StatusCode,
 };
-use tnotes_core::sync::{
-    engine::process_sync_envelope,
-    envelope::{SyncEnvelope, SyncResponse},
+use serde::{Deserialize, Serialize};
+use tnotes_core::{
+    db::{
+        devices::list_devices_by_user, folders::count_active_folders_for_user,
+        notes::count_active_notes_for_user,
+    },
+    sync::{
+        engine::process_sync_envelope,
+        envelope::{SyncEnvelope, SyncResponse},
+    },
 };
 
 use crate::{
     middleware::AuthenticatedDevice,
     state::{AppState, WsBroadcastMessage},
 };
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StatsResponse {
+    pub notes_count: usize,
+    pub folders_count: usize,
+    pub devices_count: usize,
+}
+
+pub async fn stats_handler(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthenticatedDevice>,
+) -> Result<Json<StatsResponse>, (StatusCode, String)> {
+    let conn = state.db.lock().await;
+
+    let notes_count = count_active_notes_for_user(&conn, &auth.user_id).unwrap_or(0);
+    let folders_count = count_active_folders_for_user(&conn, &auth.user_id).unwrap_or(0);
+    let devices = list_devices_by_user(&conn, &auth.user_id).unwrap_or_default();
+
+    Ok(Json(StatsResponse {
+        notes_count,
+        folders_count,
+        devices_count: devices.len(),
+    }))
+}
 
 pub async fn sync_handler(
     State(state): State<AppState>,

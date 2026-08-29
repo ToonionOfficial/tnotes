@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { Activity, FolderSync, LogOut, PanelLeft, Radio, StickyNote } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { apiFetch } from '@/lib/api'
-import type { LogoutResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
+import type { LogoutResponse, MeResponse, SetupStatusResponse, StatsResponse } from '@/lib/types'
 import { useWebSocketSync, type WsSyncPayload } from '@/lib/useWebSocketSync'
 
 export const Route = createFileRoute('/')({
@@ -58,11 +58,31 @@ function DashboardPage() {
     'connecting',
   )
   const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([])
+  const [notesCount, setNotesCount] = useState<number>(me?.notes_count ?? 0)
+  const [foldersCount, setFoldersCount] = useState<number>(me?.folders_count ?? 0)
+
+  const refreshStats = useCallback(async () => {
+    try {
+      const stats = await apiFetch<StatsResponse>('/api/stats')
+      if (typeof stats?.notes_count === 'number') {
+        setNotesCount(stats.notes_count)
+      }
+      if (typeof stats?.folders_count === 'number') {
+        setFoldersCount(stats.folders_count)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    void refreshStats()
+  }, [refreshStats])
 
   useWebSocketSync({
     enabled: Boolean(me),
     onStatusChange: setWsStatus,
     onSyncNotification: (payload?: WsSyncPayload) => {
+      void refreshStats()
+
       const now = new Date().toLocaleTimeString()
       const deviceLabel = payload?.sender_device_id
         ? `device "${payload.sender_device_id}"`
@@ -203,6 +223,43 @@ function DashboardPage() {
               </Button>
             </div>
           )}
+        </div>
+
+        {/* Live Vault Metrics (Notes & Folders Count) */}
+        <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+          <div className="flex items-center justify-between rounded-2xl border border-border/80 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Total Notes
+              </p>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-bold tracking-tight text-foreground">
+                  {notesCount.toLocaleString()}
+                </span>
+                <span className="text-[11px] text-muted-foreground">synced</span>
+              </div>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <StickyNote className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-2xl border border-border/80 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Folders
+              </p>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-bold tracking-tight text-foreground">
+                  {foldersCount.toLocaleString()}
+                </span>
+                <span className="text-[11px] text-muted-foreground">active</span>
+              </div>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <FolderSync className="h-5 w-5" />
+            </div>
+          </div>
         </div>
 
         {/* Real-time Broadcast Activity Feed */}
