@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
+import { X } from "lucide-react-native"
 import { useMemo, useState } from "react"
 import { Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
@@ -112,9 +113,9 @@ export default function SettingsScreen() {
                 router.back()
               }}
               hitSlop={8}
-              className="px-2 py-1 active:opacity-60"
+              className="p-1 active:opacity-60"
             >
-              <Text className="text-[17px] font-semibold text-[#CABEFF]">Done</Text>
+              <X size={20} color="#E6E1E9" strokeWidth={2} />
             </Pressable>
           ),
         }}

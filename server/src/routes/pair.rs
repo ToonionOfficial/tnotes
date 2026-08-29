@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Extension, State},
+    extract::{Extension, Query, State},
     http::{HeaderMap, StatusCode, header},
 };
 use qrcode_generator::QrCodeEcc;
@@ -59,6 +59,20 @@ pub struct PairClaimResponse {
     pub username: String,
     pub device_id: String,
     pub expires_at: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PairStatusQuery {
+    pub code: Option<String>,
+    pub device_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PairStatusResponse {
+    pub paired: bool,
+    pub device_id: Option<String>,
+    pub device_name: Option<String>,
+    pub username: Option<String>,
 }
 
 fn get_lan_ip() -> Option<String> {
@@ -155,6 +169,8 @@ pub async fn pair_handler(
                 username: user.username.clone(),
                 device_id: new_device_id.clone(),
                 expires_at: code_expires_at,
+                claimed: false,
+                claimed_device_name: None,
             },
         );
     }
@@ -207,7 +223,7 @@ pub async fn pair_claim_handler(
     let mut pairings = state.pending_pairings.lock().await;
     pairings.retain(|_, v| v.expires_at > now);
 
-    let pending = pairings.remove(code).ok_or_else(|| {
+    let pending = pairings.get_mut(code).ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
             "Invalid or expired 6-digit pairing code".to_string(),
@@ -221,24 +237,59 @@ pub async fn pair_claim_handler(
         ));
     }
 
-    if let Some(device_name) = req.device_name {
-        let platform = req.platform.unwrap_or_else(|| "mobile".into());
-        let conn = state.db.lock().await;
-        let device = Device::new(
-            &pending.device_id,
-            &device_name,
-            &platform,
-            &pending.user_id,
-        );
-        let _ = upsert_device(&conn, &device);
-    }
+    let device_name = req.device_name.unwrap_or_else(|| "Mobile App".into());
+    let platform = req.platform.unwrap_or_else(|| "mobile".into());
+
+    pending.claimed = true;
+    pending.claimed_device_name = Some(device_name.clone());
+
+    let token = pending.token.clone();
+    let user_id = pending.user_id.clone();
+    let username = pending.username.clone();
+    let device_id = pending.device_id.clone();
+    let expires_at = pending.expires_at;
+
+    let conn = state.db.lock().await;
+    let device = Device::new(&device_id, &device_name, &platform, &user_id);
+    let _ = upsert_device(&conn, &device);
 
     Ok(Json(PairClaimResponse {
         ok: true,
-        token: pending.token,
-        user_id: pending.user_id,
-        username: pending.username,
-        device_id: pending.device_id,
-        expires_at: pending.expires_at,
+        token,
+        user_id,
+        username,
+        device_id,
+        expires_at,
+    }))
+}
+
+pub async fn pair_status_handler(
+    State(state): State<AppState>,
+    Query(query): Query<PairStatusQuery>,
+) -> Result<Json<PairStatusResponse>, (StatusCode, String)> {
+    let pairings = state.pending_pairings.lock().await;
+    let now = current_time_ms();
+
+    for p in pairings.values() {
+        if p.expires_at > now {
+            let matches_code = query.code.as_deref() == Some(&p.code);
+            let matches_device = query.device_id.as_deref() == Some(&p.device_id);
+
+            if matches_code || matches_device {
+                return Ok(Json(PairStatusResponse {
+                    paired: p.claimed,
+                    device_id: Some(p.device_id.clone()),
+                    device_name: p.claimed_device_name.clone(),
+                    username: Some(p.username.clone()),
+                }));
+            }
+        }
+    }
+
+    Ok(Json(PairStatusResponse {
+        paired: false,
+        device_id: None,
+        device_name: None,
+        username: None,
     }))
 }

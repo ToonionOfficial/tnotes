@@ -23,6 +23,8 @@ export interface MeResponse {
   device_id: string
   device_name: string
   platform: string
+  has_paired_devices?: boolean
+  paired_devices_count?: number
 }
 
 export interface LogoutResponse {
@@ -39,4 +41,11 @@ export interface PairingDataResponse {
   qr_svg: string
   qr_payload: string
   expires_at: number
+}
+
+export interface PairStatusResponse {
+  paired: boolean
+  device_id?: string
+  device_name?: string
+  username?: string
 }

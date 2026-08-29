@@ -6,17 +6,22 @@ use crate::models::current_time_ms;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Folder {
     pub id: String,
+    #[serde(alias = "userId")]
     pub user_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "parentId", skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,
     pub name: String,
     pub icon: String,
+    #[serde(alias = "sortOrder")]
     pub sort_order: i32,
     pub version: u64,
+    #[serde(alias = "updatedAt")]
     pub updated_at: i64,
+    #[serde(alias = "createdAt")]
     pub created_at: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "deletedAt", skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<i64>,
+    #[serde(alias = "deviceId")]
     pub device_id: String,
 }
 

@@ -8,6 +8,75 @@ import {
 import { applyRemoteChangesAsync } from "./applyRemoteChanges"
 import type { SyncChange, SyncEnvelope, SyncResponse, SyncResult } from "./types"
 
+function normalizePayloadForSync(
+  entityType: string,
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  if (entityType === "note") {
+    return {
+      id: String(raw.id ?? ""),
+      user_id: String(raw.user_id ?? raw.userId ?? ""),
+      folder_id:
+        raw.folder_id !== undefined
+          ? raw.folder_id
+            ? String(raw.folder_id)
+            : null
+          : raw.folderId
+            ? String(raw.folderId)
+            : null,
+      title: String(raw.title ?? ""),
+      body: String(raw.body ?? ""),
+      pinned: Boolean(raw.pinned),
+      trashed: Boolean(raw.trashed),
+      version: Number(raw.version ?? 1),
+      created_at: Number(raw.created_at ?? raw.createdAt ?? Date.now()),
+      updated_at: Number(raw.updated_at ?? raw.updatedAt ?? Date.now()),
+      deleted_at:
+        raw.deleted_at !== undefined
+          ? raw.deleted_at
+            ? Number(raw.deleted_at)
+            : null
+          : raw.deletedAt
+            ? Number(raw.deletedAt)
+            : null,
+      device_id: String(raw.device_id ?? raw.deviceId ?? ""),
+      checksum: String(raw.checksum ?? ""),
+    }
+  }
+
+  if (entityType === "folder") {
+    return {
+      id: String(raw.id ?? ""),
+      user_id: String(raw.user_id ?? raw.userId ?? ""),
+      parent_id:
+        raw.parent_id !== undefined
+          ? raw.parent_id
+            ? String(raw.parent_id)
+            : null
+          : raw.parentId
+            ? String(raw.parentId)
+            : null,
+      name: String(raw.name ?? ""),
+      icon: String(raw.icon ?? "folder"),
+      sort_order: Number(raw.sort_order ?? raw.sortOrder ?? 0),
+      version: Number(raw.version ?? 1),
+      created_at: Number(raw.created_at ?? raw.createdAt ?? Date.now()),
+      updated_at: Number(raw.updated_at ?? raw.updatedAt ?? Date.now()),
+      deleted_at:
+        raw.deleted_at !== undefined
+          ? raw.deleted_at
+            ? Number(raw.deleted_at)
+            : null
+          : raw.deletedAt
+            ? Number(raw.deletedAt)
+            : null,
+      device_id: String(raw.device_id ?? raw.deviceId ?? ""),
+    }
+  }
+
+  return raw
+}
+
 export async function executeSyncAsync(): Promise<SyncResult> {
   const creds = getSyncCredentials()
   if (!creds.serverUrl || !creds.token || !creds.deviceId) {
@@ -34,13 +103,15 @@ export async function executeSyncAsync(): Promise<SyncResult> {
       payload = JSON.parse(row.payload)
     } catch {}
 
+    const normalizedPayload = normalizePayloadForSync(row.entityType, payload)
+
     changes.push({
       entity_type: row.entityType as "note" | "folder",
       entity_id: row.entityId,
       version: row.version,
       updated_at: row.updatedAt,
       tombstone: Boolean(row.tombstone),
-      payload,
+      payload: normalizedPayload,
     })
   }
 
