@@ -7,6 +7,7 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers"
 import { GlassView } from "expo-glass-effect"
+import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useEffect, useRef, useState } from "react"
@@ -65,6 +66,7 @@ export function BottomBar({ onPressNewNote, searchValue, onSearchChange }: Botto
   })
 
   const handleNewNote = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     if (onPressNewNote) {
       onPressNewNote()
     } else {

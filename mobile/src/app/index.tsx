@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { ChevronRight, Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -184,7 +185,10 @@ export default function FoldersScreen() {
           headerShown: true,
           headerRight: () => (
             <Pressable
-              onPress={() => sheetRef.current?.open()}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                sheetRef.current?.open()
+              }}
               hitSlop={8}
               className="active:opacity-60"
             >
