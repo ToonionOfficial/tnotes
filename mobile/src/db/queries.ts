@@ -483,8 +483,18 @@ export function restoreNote(id: string): void {
   const now = Date.now()
   const nextVersion = existing.version + 1
 
+  // If the parent folder no longer exists or was deleted, restore to root (All Notes)
+  let targetFolderId = existing.folderId
+  if (targetFolderId) {
+    const parentFolder = getFolderById(targetFolderId)
+    if (!parentFolder || parentFolder.deletedAt !== null) {
+      targetFolderId = null
+    }
+  }
+
   const updatedNote: Note = {
     ...existing,
+    folderId: targetFolderId,
     trashed: false,
     deletedAt: null,
     version: nextVersion,
