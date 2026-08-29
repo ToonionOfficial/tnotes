@@ -1,9 +1,9 @@
 import { RichText } from "@10play/tentap-editor"
-import { useEffect, useRef, useState } from "react"
-import { Keyboard, Platform, View } from "react-native"
+import { useRef } from "react"
+import { View } from "react-native"
 import { EditorHeader } from "./EditorHeader"
 import { EditorToolbar } from "./EditorToolbar"
-import { FormatSheet } from "./FormatSheet"
+import { FormatSheet, type FormatSheetRef } from "./FormatSheet"
 import { useNoteEditor } from "./useNoteEditorBridge"
 
 interface NoteEditorProps {
@@ -23,7 +23,7 @@ export function NoteEditor({
   onDone,
   onSave,
 }: NoteEditorProps) {
-  const [isFormatOpen, setIsFormatOpen] = useState(false)
+  const formatSheetRef = useRef<FormatSheetRef>(null)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleFlushSave = async () => {
@@ -60,23 +60,6 @@ export function NoteEditor({
     onChange: handleChange,
   })
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      () => {
-        if (isFormatOpen) {
-          setIsFormatOpen(false)
-        }
-      },
-    )
-    return () => {
-      showSub.remove()
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [isFormatOpen])
-
   const handleBack = async () => {
     await handleFlushSave()
     onBack?.()
@@ -93,8 +76,8 @@ export function NoteEditor({
       <View className="flex-1">
         <RichText editor={editor} />
       </View>
-      <EditorToolbar editor={editor} onOpenFormat={() => setIsFormatOpen(true)} />
-      <FormatSheet editor={editor} isOpen={isFormatOpen} onClose={() => setIsFormatOpen(false)} />
+      <EditorToolbar editor={editor} onOpenFormat={() => formatSheetRef.current?.open()} />
+      <FormatSheet ref={formatSheetRef} editor={editor} />
     </View>
   )
 }

@@ -5,7 +5,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
   BottomSheetView,
 } from "@gorhom/bottom-sheet"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
 import { Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { ToolbarIcon, type ToolbarIconName } from "./ToolbarIcon"
 
@@ -20,10 +20,14 @@ const STYLES = [
 
 type HeadingType = (typeof STYLES)[number]["id"]
 
+export interface FormatSheetRef {
+  open: () => void
+  close: () => void
+}
+
 interface FormatSheetProps {
   editor: EditorBridge
-  isOpen: boolean
-  onClose: () => void
+  onClose?: () => void
 }
 
 type FormatButtonProps = {
@@ -53,25 +57,30 @@ function FormatButton({
   )
 }
 
-export function FormatSheet({ editor, isOpen, onClose }: FormatSheetProps) {
+export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function FormatSheet(
+  { editor, onClose },
+  ref,
+) {
   const bottomSheetRef = useRef<BottomSheet>(null)
   const editorState = useBridgeState(editor)
   const snapPoints = useMemo(() => [260], [])
 
-  useEffect(() => {
-    if (isOpen) {
-      bottomSheetRef.current?.snapToIndex(0)
-    } else {
-      bottomSheetRef.current?.close()
-    }
-  }, [isOpen])
+  const open = useCallback(() => {
+    bottomSheetRef.current?.snapToIndex(0)
+  }, [])
+
+  const close = useCallback(() => {
+    bottomSheetRef.current?.close()
+  }, [])
+
+  useImperativeHandle(ref, () => ({ open, close }), [open, close])
 
   const handleManualClose = useCallback(() => {
     bottomSheetRef.current?.close()
     try {
       editor.focus()
     } catch {}
-    onClose()
+    onClose?.()
   }, [editor, onClose])
 
   const currentHeadingLevel = editorState.headingLevel
@@ -97,7 +106,9 @@ export function FormatSheet({ editor, isOpen, onClose }: FormatSheetProps) {
         editor.toggleHeading(3)
         break
       case "body":
-        if (currentHeadingLevel) editor.toggleHeading(currentHeadingLevel as 1 | 2 | 3)
+        if (currentHeadingLevel) {
+          editor.toggleHeading(currentHeadingLevel as 1 | 2 | 3)
+        }
         if (isBlockquote) editor.toggleBlockquote()
         break
       case "quote":
@@ -125,15 +136,13 @@ export function FormatSheet({ editor, isOpen, onClose }: FormatSheetProps) {
   const handleSheetChange = useCallback(
     (index: number) => {
       if (index === -1) {
-        if (isOpen) {
-          try {
-            editor.focus()
-          } catch {}
-          onClose()
-        }
+        try {
+          editor.focus()
+        } catch {}
+        onClose?.()
       }
     },
-    [isOpen, onClose, editor],
+    [onClose, editor],
   )
 
   return (
@@ -273,4 +282,4 @@ export function FormatSheet({ editor, isOpen, onClose }: FormatSheetProps) {
       </BottomSheetView>
     </BottomSheet>
   )
-}
+})
