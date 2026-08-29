@@ -9,5 +9,7 @@ export function useDatabaseStats() {
   return useQuery({
     queryKey: statsKeys.all,
     queryFn: getDatabaseStatsAsync,
+    staleTime: 0,
+    refetchOnMount: "always",
   })
 }

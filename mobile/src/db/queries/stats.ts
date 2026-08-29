@@ -25,7 +25,7 @@ export async function getDatabaseStatsAsync(): Promise<DatabaseStats> {
   const sizeBytes = pageCount * pageSize
 
   const notesResult = await expo.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM notes WHERE deleted_at IS NULL;",
+    "SELECT COUNT(*) as count FROM notes WHERE trashed = 0 AND deleted_at IS NULL;",
   )
   const foldersResult = await expo.getFirstAsync<{ count: number }>(
     "SELECT COUNT(*) as count FROM folders WHERE deleted_at IS NULL;",

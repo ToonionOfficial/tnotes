@@ -15,6 +15,7 @@ import {
   trashNote,
   updateNote,
 } from "@/db/queries"
+import { statsKeys } from "./useDatabaseStats"
 
 export const noteKeys = {
   all: ["notes"] as const,
@@ -60,35 +61,30 @@ export function useFolderNoteCounts() {
   return useQuery({
     queryKey: noteKeys.counts(),
     queryFn: getFolderNoteCountsAsync,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
-    refetchOnMount: false,
   })
 }
 
-export function useNote(id: string | undefined | null) {
+export function useNote(id: string | undefined | null, enabled = true) {
   return useQuery({
     queryKey: noteKeys.detail(id ?? ""),
     queryFn: () => (id ? getNoteByIdAsync(id) : null),
-    enabled: Boolean(id && id !== "new"),
+    enabled: Boolean(id) && enabled,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 5,
     refetchOnMount: false,
   })
 }
 
-export function useSearchNotes(
-  query: string,
-  filters?: { folderId?: string | null; trashed?: boolean; limit?: number },
-) {
-  const pageSize = filters?.limit ?? NOTES_PAGE_SIZE
+export function useSearchNotes(query: string, folderId?: string | null, pageSize = 20) {
   return useInfiniteQuery({
-    queryKey: noteKeys.search(query, filters?.folderId),
+    queryKey: noteKeys.search(query, folderId),
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const notes = await getNotesPageAsync({
-        ...filters,
         search: query,
+        folderId,
         limit: pageSize + 1,
         offset: pageParam,
       })
@@ -114,6 +110,7 @@ export function useCreateNote() {
     }) => createNote(input),
     onSuccess: (newNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(noteKeys.detail(newNote.id), newNote)
     },
   })
@@ -126,6 +123,7 @@ export function useCreateBenchmarkNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -137,6 +135,7 @@ export function useDeleteBenchmarkNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -158,6 +157,7 @@ export function useUpdateNote() {
     }) => updateNote(id, input),
     onSuccess: (updatedNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
     },
   })
@@ -182,6 +182,7 @@ export function useTrashNote() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -194,6 +195,7 @@ export function useRestoreNote() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -206,6 +208,7 @@ export function useDeleteNotePermanently() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -218,6 +221,7 @@ export function useBatchTrashNotes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -230,6 +234,7 @@ export function useBatchDeleteNotesPermanently() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }

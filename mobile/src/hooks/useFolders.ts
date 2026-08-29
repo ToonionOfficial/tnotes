@@ -11,6 +11,7 @@ import {
   updateFolder,
 } from "@/db/queries"
 import type { Folder } from "@/db/schema"
+import { statsKeys } from "./useDatabaseStats"
 import { noteKeys } from "./useNotes"
 
 export const folderKeys = {
@@ -71,6 +72,7 @@ export function useCreateFolder() {
     }) => createFolder(input),
     onSuccess: (newFolder) => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(folderKeys.detail(newFolder.id), newFolder)
     },
   })
@@ -93,6 +95,7 @@ export function useUpdateFolder() {
     }) => updateFolder(id, input),
     onSuccess: (updatedFolder) => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(folderKeys.detail(updatedFolder.id), updatedFolder)
     },
   })
@@ -107,6 +110,7 @@ export function useDeleteFolder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -120,6 +124,7 @@ export function useBatchDeleteFolders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -133,6 +138,7 @@ export function useRestoreFolder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }
@@ -166,6 +172,7 @@ export function useReorderFolders() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
     },
   })
 }

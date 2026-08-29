@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  getAutoSyncEnabled,
   getSyncStatusAsync,
   pairWithServerAsync,
   type QrPairPayload,
+  setAutoSyncEnabled,
   unpairServerAsync,
 } from "@/db/queries"
 import { statsKeys } from "@/hooks/useDatabaseStats"
@@ -12,12 +14,35 @@ import { executeSyncAsync } from "@/services/sync"
 
 export const syncKeys = {
   all: ["syncStatus"] as const,
+  autoSync: ["autoSyncSetting"] as const,
 }
 
 export function useSyncState() {
   return useQuery({
     queryKey: syncKeys.all,
     queryFn: getSyncStatusAsync,
+  })
+}
+
+export function useAutoSyncQuery() {
+  return useQuery({
+    queryKey: syncKeys.autoSync,
+    queryFn: () => getAutoSyncEnabled(),
+  })
+}
+
+export function useSetAutoSyncMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      setAutoSyncEnabled(enabled)
+      return enabled
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: syncKeys.autoSync })
+      void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+    },
   })
 }
 
@@ -34,6 +59,7 @@ export function usePairServerMutation() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+      void queryClient.invalidateQueries({ queryKey: syncKeys.autoSync })
       void queryClient.invalidateQueries({ queryKey: noteKeys.all })
       void queryClient.invalidateQueries({ queryKey: folderKeys.all })
       void queryClient.invalidateQueries({ queryKey: statsKeys.all })
@@ -48,6 +74,7 @@ export function useUnpairServerMutation() {
     mutationFn: () => unpairServerAsync(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+      void queryClient.invalidateQueries({ queryKey: syncKeys.autoSync })
       void queryClient.invalidateQueries({ queryKey: noteKeys.all })
       void queryClient.invalidateQueries({ queryKey: folderKeys.all })
       void queryClient.invalidateQueries({ queryKey: statsKeys.all })

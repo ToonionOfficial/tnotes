@@ -14,7 +14,9 @@ import {
 } from "@/components/settings"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 import {
+  useAutoSyncQuery,
   usePairServerMutation,
+  useSetAutoSyncMutation,
   useSyncNowMutation,
   useSyncState,
   useUnpairServerMutation,
@@ -26,10 +28,12 @@ export default function SettingsScreen() {
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
 
   const { data: syncStatus } = useSyncState()
+  const { data: autoSyncEnabled } = useAutoSyncQuery()
   const { data: stats } = useDatabaseStats()
   const pairMutation = usePairServerMutation()
   const unpairMutation = useUnpairServerMutation()
   const syncNowMutation = useSyncNowMutation()
+  const setAutoSyncMutation = useSetAutoSyncMutation()
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
@@ -100,6 +104,11 @@ export default function SettingsScreen() {
     )
   }
 
+  const handleToggleAutoSync = (enabled: boolean) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    void setAutoSyncMutation.mutateAsync(enabled)
+  }
+
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen
@@ -146,6 +155,8 @@ export default function SettingsScreen() {
             isConnected={syncStatus?.isConnected}
             serverUrl={syncStatus?.serverUrl}
             isSyncing={syncNowMutation.isPending}
+            autoSync={autoSyncEnabled !== false}
+            onToggleAutoSync={handleToggleAutoSync}
             onPressConnectServer={() => setIsPairModalOpen(true)}
             onPressSyncNow={handleSyncNow}
             onPressDisconnect={handleDisconnect}

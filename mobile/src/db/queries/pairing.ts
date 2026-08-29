@@ -23,6 +23,16 @@ export interface SyncStatus {
   userId: string
   deviceId: string
   lastSyncedAt: string | null
+  autoSyncEnabled: boolean
+}
+
+export function getAutoSyncEnabled(): boolean {
+  const val = getSyncMeta("auto_sync")
+  return val !== "false"
+}
+
+export function setAutoSyncEnabled(enabled: boolean): void {
+  setSyncMeta("auto_sync", String(enabled))
 }
 
 export function normalizeServerUrl(rawUrl: string): string {
@@ -50,6 +60,7 @@ export async function getSyncStatusAsync(): Promise<SyncStatus> {
     userId,
     deviceId,
     lastSyncedAt,
+    autoSyncEnabled: getAutoSyncEnabled(),
   }
 }
 
