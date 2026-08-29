@@ -93,157 +93,152 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
     onMore()
   }
 
-  if (Platform.OS === "ios") {
-    return (
-      <View
-        style={{
-          paddingTop: Math.max(insets.top, 8),
-        }}
-        className="z-10 h-11 min-h-11 flex-row items-center justify-between px-4 py-2"
-      >
-        <Host matchContents ignoreSafeArea="all">
-          <Button
-            variant="filled"
-            onPress={handleBack}
-            modifiers={[
-              buttonStyle("glass"),
-              buttonBorderShape("circle"),
-              controlSize("large"),
-              tint("#ffffff"),
-              foregroundStyle("#ffffff"),
-            ]}
-          >
-            <Icon name={BACK_ICON} color="#ffffff" size={20} />
-          </Button>
-        </Host>
-
-        <View className="flex-row items-center gap-2.5">
+  return (
+    <View
+      style={{
+        paddingTop: insets.top + 8,
+      }}
+      className="z-10 px-5 pb-2"
+    >
+      {Platform.OS === "ios" ? (
+        <View className="h-11 min-h-11 flex-row items-center justify-between">
           <Host matchContents ignoreSafeArea="all">
             <Button
               variant="filled"
-              onPress={handleUndo}
+              onPress={handleBack}
               modifiers={[
                 buttonStyle("glass"),
                 buttonBorderShape("circle"),
                 controlSize("large"),
                 tint("#ffffff"),
                 foregroundStyle("#ffffff"),
-                disabledModifier(!editorState.canUndo),
               ]}
             >
-              <Icon name={UNDO_ICON} color="#ffffff" size={18} />
+              <Icon name={BACK_ICON} color="#ffffff" size={20} />
             </Button>
           </Host>
 
-          {onShare && (
+          <View className="flex-row items-center gap-2.5">
             <Host matchContents ignoreSafeArea="all">
               <Button
                 variant="filled"
-                onPress={handleShare}
+                onPress={handleUndo}
                 modifiers={[
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
                   tint("#ffffff"),
                   foregroundStyle("#ffffff"),
+                  disabledModifier(!editorState.canUndo),
                 ]}
               >
-                <Icon name={SHARE_ICON} color="#ffffff" size={18} />
+                <Icon name={UNDO_ICON} color="#ffffff" size={18} />
               </Button>
             </Host>
-          )}
 
-          {onMore && (
+            {onShare && (
+              <Host matchContents ignoreSafeArea="all">
+                <Button
+                  variant="filled"
+                  onPress={handleShare}
+                  modifiers={[
+                    buttonStyle("glass"),
+                    buttonBorderShape("circle"),
+                    controlSize("large"),
+                    tint("#ffffff"),
+                    foregroundStyle("#ffffff"),
+                  ]}
+                >
+                  <Icon name={SHARE_ICON} color="#ffffff" size={18} />
+                </Button>
+              </Host>
+            )}
+
+            {onMore && (
+              <Host matchContents ignoreSafeArea="all">
+                <Button
+                  variant="filled"
+                  onPress={handleMore}
+                  modifiers={[
+                    buttonStyle("glass"),
+                    buttonBorderShape("circle"),
+                    controlSize("large"),
+                    tint("#ffffff"),
+                    foregroundStyle("#ffffff"),
+                  ]}
+                >
+                  <Icon name={MORE_ICON} color="#ffffff" size={18} />
+                </Button>
+              </Host>
+            )}
+
             <Host matchContents ignoreSafeArea="all">
               <Button
                 variant="filled"
-                onPress={handleMore}
+                label="Done"
+                onPress={handleDone}
                 modifiers={[
                   buttonStyle("glass"),
-                  buttonBorderShape("circle"),
+                  buttonBorderShape("capsule"),
                   controlSize("large"),
-                  tint("#ffffff"),
                   foregroundStyle("#ffffff"),
                 ]}
-              >
-                <Icon name={MORE_ICON} color="#ffffff" size={18} />
-              </Button>
+              />
             </Host>
-          )}
-
-          <Host matchContents ignoreSafeArea="all">
-            <Button
-              variant="filled"
-              label="Done"
-              onPress={handleDone}
-              modifiers={[
-                buttonStyle("glass"),
-                buttonBorderShape("capsule"),
-                controlSize("large"),
-                foregroundStyle("#ffffff"),
-              ]}
-            />
-          </Host>
+          </View>
         </View>
-      </View>
-    )
-  }
-
-  return (
-    <View
-      style={{
-        paddingTop: Math.max(insets.top, 8),
-      }}
-      className="z-10 h-11 min-h-11 flex-row items-center justify-between px-4 py-2"
-    >
-      <Pressable
-        onPress={handleBack}
-        hitSlop={8}
-        className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
-      >
-        <ChevronLeft size={22} color="#ffffff" />
-      </Pressable>
-
-      <View className="flex-row items-center gap-2.5">
-        <Pressable
-          onPress={handleUndo}
-          disabled={!editorState.canUndo}
-          hitSlop={8}
-          className={`size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60 ${
-            editorState.canUndo ? "opacity-100" : "opacity-35"
-          }`}
-        >
-          <Undo2 size={20} color="#ffffff" />
-        </Pressable>
-
-        {onShare && (
+      ) : (
+        <View className="h-11 min-h-11 flex-row items-center justify-between">
           <Pressable
-            onPress={handleShare}
+            onPress={handleBack}
             hitSlop={8}
             className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
           >
-            <Share2 size={20} color="#ffffff" />
+            <ChevronLeft size={22} color="#ffffff" />
           </Pressable>
-        )}
 
-        {onMore && (
-          <Pressable
-            onPress={handleMore}
-            hitSlop={8}
-            className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
-          >
-            <Ellipsis size={20} color="#ffffff" />
-          </Pressable>
-        )}
+          <View className="flex-row items-center gap-2.5">
+            <Pressable
+              onPress={handleUndo}
+              disabled={!editorState.canUndo}
+              hitSlop={8}
+              className={`size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60 ${
+                editorState.canUndo ? "opacity-100" : "opacity-35"
+              }`}
+            >
+              <Undo2 size={20} color="#ffffff" />
+            </Pressable>
 
-        <Pressable
-          onPress={handleDone}
-          hitSlop={8}
-          className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
-        >
-          <Text className="text-[15px] font-semibold text-white">Done</Text>
-        </Pressable>
-      </View>
+            {onShare && (
+              <Pressable
+                onPress={handleShare}
+                hitSlop={8}
+                className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+              >
+                <Share2 size={20} color="#ffffff" />
+              </Pressable>
+            )}
+
+            {onMore && (
+              <Pressable
+                onPress={handleMore}
+                hitSlop={8}
+                className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+              >
+                <Ellipsis size={20} color="#ffffff" />
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={handleDone}
+              hitSlop={8}
+              className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
+            >
+              <Text className="text-[15px] font-semibold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
