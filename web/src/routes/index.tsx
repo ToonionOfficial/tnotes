@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Activity, FolderSync, LogOut, PanelLeft, Radio, StickyNote } from 'lucide-react'
+import { FolderSync, LogOut, PanelLeft, StickyNote } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { apiFetch } from '@/lib/api'
 import type { LogoutResponse, MeResponse, SetupStatusResponse, StatsResponse } from '@/lib/types'
-import { useWebSocketSync, type WsSyncPayload } from '@/lib/useWebSocketSync'
+import { useWebSocketSync } from '@/lib/useWebSocketSync'
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
@@ -42,13 +42,6 @@ export const Route = createFileRoute('/')({
   component: DashboardPage,
 })
 
-interface SyncLogEntry {
-  id: string
-  time: string
-  message: string
-  count?: number
-}
-
 function DashboardPage() {
   const navigate = useNavigate()
   const context = Route.useRouteContext()
@@ -57,7 +50,6 @@ function DashboardPage() {
   const [wsStatus, setWsStatus] = useState<'connected' | 'connecting' | 'disconnected'>(
     'connecting',
   )
-  const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([])
   const [notesCount, setNotesCount] = useState<number>(me?.notes_count ?? 0)
   const [foldersCount, setFoldersCount] = useState<number>(me?.folders_count ?? 0)
 
@@ -80,26 +72,8 @@ function DashboardPage() {
   useWebSocketSync({
     enabled: Boolean(me),
     onStatusChange: setWsStatus,
-    onSyncNotification: (payload?: WsSyncPayload) => {
+    onSyncNotification: () => {
       void refreshStats()
-
-      const now = new Date().toLocaleTimeString()
-      const deviceLabel = payload?.sender_device_id
-        ? `device "${payload.sender_device_id}"`
-        : 'another device'
-      const changeText =
-        payload?.count !== undefined
-          ? ` (${payload.count} change${payload.count === 1 ? '' : 's'})`
-          : ''
-
-      const newEntry: SyncLogEntry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        time: now,
-        message: `Sync broadcast received from ${deviceLabel}${changeText}`,
-        count: payload?.count,
-      }
-
-      setSyncLogs((prev) => [newEntry, ...prev].slice(0, 10))
     },
   })
 
@@ -196,7 +170,7 @@ function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Workspace Placeholder & Live Sync Stream */}
+      {/* Main Workspace Placeholder */}
       <main className="flex flex-1 flex-col items-center justify-center p-6 gap-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-md">
           <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground border border-border">
@@ -259,46 +233,6 @@ function DashboardPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
               <FolderSync className="h-5 w-5" />
             </div>
-          </div>
-        </div>
-
-        {/* Real-time Broadcast Activity Feed */}
-        <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center justify-between pb-3 border-b border-border/60">
-            <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-primary animate-pulse" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                Live Sync Activity
-              </span>
-            </div>
-            <span className="text-[11px] text-muted-foreground">
-              {syncLogs.length} event{syncLogs.length === 1 ? '' : 's'}
-            </span>
-          </div>
-
-          <div className="pt-3 space-y-2 max-h-48 overflow-y-auto">
-            {syncLogs.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">
-                Waiting for device sync broadcasts...
-                <br />
-                <span className="text-[11px] opacity-70">
-                  (Make a change or tap Sync on your phone to see it appear here live)
-                </span>
-              </div>
-            ) : (
-              syncLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-2.5 text-xs text-foreground animate-in fade-in duration-300"
-                >
-                  <Activity className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground leading-snug">{log.message}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{log.time}</p>
-                  </div>
-                </div>
-              ))
-            )}
           </div>
         </div>
       </main>
