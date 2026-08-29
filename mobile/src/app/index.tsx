@@ -1,27 +1,27 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Plus, Trash2 } from "lucide-react-native"
-import { useCallback, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, Platform, Pressable, Text, View } from "react-native"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
+import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
-import { FolderRow } from "@/components/FolderRow"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
 import { useDeleteFolder, useFolders } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
-type FolderItem =
-  | { type: "all"; id: "all" }
-  | { type: "folder"; id: string; folder: Folder; isFirst: boolean; isLast: boolean }
-  | { type: "trash"; id: "trash" }
-
 export default function FoldersScreen() {
   const router = useRouter()
   const { data: foldersList = [] } = useFolders()
   const deleteFolder = useDeleteFolder()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
+
+  const [folders, setFolders] = useState<Folder[]>(foldersList)
+  useEffect(() => {
+    setFolders(foldersList)
+  }, [foldersList])
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const [searchValue, setSearchValue] = useState("")
@@ -48,6 +48,15 @@ export default function FoldersScreen() {
         setSelectedFolderIds(new Set())
       }
       return !prev
+    })
+  }, [])
+
+  const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
+    setFolders((prev) => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
     })
   }, [])
 
@@ -83,85 +92,6 @@ export default function FoldersScreen() {
       )
     },
     [counts.byFolder, deleteFolder],
-  )
-
-  const listData = useMemo<FolderItem[]>(() => {
-    const items: FolderItem[] = [{ type: "all", id: "all" }]
-    foldersList.forEach((folder, index) => {
-      items.push({
-        type: "folder",
-        id: folder.id,
-        folder,
-        isFirst: index === 0,
-        isLast: index === foldersList.length - 1,
-      })
-    })
-    items.push({ type: "trash", id: "trash" })
-    return items
-  }, [foldersList])
-
-  const renderItem = useCallback(
-    ({ item }: { item: FolderItem }) => {
-      if (item.type === "all") {
-        return (
-          <VirtualFolderCard
-            title="Notes"
-            icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
-            count={getFolderCount(null)}
-            isEditing={isEditing}
-            onPress={() => router.push("/folders/all" as const)}
-          />
-        )
-      }
-
-      if (item.type === "folder") {
-        const isOnly = item.isFirst && item.isLast
-        return (
-          <FolderRow
-            folder={item.folder}
-            isFirst={item.isFirst}
-            isLast={item.isLast}
-            isOnly={isOnly}
-            isEditing={isEditing}
-            isSelected={selectedFolderIds.has(item.folder.id)}
-            noteCount={getFolderCount(item.folder.id)}
-            onPress={() => {
-              if (isEditing) {
-                toggleSelectFolder(item.folder.id)
-              } else {
-                router.push(`/folders/${item.folder.id}` as const)
-              }
-            }}
-            onDelete={() => handleDeleteFolder(item.folder)}
-          />
-        )
-      }
-
-      if (item.type === "trash") {
-        return (
-          <VirtualFolderCard
-            title="Trash"
-            icon={<Trash2 size={18} color="#FF6B6B" />}
-            count={counts.trash}
-            isEditing={isEditing}
-            className="mt-5"
-            textColor="text-[#FF6B6B]"
-            onPress={() => router.push("/folders/trash" as const)}
-          />
-        )
-      }
-
-      return null
-    },
-    [
-      counts.trash,
-      getFolderCount,
-      handleDeleteFolder,
-      isEditing,
-      router,
-      selectedFolderIds,
-      toggleSelectFolder,
-    ],
   )
 
   return (
@@ -246,10 +176,7 @@ export default function FoldersScreen() {
         }}
       />
 
-      <FlatList
-        data={listData}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+      <ScrollView
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
@@ -258,7 +185,36 @@ export default function FoldersScreen() {
           paddingTop: 12,
           paddingBottom: 110,
         }}
-      />
+      >
+        <VirtualFolderCard
+          title="Notes"
+          icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
+          count={getFolderCount(null)}
+          isEditing={isEditing}
+          onPress={() => router.push("/folders/all" as const)}
+        />
+
+        <DraggableFolderSection
+          folders={folders}
+          isEditing={isEditing}
+          selectedFolderIds={selectedFolderIds}
+          getFolderCount={getFolderCount}
+          onToggleSelect={toggleSelectFolder}
+          onPressFolder={(folderId) => router.push(`/folders/${folderId}` as const)}
+          onDeleteFolder={handleDeleteFolder}
+          onReorder={handleReorder}
+        />
+
+        <VirtualFolderCard
+          title="Trash"
+          icon={<Trash2 size={18} color="#FF6B6B" />}
+          count={counts.trash}
+          isEditing={isEditing}
+          className="mt-5"
+          textColor="text-[#FF6B6B]"
+          onPress={() => router.push("/folders/trash" as const)}
+        />
+      </ScrollView>
 
       <BottomBar
         searchValue={searchValue}
