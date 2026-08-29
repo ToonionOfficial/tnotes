@@ -10,12 +10,46 @@ import { Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { ToolbarIcon, type ToolbarIconName } from "./ToolbarIcon"
 
 const STYLES = [
-  { id: "title", label: "Title" },
-  { id: "heading", label: "Heading" },
-  { id: "subheading", label: "Subheading" },
-  { id: "body", label: "Body" },
-  { id: "code", label: "Monospaced" },
-  { id: "quote", label: "Quote" },
+  {
+    id: "title",
+    label: "Title",
+    fontSize: 20,
+    fontWeight: "700" as const,
+    letterSpacing: -0.4,
+  },
+  {
+    id: "heading",
+    label: "Heading",
+    fontSize: 17,
+    fontWeight: "700" as const,
+    letterSpacing: -0.2,
+  },
+  {
+    id: "subheading",
+    label: "Subheading",
+    fontSize: 15,
+    fontWeight: "600" as const,
+  },
+  {
+    id: "body",
+    label: "Body",
+    fontSize: 14,
+    fontWeight: "400" as const,
+  },
+  {
+    id: "code",
+    label: "Monospaced",
+    fontSize: 13,
+    fontWeight: "500" as const,
+    fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
+  },
+  {
+    id: "quote",
+    label: "Quote",
+    fontSize: 14,
+    fontWeight: "400" as const,
+    fontStyle: "italic" as const,
+  },
 ] as const
 
 type HeadingType = (typeof STYLES)[number]["id"]
@@ -63,7 +97,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
 ) {
   const bottomSheetRef = useRef<BottomSheet>(null)
   const editorState = useBridgeState(editor)
-  const snapPoints = useMemo(() => [260], [])
+  const snapPoints = useMemo(() => [265], [])
 
   const open = useCallback(() => {
     bottomSheetRef.current?.snapToIndex(0)
@@ -190,6 +224,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
           contentContainerStyle={{
             gap: 8,
             paddingRight: 16,
+            alignItems: "center",
           }}
           className="mb-3"
         >
@@ -200,14 +235,19 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
               <Pressable
                 key={style.id}
                 onPress={() => handleSelectStyle(style.id)}
-                className={`h-8.5 items-center justify-center rounded-full px-4 active:opacity-75 ${
-                  isSelected ? "bg-primary" : "bg-white/6"
+                className={`h-9 items-center justify-center rounded-full px-4 active:opacity-75 ${
+                  isSelected ? "bg-primary" : "bg-white/[0.08]"
                 }`}
               >
                 <Text
-                  className={`text-[14px] font-semibold ${
-                    isSelected ? "text-[#32285F]" : "text-foreground"
-                  }`}
+                  style={{
+                    fontSize: style.fontSize,
+                    fontWeight: style.fontWeight,
+                    letterSpacing: "letterSpacing" in style ? style.letterSpacing : undefined,
+                    fontFamily: "fontFamily" in style ? style.fontFamily : undefined,
+                    fontStyle: "fontStyle" in style ? style.fontStyle : undefined,
+                  }}
+                  className={isSelected ? "text-[#32285F]" : "text-foreground"}
                 >
                   {style.label}
                 </Text>
