@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
 import {
   getAutoSyncEnabled,
   getSyncStatusAsync,
@@ -10,11 +11,21 @@ import {
 import { statsKeys } from "@/hooks/useDatabaseStats"
 import { folderKeys } from "@/hooks/useFolders"
 import { noteKeys } from "@/hooks/useNotes"
-import { executeSyncAsync } from "@/services/sync"
+import { executeSyncAsync, getGlobalIsSyncing, subscribeIsSyncing } from "@/services/sync"
 
 export const syncKeys = {
   all: ["syncStatus"] as const,
   autoSync: ["autoSyncSetting"] as const,
+}
+
+export function useIsSyncing(): boolean {
+  const [isSyncing, setIsSyncing] = useState(() => getGlobalIsSyncing())
+
+  useEffect(() => {
+    return subscribeIsSyncing(setIsSyncing)
+  }, [])
+
+  return isSyncing
 }
 
 export function useSyncState() {

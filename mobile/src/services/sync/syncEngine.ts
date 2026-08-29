@@ -8,6 +8,32 @@ import {
 import { applyRemoteChangesAsync } from "./applyRemoteChanges"
 import type { SyncChange, SyncEnvelope, SyncResponse, SyncResult } from "./types"
 
+type SyncListener = (isSyncing: boolean) => void
+const syncListeners = new Set<SyncListener>()
+let isCurrentlySyncing = false
+
+export function subscribeIsSyncing(listener: SyncListener): () => void {
+  syncListeners.add(listener)
+  listener(isCurrentlySyncing)
+  return () => {
+    syncListeners.delete(listener)
+  }
+}
+
+export function getGlobalIsSyncing(): boolean {
+  return isCurrentlySyncing
+}
+
+export function setGlobalIsSyncing(syncing: boolean): void {
+  if (isCurrentlySyncing === syncing) return
+  isCurrentlySyncing = syncing
+  for (const listener of syncListeners) {
+    try {
+      listener(syncing)
+    } catch {}
+  }
+}
+
 export function normalizePayloadForSync(
   entityType: string,
   raw: Record<string, unknown>,
@@ -88,6 +114,8 @@ export async function executeSyncAsync(): Promise<SyncResult> {
       error: "Not paired with a sync server",
     }
   }
+
+  setGlobalIsSyncing(true)
 
   const lastSyncAtStr = getSyncMeta("last_sync_at")
   const lastSyncAt = lastSyncAtStr ? Number(lastSyncAtStr) : 0
@@ -174,5 +202,7 @@ export async function executeSyncAsync(): Promise<SyncResult> {
       serverTime: 0,
       error: message,
     }
+  } finally {
+    setGlobalIsSyncing(false)
   }
 }
