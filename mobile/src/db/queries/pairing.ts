@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { db } from "../index"
-import { syncMeta, users } from "../schema"
+import { folders, notes, syncMeta, users } from "../schema"
 import { ensureUser, getOrCreateDeviceId, getSyncMeta, setSyncMeta } from "./sync"
 
 export interface QrPairPayload {
@@ -132,10 +132,18 @@ export async function pairWithServerAsync(payload: QrPairPayload): Promise<SyncS
         username: activeUsername,
         createdAt: Date.now(),
       })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: { username: activeUsername },
+      })
       .run()
   } else {
     db.update(users).set({ username: activeUsername }).where(eq(users.id, activeUserId)).run()
   }
+
+  // Migrate local notes and folders created under default_user to the authenticated user ID
+  db.update(notes).set({ userId: activeUserId }).where(eq(notes.userId, "default_user")).run()
+  db.update(folders).set({ userId: activeUserId }).where(eq(folders.userId, "default_user")).run()
 
   return getSyncStatusAsync()
 }

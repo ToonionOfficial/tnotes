@@ -19,6 +19,10 @@ export function ensureUser(userId = DEFAULT_USER_ID, username = DEFAULT_USERNAME
         username,
         createdAt: Date.now(),
       })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: { username },
+      })
       .run()
   }
 
