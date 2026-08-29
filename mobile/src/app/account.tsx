@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics"
 import { Stack } from "expo-router"
-import { Globe, Laptop, Monitor, Shield, Smartphone, Trash2, User } from "lucide-react-native"
+import { Globe, KeyRound, Laptop, Monitor, Smartphone, Trash2, User } from "lucide-react-native"
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { SettingsRow } from "@/components/settings/SettingsRow"
 import { SettingsSection } from "@/components/settings/SettingsSection"
@@ -45,6 +45,15 @@ export default function AccountScreen() {
   const isConnected = syncStatus?.isConnected ?? false
   const { data: devices = [], isLoading: isLoadingDevices } = useDevicesQuery(isConnected)
   const revokeMutation = useRevokeDeviceMutation()
+
+  const handleChangePassword = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Alert.alert(
+      "Change Password",
+      "Password management from the mobile app is coming soon. Please change your password from the web dashboard.",
+      [{ text: "OK" }],
+    )
+  }
 
   const handleRevokeDevice = (device: ConnectedDevice) => {
     Alert.alert(
@@ -111,13 +120,13 @@ export default function AccountScreen() {
           </View>
         </SettingsSection>
 
-        {/* Security & Isolation */}
-        <SettingsSection title="Account Security">
+        {/* Security Section */}
+        <SettingsSection title="Security">
           <SettingsRow
-            icon={<Shield size={19} color="#CABEFF" />}
-            title="End-to-End Vault Isolation"
-            subtitle="Notes are encrypted in transit and isolated by user ID"
-            showChevron={false}
+            icon={<KeyRound size={19} color="#CABEFF" />}
+            title="Change Password"
+            subtitle="Update your master account password"
+            onPress={handleChangePassword}
           />
         </SettingsSection>
 
