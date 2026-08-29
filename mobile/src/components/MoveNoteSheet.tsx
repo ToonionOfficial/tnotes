@@ -6,7 +6,7 @@ import {
 } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Check, Folder as FolderOutline } from "lucide-react-native"
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
@@ -14,24 +14,31 @@ import { useInfiniteFolders } from "@/hooks/useFolders"
 import { FolderIcon } from "./FolderIcon"
 
 interface MoveNoteSheetProps {
-  note: Note | SearchResult | null
+  note?: Note | SearchResult | null
   onSelectFolder: (targetFolderId: string | null) => void
 }
 
 export interface MoveNoteSheetRef {
-  open: () => void
+  open: (note?: Note | SearchResult) => void
   close: () => void
 }
 
 export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
-  function MoveNoteSheet({ note, onSelectFolder }, ref) {
+  function MoveNoteSheet({ note: propNote, onSelectFolder }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
+    const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
+
+    const activeNote = propNote ?? internalNote
+
     const { data: folderPages } = useInfiniteFolders()
     const allFolders = folderPages?.pages.flatMap((page) => page.folders) ?? []
 
     const snapPoints = useMemo(() => ["65%"], [])
 
-    const open = useCallback(() => {
+    const open = useCallback((noteToOpen?: Note | SearchResult) => {
+      if (noteToOpen) {
+        setInternalNote(noteToOpen)
+      }
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       bottomSheetModalRef.current?.present()
     }, [])
@@ -55,9 +62,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
       [],
     )
 
-    if (!note) return null
-
-    const currentFolderId = note.folderId ?? null
+    const currentFolderId = activeNote?.folderId ?? null
 
     const handleSelect = (folderId: string | null) => {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)

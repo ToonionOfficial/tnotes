@@ -194,11 +194,11 @@ export default function FolderNotesScreen() {
 
   const handleLongPressNote = useCallback((note: Note | SearchResult) => {
     setActionNote(note)
-    actionSheetRef.current?.open()
+    actionSheetRef.current?.open(note)
   }, [])
 
-  const handleActionMoveToFolder = useCallback((_note: Note | SearchResult) => {
-    moveSheetRef.current?.open()
+  const handleActionMoveToFolder = useCallback((note: Note | SearchResult) => {
+    moveSheetRef.current?.open(note)
   }, [])
 
   const handleSelectTargetFolder = useCallback(
