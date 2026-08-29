@@ -1,21 +1,35 @@
+import * as Haptics from "expo-haptics"
+import * as Linking from "expo-linking"
 import { Code2 } from "lucide-react-native"
 import { memo } from "react"
 import { Text, View } from "react-native"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
+const GITHUB_REPO_URL = "https://github.com/ToonionOfficial/tnotes"
+
 export interface AboutSectionProps {
   onPressGithub?: () => void
 }
 
 export const AboutSection = memo(function AboutSection({ onPressGithub }: AboutSectionProps) {
+  const handlePressGithub = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (onPressGithub) {
+      onPressGithub()
+    } else {
+      void Linking.openURL(GITHUB_REPO_URL)
+    }
+  }
+
   return (
     <View>
       <SettingsSection title="About">
         <SettingsRow
           icon={<Code2 size={20} color="#E6E1E9" />}
           title="Source Code"
-          onPress={onPressGithub}
+          subtitle="github.com/ToonionOfficial/tnotes"
+          onPress={handlePressGithub}
         />
       </SettingsSection>
 
