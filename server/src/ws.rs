@@ -70,10 +70,17 @@ pub async fn issue_ws_ticket_handler(
     tickets.insert(
         ticket.clone(),
         WsTicket {
-            user_id: auth.user_id,
-            device_id: auth.device_id,
+            user_id: auth.user_id.clone(),
+            device_id: auth.device_id.clone(),
             expires_at,
         },
+    );
+
+    tracing::info!(
+        "[WS_TICKET] Issued ticket '{}' for user_id='{}', device_id='{}'",
+        ticket,
+        auth.user_id,
+        auth.device_id
     );
 
     Ok(Json(WsTicketResponse {
@@ -92,17 +99,32 @@ pub async fn ws_sync_handler(
 
     let (device_id, user_id) = if let Some(ticket_str) = query.ticket {
         let mut tickets = state.pending_ws_tickets.lock().await;
-        let ticket = tickets.remove(ticket_str.trim()).ok_or((
-            StatusCode::UNAUTHORIZED,
-            "Invalid or already consumed ticket",
-        ))?;
+        let ticket = tickets.remove(ticket_str.trim()).ok_or_else(|| {
+            tracing::warn!(
+                "[WS_UPGRADE] Rejecting WS connect: ticket='{}' not found or already consumed",
+                ticket_str
+            );
+            (
+                StatusCode::UNAUTHORIZED,
+                "Invalid or already consumed ticket",
+            )
+        })?;
 
         if ticket.expires_at <= now {
+            tracing::warn!(
+                "[WS_UPGRADE] Rejecting WS connect: ticket='{}' expired",
+                ticket_str
+            );
             return Err((StatusCode::UNAUTHORIZED, "Ticket expired"));
         }
 
         let conn = state.db.lock().await;
         let _ = touch_device(&conn, &ticket.device_id, now);
+        tracing::info!(
+            "[WS_UPGRADE] Successfully validated ticket for user_id='{}', device_id='{}'",
+            ticket.user_id,
+            ticket.device_id
+        );
         (ticket.device_id, ticket.user_id)
     } else if let Some(cookie) =
         axum_extra::extract::cookie::CookieJar::from_headers(&headers).get(SESSION_COOKIE_NAME)
@@ -122,8 +144,14 @@ pub async fn ws_sync_handler(
             .ok_or((StatusCode::UNAUTHORIZED, "Associated device not found"))?;
 
         let _ = touch_device(&conn, &session.device_id, now);
+        tracing::info!(
+            "[WS_UPGRADE] Successfully validated cookie for user_id='{}', device_id='{}'",
+            device.user_id,
+            session.device_id
+        );
         (session.device_id, device.user_id)
     } else {
+        tracing::warn!("[WS_UPGRADE] Rejecting WS connect: Missing ticket and session cookie");
         return Err((
             StatusCode::UNAUTHORIZED,
             "Missing WebSocket ticket or session cookie",
@@ -131,7 +159,7 @@ pub async fn ws_sync_handler(
     };
 
     tracing::info!(
-        "WebSocket connected for user: {}, device: {}",
+        "[WS_UPGRADE] WebSocket upgrading for user='{}', device='{}'",
         user_id,
         device_id
     );
@@ -140,6 +168,11 @@ pub async fn ws_sync_handler(
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, user_id: String) {
+    tracing::info!(
+        "[WS_SOCKET] Active connection opened for user='{}', device='{}'",
+        user_id,
+        device_id
+    );
     let (mut sender, mut receiver) = socket.split();
     let mut broadcast_rx = state.ws_sender.subscribe();
 
@@ -163,7 +196,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
                         let _ = sender.send(Message::Pong(payload)).await;
                     }
                     Some(Ok(Message::Close(_))) | None => {
-                        tracing::info!("WebSocket closed for device: {}", device_id);
+                        tracing::info!("[WS_SOCKET] WebSocket closed for device='{}'", device_id);
                         break;
                     }
                     _ => {}
@@ -173,21 +206,34 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
             broadcast_msg = broadcast_rx.recv() => {
                 match broadcast_msg {
                     Ok(msg) => {
+                        tracing::info!(
+                            "[WS_SOCKET] broadcast_rx received: sender='{}', msg_user='{}', my_device='{}', my_user='{}'",
+                            msg.sender_device_id,
+                            msg.user_id,
+                            device_id,
+                            user_id
+                        );
                         if msg.user_id == user_id && msg.sender_device_id != device_id {
                             let notification = WsServerMessage::SyncNotification {
-                                sender_device_id: msg.sender_device_id,
+                                sender_device_id: msg.sender_device_id.clone(),
                                 count: msg.changes.len(),
                             };
                             if let Ok(json) = serde_json::to_string(&notification) {
+                                tracing::info!(
+                                    "[WS_SOCKET] Sending SyncNotification to device='{}': {}",
+                                    device_id,
+                                    json
+                                );
                                 let send_err = sender.send(Message::Text(json.into())).await.is_err();
                                 if send_err {
+                                    tracing::warn!("[WS_SOCKET] Send failed for device='{}', closing", device_id);
                                     break;
                                 }
                             }
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        tracing::warn!("WebSocket receiver for device {} lagged by {} messages", device_id, skipped);
+                        tracing::warn!("[WS_SOCKET] Receiver for device='{}' lagged by {} messages", device_id, skipped);
                         let notification = WsServerMessage::SyncRequired {
                             reason: "buffer_lagged".to_string(),
                             skipped,
