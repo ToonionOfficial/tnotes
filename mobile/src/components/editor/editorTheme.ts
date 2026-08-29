@@ -17,8 +17,8 @@ export const noteEditorCss = `
     background-color: ${EDITOR_BACKGROUND} !important;
     color: ${EDITOR_FOREGROUND} !important;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 17px;
-    line-height: 1.6;
+    font-size: 18px;
+    line-height: 1.55;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
@@ -56,54 +56,59 @@ export const noteEditorCss = `
 
   /* Headings */
   h1 {
-    font-size: 28px;
+    font-size: 34px;
     font-weight: 700;
-    line-height: 1.25;
-    margin-top: 18px;
-    margin-bottom: 8px;
+    line-height: 1.22;
+    margin-top: 20px;
+    margin-bottom: 10px;
     color: #FFFFFF !important;
-    letter-spacing: -0.4px;
+    letter-spacing: -0.6px;
   }
 
   h2 {
-    font-size: 22px;
-    font-weight: 600;
-    line-height: 1.3;
-    margin-top: 16px;
-    margin-bottom: 6px;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.26;
+    margin-top: 18px;
+    margin-bottom: 8px;
     color: #F4F0F7 !important;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.4px;
   }
 
   h3 {
-    font-size: 18px;
+    font-size: 21px;
     font-weight: 600;
-    line-height: 1.35;
-    margin-top: 14px;
-    margin-bottom: 4px;
+    line-height: 1.32;
+    margin-top: 16px;
+    margin-bottom: 6px;
     color: ${EDITOR_FOREGROUND} !important;
+    letter-spacing: -0.2px;
   }
 
   p {
     margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 17px;
-    line-height: 1.6;
+    margin-bottom: 12px;
+    font-size: 18px;
+    line-height: 1.55;
   }
 
   /* Lists */
   ul, ol {
     padding-left: 24px;
     margin-top: 4px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   li {
     margin-bottom: 4px;
+    font-size: 18px;
+    line-height: 1.55;
   }
 
   li p {
     margin-bottom: 0;
+    font-size: 18px;
+    line-height: 1.55;
   }
 
   /* Task / Checklist */
@@ -141,7 +146,9 @@ export const noteEditorCss = `
     align-items: center;
     justify-content: center;
     position: relative;
-    transition: all 0.15s ease-in-out;
+    vertical-align: middle;
+    margin: 0;
+    transition: all 0.2s ease;
   }
 
   ul[data-type="taskList"] li > label > input[type="checkbox"]:checked {
@@ -173,33 +180,35 @@ export const noteEditorCss = `
 
   /* Blockquote */
   blockquote {
-    border-left: 3px solid ${EDITOR_ACCENT};
-    padding-left: 14px;
+    border-left: 3.5px solid ${EDITOR_ACCENT};
+    padding-left: 16px;
     margin-left: 0;
     margin-right: 0;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin-top: 12px;
+    margin-bottom: 12px;
     color: #C6C2CD !important;
     font-style: italic;
+    font-size: 18px;
+    line-height: 1.55;
   }
 
   /* Code Inline & Block */
   code {
     background-color: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
-    padding: 2px 6px;
+    border-radius: 5px;
+    padding: 2px 7px;
     font-family: "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
-    font-size: 15px;
+    font-size: 15.5px;
     color: ${EDITOR_ACCENT} !important;
   }
 
   pre {
     background-color: ${EDITOR_CARD};
     border: 1px solid ${EDITOR_BORDER};
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 14px 16px;
-    margin: 10px 0;
+    margin: 12px 0;
     overflow-x: auto;
   }
 
@@ -208,7 +217,7 @@ export const noteEditorCss = `
     border: none;
     padding: 0;
     color: ${EDITOR_FOREGROUND} !important;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
   }
 
