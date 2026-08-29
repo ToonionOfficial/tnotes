@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   batchDeleteNotesPermanently,
   batchMoveNotes,
+  batchRestoreNotes,
   batchTrashNotes,
   createBenchmarkNotes,
   createNote,
@@ -257,6 +258,20 @@ export function useBatchMoveNotes() {
   return useMutation({
     mutationFn: async ({ ids, folderId }: { ids: string[]; folderId: string | null }) => {
       batchMoveNotes(ids, folderId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
+    },
+  })
+}
+
+export function useBatchRestoreNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      batchRestoreNotes(ids)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })

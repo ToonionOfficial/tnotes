@@ -35,6 +35,7 @@ import {
 import {
   useBatchDeleteNotesPermanently,
   useBatchMoveNotes,
+  useBatchRestoreNotes,
   useBatchTrashNotes,
   useDeleteNotePermanently,
   useFolderNoteCounts,
@@ -124,6 +125,7 @@ export default function FolderNotesScreen() {
   const deleteNotePermanently = useDeleteNotePermanently()
   const batchTrashNotes = useBatchTrashNotes()
   const batchDeleteNotesPermanently = useBatchDeleteNotesPermanently()
+  const batchRestoreNotes = useBatchRestoreNotes()
 
   const toggleSelectNote = useCallback((noteId: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -220,6 +222,16 @@ export default function FolderNotesScreen() {
     selectedFolderIds,
     selectedNoteIds,
   ])
+
+  const handleBatchRestore = useCallback(() => {
+    const noteIds = Array.from(selectedNoteIds)
+    if (noteIds.length === 0) return
+
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    batchRestoreNotes.mutate(noteIds)
+    setSelectedNoteIds(new Set())
+    setIsEditing(false)
+  }, [batchRestoreNotes, selectedNoteIds])
 
   const handleTogglePin = useCallback(
     (noteId: string) => {
@@ -627,6 +639,7 @@ export default function FolderNotesScreen() {
           totalCount={totalItemsCount}
           isTrash={Boolean(isTrash)}
           onMove={() => moveSheetRef.current?.open()}
+          onRestore={handleBatchRestore}
           onDelete={handleBatchDeleteItems}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}

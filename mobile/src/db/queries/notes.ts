@@ -589,3 +589,9 @@ export function batchMoveNotes(ids: string[], folderId: string | null): void {
     updateNote(id, { folderId })
   }
 }
+
+export function batchRestoreNotes(ids: string[]): void {
+  for (const id of ids) {
+    restoreNote(id)
+  }
+}
