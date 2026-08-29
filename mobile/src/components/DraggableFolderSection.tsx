@@ -20,16 +20,13 @@ const ROW_HEIGHT = 58
 
 interface DraggableFolderItemProps {
   folder: Folder
-  index: number
+  originalIndex: number
   totalCount: number
-  isFirst: boolean
-  isLast: boolean
-  isOnly: boolean
   isEditing: boolean
   isSelected: boolean
   noteCount: number
+  positions: SharedValue<number[]>
   activeDragIndex: SharedValue<number>
-  hoverIndex: SharedValue<number>
   dragTranslateY: SharedValue<number>
   onPress: () => void
   onDelete: () => void
@@ -38,16 +35,13 @@ interface DraggableFolderItemProps {
 
 const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   folder,
-  index,
+  originalIndex,
   totalCount,
-  isFirst,
-  isLast,
-  isOnly,
   isEditing,
   isSelected,
   noteCount,
+  positions,
   activeDragIndex,
-  hoverIndex,
   dragTranslateY,
   onPress,
   onDelete,
@@ -77,71 +71,67 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   const panGesture = Gesture.Pan()
     .enabled(isEditing)
     .onStart(() => {
-      activeDragIndex.value = index
-      hoverIndex.value = index
+      activeDragIndex.value = originalIndex
       dragTranslateY.value = 0
       scheduleOnRN(triggerLiftHaptic)
     })
     .onUpdate((event) => {
       dragTranslateY.value = event.translationY
-      const newHover = Math.max(
-        0,
-        Math.min(totalCount - 1, Math.round(index + event.translationY / ROW_HEIGHT)),
-      )
-      if (newHover !== hoverIndex.value) {
-        hoverIndex.value = newHover
+      const rawSlot = originalIndex + event.translationY / ROW_HEIGHT
+      const targetSlot = Math.max(0, Math.min(totalCount - 1, Math.round(rawSlot)))
+
+      const currentSlots = [...positions.value]
+      const oldSlotOfActive = currentSlots[originalIndex]
+
+      if (targetSlot !== oldSlotOfActive) {
+        const nextSlots = new Array(totalCount).fill(0)
+        for (let i = 0; i < totalCount; i++) {
+          if (i === originalIndex) {
+            nextSlots[i] = targetSlot
+          } else {
+            let slot = i
+            if (originalIndex < targetSlot) {
+              if (i > originalIndex && i <= targetSlot) {
+                slot = i - 1
+              }
+            } else if (originalIndex > targetSlot) {
+              if (i >= targetSlot && i < originalIndex) {
+                slot = i + 1
+              }
+            }
+            nextSlots[i] = slot
+          }
+        }
+        positions.value = nextSlots
         scheduleOnRN(triggerHoverHaptic)
       }
     })
     .onEnd(() => {
-      const fromIdx = activeDragIndex.value
-      const toIdx = hoverIndex.value
+      const fromIdx = originalIndex
+      const toIdx = positions.value[originalIndex]
 
-      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-        const targetOffset = (toIdx - fromIdx) * ROW_HEIGHT
-        dragTranslateY.value = withTiming(
-          targetOffset,
-          {
-            duration: 120,
-            easing: Easing.bezier(0.2, 0, 0, 1),
-          },
-          (finished) => {
-            if (finished) {
-              scheduleOnRN(onReorder, fromIdx, toIdx)
-              activeDragIndex.value = -1
-              hoverIndex.value = -1
-              dragTranslateY.value = 0
-            }
-          },
-        )
-      } else {
-        dragTranslateY.value = withTiming(
-          0,
-          {
-            duration: 120,
-            easing: Easing.bezier(0.2, 0, 0, 1),
-          },
-          (finished) => {
-            if (finished) {
-              activeDragIndex.value = -1
-              hoverIndex.value = -1
-              dragTranslateY.value = 0
-            }
-          },
-        )
+      if (fromIdx !== toIdx) {
+        scheduleOnRN(onReorder, fromIdx, toIdx)
       }
+      activeDragIndex.value = -1
+      dragTranslateY.value = 0
       scheduleOnRN(triggerDropHaptic)
     })
 
   const rowAnimatedStyle = useAnimatedStyle(() => {
-    const isDraggingThis = activeDragIndex.value === index
-    const isDraggingAny = activeDragIndex.value !== -1
+    const isDraggingThis = activeDragIndex.value === originalIndex
+    const currentSlot = positions.value[originalIndex] ?? originalIndex
 
     if (isDraggingThis) {
       return {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: ROW_HEIGHT,
         transform: [
-          { translateY: dragTranslateY.value },
-          { scale: withTiming(1.02, { duration: 120 }) },
+          { translateY: originalIndex * ROW_HEIGHT + dragTranslateY.value },
+          { scale: withTiming(1.02, { duration: 100 }) },
         ],
         zIndex: 999,
         elevation: 8,
@@ -152,44 +142,20 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       }
     }
 
-    if (isDraggingAny) {
-      const start = activeDragIndex.value
-      const hover = hoverIndex.value
-      let shift = 0
-
-      if (start < hover) {
-        if (index > start && index <= hover) {
-          shift = -ROW_HEIGHT
-        }
-      } else if (start > hover) {
-        if (index >= hover && index < start) {
-          shift = ROW_HEIGHT
-        }
-      }
-
-      return {
-        transform: [
-          {
-            translateY: withTiming(shift, {
-              duration: 160,
-              easing: Easing.bezier(0.2, 0, 0, 1),
-            }),
-          },
-          { scale: withTiming(1, { duration: 120 }) },
-        ],
-        zIndex: 1,
-      }
-    }
-
     return {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: ROW_HEIGHT,
       transform: [
         {
-          translateY: withTiming(0, {
+          translateY: withTiming(currentSlot * ROW_HEIGHT, {
             duration: 160,
             easing: Easing.bezier(0.2, 0, 0, 1),
           }),
         },
-        { scale: withTiming(1, { duration: 120 }) },
+        { scale: 1 },
       ],
       zIndex: 1,
     }
@@ -214,23 +180,11 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
     transform: [{ scale: interpolate(editProgress.value, [0, 1], [1, 0.8]) }],
   }))
 
-  const roundingClass = isOnly
-    ? "rounded-3xl"
-    : isFirst
-      ? "rounded-t-3xl"
-      : isLast
-        ? "rounded-b-3xl"
-        : ""
-
   return (
-    <Animated.View
-      style={rowAnimatedStyle}
-      className={`overflow-hidden bg-white/7 ${roundingClass}`}
-    >
-      {!isFirst && <View className="ml-15 h-[0.5px] bg-white/8" />}
+    <Animated.View style={rowAnimatedStyle} className="overflow-hidden bg-white/7">
+      <View className="ml-15 h-[0.5px] bg-white/8" />
       <SwipeableListItem
         enabled={!isEditing}
-        rounded={isOnly ? "only" : isFirst ? "first" : isLast ? "last" : "middle"}
         rightAction={{
           label: "Delete",
           color: "#D94C5C",
@@ -240,7 +194,8 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       >
         <Pressable
           onPress={onPress}
-          className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${roundingClass}`}
+          className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
+          style={{ height: ROW_HEIGHT }}
         >
           <View className="flex-1 flex-row items-center">
             <Animated.View style={selectCircleStyle} className="justify-center overflow-hidden">
@@ -309,45 +264,43 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
   onReorder,
 }: DraggableFolderSectionProps) {
   const activeDragIndex = useSharedValue(-1)
-  const hoverIndex = useSharedValue(-1)
   const dragTranslateY = useSharedValue(0)
+  const positions = useSharedValue<number[]>(folders.map((_, i) => i))
+
+  useEffect(() => {
+    positions.value = folders.map((_, i) => i)
+  }, [folders, positions])
 
   if (folders.length === 0) return null
 
   return (
-    <View className="mt-5">
-      {folders.map((folder, index) => {
-        const isFirst = index === 0
-        const isLast = index === folders.length - 1
-        const isOnly = isFirst && isLast
-
-        return (
-          <DraggableFolderRowItem
-            key={folder.id}
-            folder={folder}
-            index={index}
-            totalCount={folders.length}
-            isFirst={isFirst}
-            isLast={isLast}
-            isOnly={isOnly}
-            isEditing={isEditing}
-            isSelected={selectedFolderIds.has(folder.id)}
-            noteCount={getFolderCount(folder.id)}
-            activeDragIndex={activeDragIndex}
-            hoverIndex={hoverIndex}
-            dragTranslateY={dragTranslateY}
-            onPress={() => {
-              if (isEditing) {
-                onToggleSelect(folder.id)
-              } else {
-                onPressFolder(folder.id)
-              }
-            }}
-            onDelete={() => onDeleteFolder(folder)}
-            onReorder={onReorder}
-          />
-        )
-      })}
+    <View
+      className="mt-5 overflow-hidden rounded-3xl bg-white/7"
+      style={{ height: folders.length * ROW_HEIGHT }}
+    >
+      {folders.map((folder, index) => (
+        <DraggableFolderRowItem
+          key={folder.id}
+          folder={folder}
+          originalIndex={index}
+          totalCount={folders.length}
+          isEditing={isEditing}
+          isSelected={selectedFolderIds.has(folder.id)}
+          noteCount={getFolderCount(folder.id)}
+          positions={positions}
+          activeDragIndex={activeDragIndex}
+          dragTranslateY={dragTranslateY}
+          onPress={() => {
+            if (isEditing) {
+              onToggleSelect(folder.id)
+            } else {
+              onPressFolder(folder.id)
+            }
+          }}
+          onDelete={() => onDeleteFolder(folder)}
+          onReorder={onReorder}
+        />
+      ))}
     </View>
   )
 })
