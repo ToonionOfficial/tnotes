@@ -125,3 +125,5 @@ jobs:
           file: server/Dockerfile
           push: false
           tags: tnotes-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
