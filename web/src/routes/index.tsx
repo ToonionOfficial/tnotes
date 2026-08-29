@@ -72,18 +72,20 @@ function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs font-medium"
-            onClick={() => navigate({ to: '/pair' })}
-          >
-            <FolderSync className="h-3.5 w-3.5 text-primary" />
-            <span className="hidden sm:inline">Pair Mobile App</span>
-            <span className="sm:hidden">Pair</span>
-          </Button>
+          {!me?.has_paired_devices && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() => navigate({ to: '/pair' })}
+            >
+              <FolderSync className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">Pair Mobile App</span>
+              <span className="sm:hidden">Pair</span>
+            </Button>
+          )}
 
-          <div className="h-4 w-px bg-border" />
+          {!me?.has_paired_devices && <div className="h-4 w-px bg-border" />}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -102,8 +104,13 @@ function DashboardPage() {
               <DropdownMenuLabel>Profile</DropdownMenuLabel>
               <DropdownMenuItem disabled>{me?.username}</DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: '/pair' })}>
+                <FolderSync className="mr-2 h-4 w-4 text-muted-foreground" />
+                Pair Device
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-                <LogOut />
+                <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -126,17 +133,19 @@ function DashboardPage() {
               coming next.
             </p>
           </div>
-          <div className="flex gap-2.5 pt-2">
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => navigate({ to: '/pair' })}
-            >
-              <FolderSync className="h-4 w-4" />
-              Pair Phone
-            </Button>
-          </div>
+          {!me?.has_paired_devices && (
+            <div className="flex gap-2.5 pt-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => navigate({ to: '/pair' })}
+              >
+                <FolderSync className="h-4 w-4" />
+                Pair Phone
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     </div>

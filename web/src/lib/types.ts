@@ -23,6 +23,8 @@ export interface MeResponse {
   device_id: string
   device_name: string
   platform: string
+  has_paired_devices?: boolean
+  paired_devices_count?: number
 }
 
 export interface LogoutResponse {

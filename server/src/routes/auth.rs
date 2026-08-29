@@ -19,7 +19,7 @@ use tnotes_core::{
         token::create_session_for_device,
     },
     db::{
-        devices::{get_device_by_id, upsert_device},
+        devices::{get_device_by_id, list_devices_by_user, upsert_device},
         sessions::{create_session, delete_session},
         users::{create_user, get_user_by_id, get_user_by_username, has_any_user},
     },
@@ -110,6 +110,8 @@ pub struct MeResponse {
     pub device_id: String,
     pub device_name: String,
     pub platform: String,
+    pub has_paired_devices: bool,
+    pub paired_devices_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -261,12 +263,22 @@ pub async fn me_handler(
         }
     }
 
+    let all_devices = list_devices_by_user(&conn, &auth.user_id).unwrap_or_default();
+    let paired_devices: Vec<_> = all_devices
+        .into_iter()
+        .filter(|d| d.id != auth.device_id)
+        .collect();
+    let has_paired_devices = !paired_devices.is_empty();
+    let paired_devices_count = paired_devices.len();
+
     Ok(Json(MeResponse {
         user_id: user.id,
         username: user.username,
         device_id: device.id,
         device_name: device.name,
         platform: device.platform,
+        has_paired_devices,
+        paired_devices_count,
     }))
 }
 
