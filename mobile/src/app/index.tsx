@@ -1,7 +1,7 @@
 import { Stack, useRouter } from "expo-router"
 import { ChevronRight, Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useRef, useState } from "react"
-import { FlatList, Pressable, Text, View } from "react-native"
+import { Alert, FlatList, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
@@ -33,10 +33,29 @@ export default function FoldersScreen() {
   )
 
   const handleDeleteFolder = useCallback(
-    (folderId: string) => {
-      deleteFolder.mutate(folderId)
+    (folder: Folder) => {
+      const noteCount = counts.byFolder[folder.id] ?? 0
+      if (noteCount === 0) {
+        deleteFolder.mutate(folder.id)
+        return
+      }
+
+      Alert.alert(
+        `Delete "${folder.name}"?`,
+        `Deleting this folder will also move its ${noteCount} ${
+          noteCount === 1 ? "note" : "notes"
+        } to the Trash.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete Folder",
+            style: "destructive",
+            onPress: () => deleteFolder.mutate(folder.id),
+          },
+        ],
+      )
     },
-    [deleteFolder],
+    [counts.byFolder, deleteFolder],
   )
 
   const listData = useMemo<FolderItem[]>(() => {
@@ -87,7 +106,7 @@ export default function FoldersScreen() {
                 label: "Delete",
                 color: "#D94C5C",
                 icon: <Trash2 size={20} color="#FFFFFF" />,
-                onPress: () => handleDeleteFolder(item.folder.id),
+                onPress: () => handleDeleteFolder(item.folder),
               }}
             >
               <Pressable

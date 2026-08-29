@@ -623,6 +623,26 @@ export function deleteFolder(id: string): void {
 
   db.update(folders).set(updatedFolder).where(eq(folders.id, id)).run()
   recordLocalChange("folder", id, nextVersion, now, true, updatedFolder)
+
+  // Soft-delete all active child notes in this folder
+  const childNotes = db
+    .select()
+    .from(notes)
+    .where(and(eq(notes.folderId, id), isNull(notes.deletedAt)))
+    .all()
+
+  for (const note of childNotes) {
+    const nextNoteVersion = note.version + 1
+    const updatedNote: Note = {
+      ...note,
+      deletedAt: now,
+      version: nextNoteVersion,
+      updatedAt: now,
+      deviceId,
+    }
+    db.update(notes).set(updatedNote).where(eq(notes.id, note.id)).run()
+    recordLocalChange("note", note.id, nextNoteVersion, now, true, updatedNote)
+  }
 }
 
 export function restoreFolder(id: string): void {
