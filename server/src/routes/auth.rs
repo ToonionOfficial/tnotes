@@ -20,6 +20,8 @@ use tnotes_core::{
     },
     db::{
         devices::{get_device_by_id, list_devices_by_user, upsert_device},
+        folders::count_active_folders_for_user,
+        notes::count_active_notes_for_user,
         sessions::{create_session, delete_session},
         users::{create_user, get_user_by_id, get_user_by_username, has_any_user},
     },
@@ -138,6 +140,10 @@ pub struct MeResponse {
     pub platform: String,
     pub has_paired_devices: bool,
     pub paired_devices_count: usize,
+    #[serde(default)]
+    pub notes_count: usize,
+    #[serde(default)]
+    pub folders_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -358,6 +364,9 @@ pub async fn me_handler(
     let has_paired_devices = !paired_devices.is_empty();
     let paired_devices_count = paired_devices.len();
 
+    let notes_count = count_active_notes_for_user(&conn, &auth.user_id).unwrap_or(0);
+    let folders_count = count_active_folders_for_user(&conn, &auth.user_id).unwrap_or(0);
+
     Ok(Json(MeResponse {
         user_id: user.id,
         username: user.username,
@@ -366,6 +375,8 @@ pub async fn me_handler(
         platform: device.platform,
         has_paired_devices,
         paired_devices_count,
+        notes_count,
+        folders_count,
     }))
 }
 

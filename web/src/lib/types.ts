@@ -34,6 +34,14 @@ export interface MeResponse {
   platform: string
   has_paired_devices?: boolean
   paired_devices_count?: number
+  notes_count?: number
+  folders_count?: number
+}
+
+export interface StatsResponse {
+  notes_count: number
+  folders_count: number
+  devices_count: number
 }
 
 export interface LogoutResponse {

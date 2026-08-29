@@ -11,6 +11,7 @@ import {
   updateFolder,
 } from "@/db/queries"
 import type { Folder } from "@/db/schema"
+import { triggerBackgroundSyncIfConnected } from "@/services/sync"
 import { statsKeys } from "./useDatabaseStats"
 import { noteKeys } from "./useNotes"
 
@@ -74,6 +75,7 @@ export function useCreateFolder() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(folderKeys.detail(newFolder.id), newFolder)
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -97,6 +99,7 @@ export function useUpdateFolder() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(folderKeys.detail(updatedFolder.id), updatedFolder)
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -111,6 +114,7 @@ export function useDeleteFolder() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -125,6 +129,7 @@ export function useBatchDeleteFolders() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -139,6 +144,7 @@ export function useRestoreFolder() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -173,6 +179,7 @@ export function useReorderFolders() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }

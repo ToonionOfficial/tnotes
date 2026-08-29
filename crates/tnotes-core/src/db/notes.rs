@@ -196,3 +196,13 @@ pub fn search_notes(conn: &Connection, user_id: &str, search_term: &str) -> Resu
         .collect::<Result<Vec<_>>>()?;
     Ok(notes)
 }
+
+/// Returns total non-trashed notes count for a user
+pub fn count_active_notes_for_user(conn: &Connection, user_id: &str) -> Result<usize> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM notes WHERE user_id = ?1 AND trashed = 0",
+        params![user_id],
+        |row| row.get(0),
+    )?;
+    Ok(count as usize)
+}

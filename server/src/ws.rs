@@ -1,14 +1,16 @@
 use axum::{
+    Extension, Json,
     extract::{
         Query, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tnotes_core::{
+    Ulid,
     db::{
         devices::{get_device_by_id, touch_device},
         sessions::get_session,
@@ -16,11 +18,20 @@ use tnotes_core::{
     models::current_time_ms,
 };
 
-use crate::state::AppState;
+use crate::{
+    middleware::{AuthenticatedDevice, SESSION_COOKIE_NAME},
+    state::{AppState, WsTicket},
+};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WsTicketResponse {
+    pub ticket: String,
+    pub expires_in: u64,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct WsQuery {
-    pub token: Option<String>,
+    pub ticket: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,43 +55,62 @@ pub enum WsClientMessage {
     Ping,
 }
 
+pub async fn issue_ws_ticket_handler(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthenticatedDevice>,
+) -> Result<Json<WsTicketResponse>, (StatusCode, String)> {
+    let now = current_time_ms();
+    let ticket = format!("tkt_{}", Ulid::generate());
+    let expires_at = now + 60_000; // valid for 60 seconds
+
+    let mut tickets = state.pending_ws_tickets.lock().await;
+    tickets.retain(|_, t| t.expires_at > now);
+
+    tickets.insert(
+        ticket.clone(),
+        WsTicket {
+            user_id: auth.user_id,
+            device_id: auth.device_id,
+            expires_at,
+        },
+    );
+
+    Ok(Json(WsTicketResponse {
+        ticket,
+        expires_in: 60,
+    }))
+}
+
 pub async fn ws_sync_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
     Query(query): Query<WsQuery>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
-    let token = if let Some(auth_val) = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-    {
-        auth_val
-            .strip_prefix("Bearer ")
-            .unwrap_or(auth_val)
-            .trim()
-            .to_string()
-    } else if let Some(q_token) = query.token {
-        q_token.trim().to_string()
-    } else if let Some(cookie) = axum_extra::extract::cookie::CookieJar::from_headers(&headers)
-        .get(crate::middleware::SESSION_COOKIE_NAME)
-    {
-        cookie.value().trim().to_string()
-    } else {
-        return Err((
+    let now = current_time_ms();
+
+    let (device_id, user_id) = if let Some(ticket_str) = query.ticket {
+        let mut tickets = state.pending_ws_tickets.lock().await;
+        let ticket = tickets.remove(ticket_str.trim()).ok_or((
             StatusCode::UNAUTHORIZED,
-            "Missing authentication token or cookie",
-        ));
-    };
+            "Invalid or already consumed ticket",
+        ))?;
 
-    if token.is_empty() {
-        return Err((StatusCode::UNAUTHORIZED, "Empty authentication token"));
-    }
+        if ticket.expires_at <= now {
+            return Err((StatusCode::UNAUTHORIZED, "Ticket expired"));
+        }
 
-    let (device_id, user_id) = {
         let conn = state.db.lock().await;
-        let session = get_session(&conn, &token)
+        let _ = touch_device(&conn, &ticket.device_id, now);
+        (ticket.device_id, ticket.user_id)
+    } else if let Some(cookie) =
+        axum_extra::extract::cookie::CookieJar::from_headers(&headers).get(SESSION_COOKIE_NAME)
+    {
+        let token = cookie.value().trim();
+        let conn = state.db.lock().await;
+        let session = get_session(&conn, token)
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
-            .ok_or((StatusCode::UNAUTHORIZED, "Invalid session token"))?;
+            .ok_or((StatusCode::UNAUTHORIZED, "Invalid session cookie"))?;
 
         if session.is_expired() {
             return Err((StatusCode::UNAUTHORIZED, "Session expired"));
@@ -90,15 +120,19 @@ pub async fn ws_sync_handler(
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
             .ok_or((StatusCode::UNAUTHORIZED, "Associated device not found"))?;
 
-        let now = current_time_ms();
         let _ = touch_device(&conn, &session.device_id, now);
         (session.device_id, device.user_id)
+    } else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Missing WebSocket ticket or session cookie",
+        ));
     };
 
-    tracing::info!(
-        "WebSocket connected for user: {}, device: {}",
-        user_id,
-        device_id
+    tracing::debug!(
+        user_id = %user_id,
+        device_id = %device_id,
+        "WebSocket connection established"
     );
 
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, device_id, user_id)))
@@ -128,7 +162,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
                         let _ = sender.send(Message::Pong(payload)).await;
                     }
                     Some(Ok(Message::Close(_))) | None => {
-                        tracing::info!("WebSocket closed for device: {}", device_id);
+                        tracing::debug!(device_id = %device_id, "WebSocket closed");
                         break;
                     }
                     _ => {}
@@ -152,7 +186,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, device_id: String, us
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        tracing::warn!("WebSocket receiver for device {} lagged by {} messages", device_id, skipped);
+                        tracing::warn!(device_id = %device_id, skipped = %skipped, "WebSocket receiver lagged");
                         let notification = WsServerMessage::SyncRequired {
                             reason: "buffer_lagged".to_string(),
                             skipped,

@@ -17,6 +17,7 @@ use crate::state::AppState;
 pub fn build_router(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/api/sync", post(routes::sync::sync_handler))
+        .route("/api/stats", get(routes::sync::stats_handler))
         .route("/api/pair", get(routes::pair::pair_handler))
         .route("/api/me", get(routes::auth::me_handler))
         .route("/api/devices", get(routes::devices::list_devices_handler))
@@ -24,6 +25,7 @@ pub fn build_router(state: AppState) -> Router {
             "/api/devices/{id}",
             delete(routes::devices::delete_device_handler),
         )
+        .route("/api/ws/ticket", post(ws::issue_ws_ticket_handler))
         .route("/api/logout", post(routes::auth::logout_handler))
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 

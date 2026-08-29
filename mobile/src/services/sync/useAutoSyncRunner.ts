@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
 import { AppState, type AppStateStatus } from "react-native"
+import { getAutoSyncEnabled, getSyncMeta } from "@/db/queries"
 import { statsKeys } from "@/hooks/useDatabaseStats"
 import { folderKeys } from "@/hooks/useFolders"
 import { noteKeys } from "@/hooks/useNotes"
@@ -8,6 +9,20 @@ import { syncKeys, useAutoSyncQuery, useSyncState } from "@/hooks/useSyncState"
 import { executeSyncAsync } from "./syncEngine"
 
 const AUTO_SYNC_INTERVAL_MS = 60 * 1000 // 60s
+
+let globalSyncTrigger: (() => Promise<void>) | null = null
+
+export function triggerBackgroundSyncIfConnected(): void {
+  if (globalSyncTrigger) {
+    void globalSyncTrigger()
+    return
+  }
+  const isAutoSync = getAutoSyncEnabled()
+  const isConnected = Boolean(getSyncMeta("server_url") && getSyncMeta("auth_token"))
+  if (isConnected && isAutoSync) {
+    void executeSyncAsync()
+  }
+}
 
 export function useAutoSyncRunner(): void {
   const queryClient = useQueryClient()
@@ -37,6 +52,15 @@ export function useAutoSyncRunner(): void {
       isSyncingRef.current = false
     }
   }, [isConnected, isAutoSyncOn, queryClient])
+
+  useEffect(() => {
+    globalSyncTrigger = triggerSync
+    return () => {
+      if (globalSyncTrigger === triggerSync) {
+        globalSyncTrigger = null
+      }
+    }
+  }, [triggerSync])
 
   // Sync on app foreground / focus
   useEffect(() => {

@@ -2,8 +2,9 @@ import * as Haptics from "expo-haptics"
 import { Image } from "expo-image"
 import { ChevronRight, Settings, Smartphone, Star, Trash2, User } from "lucide-react-native"
 import { memo } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useIsSyncing } from "@/hooks/useSyncState"
 
 const APP_ICON = require("../../assets/images/icon.png")
 
@@ -11,6 +12,7 @@ interface SideDrawerContentProps {
   trashCount: number
   username?: string
   isConnected?: boolean
+  isSyncing?: boolean
   onPressTrash: () => void
   onPressFavorites?: () => void
   onPressProfile?: () => void
@@ -21,12 +23,15 @@ export const SideDrawerContent = memo(function SideDrawerContent({
   trashCount,
   username = "Local Account",
   isConnected = false,
+  isSyncing: isSyncingProp,
   onPressTrash,
   onPressFavorites,
   onPressProfile,
   onPressSettings,
 }: SideDrawerContentProps) {
   const insets = useSafeAreaInsets()
+  const globalIsSyncing = useIsSyncing()
+  const isSyncing = isSyncingProp ?? globalIsSyncing
 
   return (
     <View
@@ -93,6 +98,14 @@ export const SideDrawerContent = memo(function SideDrawerContent({
           </View>
         </View>
       </ScrollView>
+
+      {/* Syncing Indicator above profile/settings */}
+      {isSyncing && (
+        <View className="mb-2 flex-row items-center justify-center gap-2 rounded-2xl bg-[#CABEFF]/10 py-2 px-3">
+          <ActivityIndicator size="small" color="#CABEFF" />
+          <Text className="text-[12px] font-medium text-[#CABEFF]">Syncing vault...</Text>
+        </View>
+      )}
 
       {/* Pinned Bottom Area: Unified Account & Settings Button */}
       <View className="pt-2">
