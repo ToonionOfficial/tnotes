@@ -243,29 +243,28 @@ export default function FoldersScreen() {
           title: "Folders",
           headerLargeTitle: true,
           headerShown: true,
+          headerLeft: () =>
+            !isEditing && foldersList.length > 0 ? (
+              <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
+                <Text className="text-[17px] text-primary">Edit</Text>
+              </Pressable>
+            ) : null,
           headerRight: () =>
             isEditing ? (
               <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
                 <Text className="text-[17px] font-semibold text-primary">Done</Text>
               </Pressable>
             ) : (
-              <View className="flex-row items-center gap-4">
-                {foldersList.length > 0 && (
-                  <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                    <Text className="text-[17px] text-primary">Edit</Text>
-                  </Pressable>
-                )}
-                <Pressable
-                  onPress={() => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                    sheetRef.current?.open()
-                  }}
-                  hitSlop={8}
-                  className="active:opacity-60"
-                >
-                  <Plus size={22} color="#ffffff" />
-                </Pressable>
-              </View>
+              <Pressable
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                  sheetRef.current?.open()
+                }}
+                hitSlop={8}
+                className="active:opacity-60"
+              >
+                <Plus size={22} color="#ffffff" />
+              </Pressable>
             ),
         }}
       />
