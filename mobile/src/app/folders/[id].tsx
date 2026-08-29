@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft } from "lucide-react-native"
+import { ChevronLeft, Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useState } from "react"
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
@@ -267,8 +267,12 @@ export default function FolderNotesScreen() {
               ? [
                   {
                     type: "button" as const,
-                    label: selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete",
-                    tintColor: selectedNoteIds.size > 0 ? "#FF3B30" : "#8E8C99",
+                    label: "Delete",
+                    icon: {
+                      name: "trash",
+                      type: "sfSymbol" as const,
+                    },
+                    tintColor: "#FF3B30",
                     sharesBackground: true,
                     onPress: handleBatchDeleteNotes,
                   },
@@ -302,13 +306,7 @@ export default function FolderNotesScreen() {
                         hitSlop={8}
                         className="px-2 py-1 active:opacity-60"
                       >
-                        <Text
-                          className={`text-[17px] font-medium ${
-                            selectedNoteIds.size > 0 ? "text-[#FF3B30]" : "text-white/40"
-                          }`}
-                        >
-                          {selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete"}
-                        </Text>
+                        <Trash2 size={20} color="#FF3B30" />
                       </Pressable>
                       <View className="mx-1 h-3.5 w-px bg-white/20" />
                       <Pressable

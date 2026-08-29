@@ -140,9 +140,12 @@ export default function FoldersScreen() {
               ? [
                   {
                     type: "button" as const,
-                    label:
-                      selectedFolderIds.size > 0 ? `Delete (${selectedFolderIds.size})` : "Delete",
-                    tintColor: selectedFolderIds.size > 0 ? "#FF3B30" : "#8E8C99",
+                    label: "Delete",
+                    icon: {
+                      name: "trash",
+                      type: "sfSymbol" as const,
+                    },
+                    tintColor: "#FF3B30",
                     sharesBackground: true,
                     onPress: handleBatchDeleteFolders,
                   },
@@ -192,15 +195,7 @@ export default function FoldersScreen() {
                         hitSlop={8}
                         className="px-2 py-1 active:opacity-60"
                       >
-                        <Text
-                          className={`text-[17px] font-medium ${
-                            selectedFolderIds.size > 0 ? "text-[#FF3B30]" : "text-white/40"
-                          }`}
-                        >
-                          {selectedFolderIds.size > 0
-                            ? `Delete (${selectedFolderIds.size})`
-                            : "Delete"}
-                        </Text>
+                        <Trash2 size={20} color="#FF3B30" />
                       </Pressable>
                       <View className="mx-1 h-3.5 w-px bg-white/20" />
                       <Pressable
