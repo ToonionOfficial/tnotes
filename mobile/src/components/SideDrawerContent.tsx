@@ -59,7 +59,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 onPressFavorites?.()
               }}
-              className="flex-row items-center justify-between rounded-xl px-3 py-3 active:bg-white/[0.08]"
+              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-white/[0.08]"
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-6 items-center justify-center">
@@ -76,7 +76,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 onPressTrash()
               }}
-              className="flex-row items-center justify-between rounded-xl px-3 py-3 active:bg-white/[0.08]"
+              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-white/[0.08]"
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-6 items-center justify-center">
@@ -101,7 +101,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
               onPressProfile?.()
             }
           }}
-          className="flex-row items-center justify-between rounded-xl px-3 py-2.5 active:bg-white/[0.08]"
+          className="flex-row items-center justify-between rounded-3xl px-3.5 py-2.5 active:bg-white/[0.08]"
         >
           {/* Left: User info */}
           <View className="flex-1 flex-row items-center gap-3">
