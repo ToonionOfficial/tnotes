@@ -8,7 +8,7 @@ import {
 import { applyRemoteChangesAsync } from "./applyRemoteChanges"
 import type { SyncChange, SyncEnvelope, SyncResponse, SyncResult } from "./types"
 
-function normalizePayloadForSync(
+export function normalizePayloadForSync(
   entityType: string,
   raw: Record<string, unknown>,
 ): Record<string, unknown> {

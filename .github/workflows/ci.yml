@@ -101,6 +101,9 @@ jobs:
       - name: Typecheck TypeScript
         run: pnpm --dir mobile typecheck
 
+      - name: Run Unit Tests
+        run: pnpm --dir mobile test
+
       - name: Expo Doctor Check
         run: pnpm --dir mobile run doctor
 
@@ -122,3 +125,5 @@ jobs:
           file: server/Dockerfile
           push: false
           tags: tnotes-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

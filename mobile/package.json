@@ -11,6 +11,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "biome check src",
     "format": "biome format --write src",
     "format:check": "biome format src",
@@ -75,7 +77,8 @@
     "babel-preset-expo": "~57.0.9",
     "drizzle-kit": "1.0.0-rc.4",
     "expo-doctor": "^1.20.3",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "react-dom": "19.2.3",
