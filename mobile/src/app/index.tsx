@@ -8,6 +8,7 @@ import {
   type NativeSyntheticEvent,
   ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native"
 import { Drawer } from "react-native-drawer-layout"
@@ -159,14 +160,23 @@ export default function FoldersScreen() {
   )
 
   const insets = useSafeAreaInsets()
+  const { width } = useWindowDimensions()
 
   return (
     <Drawer
       open={isDrawerOpen}
-      onOpen={() => setIsDrawerOpen(true)}
-      onClose={() => setIsDrawerOpen(false)}
+      onOpen={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setIsDrawerOpen(true)
+      }}
+      onClose={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setIsDrawerOpen(false)
+      }}
       drawerType="back"
       drawerStyle={{ width: "80%", maxWidth: 320, backgroundColor: "#141318" }}
+      swipeEdgeWidth={width}
+      swipeMinDistance={30}
       swipeEnabled={!isEditing}
       renderDrawerContent={() => (
         <SideDrawerContent
