@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, min, sql } from "drizzle-orm"
 import { computeChecksum } from "@/utils/crypto"
 import { ulid } from "@/utils/id"
 import { db, expo } from "./index"
@@ -776,7 +776,7 @@ export function getFolders(filters?: FolderFilters): Folder[] {
     .select()
     .from(folders)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(folders.sortOrder, folders.name)
+    .orderBy(folders.sortOrder, desc(folders.createdAt), desc(folders.id))
 
   if (filters?.limit !== undefined) {
     return query
@@ -810,6 +810,8 @@ export async function getFoldersPageAsync(filters: FolderFilters = {}): Promise<
     conditions.push("parent_id IS NULL")
   } else if (filters.parentId !== undefined) {
     conditions.push("parent_id = ?")
+  }
+  if (filters.parentId !== undefined && filters.parentId !== null) {
     params.push(filters.parentId)
   }
   params.push(filters.limit ?? 50, filters.offset ?? 0)
@@ -817,7 +819,7 @@ export async function getFoldersPageAsync(filters: FolderFilters = {}): Promise<
     `SELECT id, user_id AS userId, parent_id AS parentId, name, icon, sort_order AS sortOrder,
       version, updated_at AS updatedAt, created_at AS createdAt, deleted_at AS deletedAt, device_id AS deviceId
     FROM folders${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""}
-    ORDER BY sort_order, name, id LIMIT ? OFFSET ?`,
+    ORDER BY sort_order ASC, created_at DESC, id DESC LIMIT ? OFFSET ?`,
     params,
   )
 }
@@ -834,13 +836,30 @@ export function createFolder(input: {
   const now = Date.now()
   const id = ulid()
 
+  let sortOrder = input.sortOrder
+  if (sortOrder === undefined) {
+    const parentCondition =
+      input.parentId === undefined || input.parentId === null
+        ? isNull(folders.parentId)
+        : eq(folders.parentId, input.parentId)
+
+    const minResult = db
+      .select({ minOrder: min(folders.sortOrder) })
+      .from(folders)
+      .where(and(isNull(folders.deletedAt), parentCondition))
+      .get()
+
+    sortOrder =
+      minResult?.minOrder !== null && minResult?.minOrder !== undefined ? minResult.minOrder - 1 : 0
+  }
+
   const newFolder: Folder = {
     id,
     userId,
     parentId: input.parentId ?? null,
     name: input.name,
     icon: input.icon ?? "📁",
-    sortOrder: input.sortOrder ?? 0,
+    sortOrder,
     version: 1,
     createdAt: now,
     updatedAt: now,

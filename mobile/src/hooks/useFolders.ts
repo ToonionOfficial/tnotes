@@ -70,7 +70,7 @@ export function useCreateFolder() {
       sortOrder?: number
     }) => createFolder(input),
     onSuccess: (newFolder) => {
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.setQueryData(folderKeys.detail(newFolder.id), newFolder)
     },
   })
@@ -92,7 +92,7 @@ export function useUpdateFolder() {
       }
     }) => updateFolder(id, input),
     onSuccess: (updatedFolder) => {
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.setQueryData(folderKeys.detail(updatedFolder.id), updatedFolder)
     },
   })
