@@ -15,6 +15,7 @@ import {
   trashNote,
   updateNote,
 } from "@/db/queries"
+import { triggerBackgroundSyncIfConnected } from "@/services/sync"
 import { statsKeys } from "./useDatabaseStats"
 
 export const noteKeys = {
@@ -61,8 +62,9 @@ export function useFolderNoteCounts() {
   return useQuery({
     queryKey: noteKeys.counts(),
     queryFn: getFolderNoteCountsAsync,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   })
 }
 
@@ -77,7 +79,7 @@ export function useNote(id: string | undefined | null, enabled = true) {
   })
 }
 
-export function useSearchNotes(query: string, folderId?: string | null, pageSize = 20) {
+export function useSearchNotes(query: string, folderId?: string | null, pageSize = 50) {
   return useInfiniteQuery({
     queryKey: noteKeys.search(query, folderId),
     initialPageParam: 0,
@@ -112,6 +114,7 @@ export function useCreateNote() {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(noteKeys.detail(newNote.id), newNote)
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -124,6 +127,7 @@ export function useCreateBenchmarkNotes() {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -136,6 +140,7 @@ export function useDeleteBenchmarkNotes() {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -159,6 +164,7 @@ export function useUpdateNote() {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -170,6 +176,7 @@ export function useTogglePinNote() {
     onSuccess: (updatedNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -183,6 +190,7 @@ export function useTrashNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -196,6 +204,7 @@ export function useRestoreNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -209,6 +218,7 @@ export function useDeleteNotePermanently() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -222,6 +232,7 @@ export function useBatchTrashNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }
@@ -235,6 +246,7 @@ export function useBatchDeleteNotesPermanently() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
     },
   })
 }

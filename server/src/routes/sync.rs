@@ -30,14 +30,12 @@ pub async fn sync_handler(
     let response = process_sync_envelope(&mut conn, &envelope, &auth.user_id)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    if !envelope.changes.is_empty() {
-        let broadcast_msg = WsBroadcastMessage {
-            sender_device_id: auth.device_id,
-            user_id: auth.user_id,
-            changes: envelope.changes,
-        };
-        let _ = state.ws_sender.send(broadcast_msg);
-    }
+    let broadcast_msg = WsBroadcastMessage {
+        sender_device_id: auth.device_id,
+        user_id: auth.user_id,
+        changes: envelope.changes,
+    };
+    let _ = state.ws_sender.send(broadcast_msg);
 
     Ok(Json(response))
 }

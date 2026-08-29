@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { apiFetch } from '@/lib/api'
 
 export interface WsSyncPayload {
   sender_device_id?: string
@@ -34,13 +35,28 @@ export function useWebSocketSync({
 
     let isDisposed = false
 
-    const connect = () => {
+    const connect = async () => {
       if (isDisposed || wsRef.current) return
 
       try {
         onStatusChange?.('connecting')
+
+        let ticket: string | null = null
+        try {
+          const res = await apiFetch<{ ticket: string }>('/api/ws/ticket', {
+            method: 'POST',
+          })
+          ticket = res?.ticket ?? null
+        } catch {
+          // Fallback to cookie
+        }
+
+        if (isDisposed) return
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const wsUrl = `${protocol}//${window.location.host}/ws/sync`
+        const baseUrl = `${protocol}//${window.location.host}/ws/sync`
+        const wsUrl = ticket ? `${baseUrl}?ticket=${encodeURIComponent(ticket)}` : baseUrl
+
         const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
@@ -86,19 +102,23 @@ export function useWebSocketSync({
             const delay = reconnectDelayRef.current
             reconnectDelayRef.current = Math.min(delay * 1.5, 30000)
             if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-            reconnectTimeoutRef.current = setTimeout(connect, delay)
+            reconnectTimeoutRef.current = setTimeout(() => {
+              void connect()
+            }, delay)
           }
         }
       } catch {
         onStatusChange?.('disconnected')
         if (!isDisposed) {
           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-          reconnectTimeoutRef.current = setTimeout(connect, 5000)
+          reconnectTimeoutRef.current = setTimeout(() => {
+            void connect()
+          }, 5000)
         }
       }
     }
 
-    connect()
+    void connect()
 
     return () => {
       isDisposed = true
