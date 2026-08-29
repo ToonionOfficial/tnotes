@@ -4,6 +4,7 @@ import { Globe, KeyRound, Laptop, Monitor, Smartphone, Trash2, User } from "luci
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { SettingsRow } from "@/components/settings/SettingsRow"
 import { SettingsSection } from "@/components/settings/SettingsSection"
+import { formatDisplayServerUrl } from "@/db/queries"
 import { type ConnectedDevice, useDevicesQuery, useRevokeDeviceMutation } from "@/hooks/useDevices"
 import { useSyncState } from "@/hooks/useSyncState"
 
@@ -106,7 +107,9 @@ export default function AccountScreen() {
                 {syncStatus?.username ?? "Local Account"}
               </Text>
               <Text className="pt-0.5 text-[13px] text-muted-foreground">
-                {isConnected ? syncStatus?.serverUrl : "Offline / On-Device"}
+                {isConnected
+                  ? formatDisplayServerUrl(syncStatus?.serverUrl)
+                  : "Offline / On-Device"}
               </Text>
             </View>
             <View className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">

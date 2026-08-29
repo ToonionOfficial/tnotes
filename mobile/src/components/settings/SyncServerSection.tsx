@@ -1,6 +1,7 @@
 import { Cloud, Globe, LogOut, RefreshCw, RotateCw } from "lucide-react-native"
 import { memo } from "react"
 import { ActivityIndicator, Text, View } from "react-native"
+import { formatDisplayServerUrl } from "@/db/queries"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
@@ -39,7 +40,7 @@ export const SyncServerSection = memo(function SyncServerSection({
       <SettingsRow
         icon={<Cloud size={20} color="#E6E1E9" />}
         title="Sync Status"
-        subtitle={isConnected && serverUrl ? serverUrl : undefined}
+        subtitle={isConnected && serverUrl ? formatDisplayServerUrl(serverUrl) : undefined}
         badge={statusBadge}
         showDivider
       />
