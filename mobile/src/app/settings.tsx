@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { useMemo, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
+import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
   AboutSection,
   AppearanceSection,
@@ -15,6 +16,8 @@ import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
+  const [isPairModalOpen, setIsPairModalOpen] = useState(false)
+  const [connectedServer, setConnectedServer] = useState<string | undefined>(undefined)
   const { data: stats } = useDatabaseStats()
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -38,6 +41,11 @@ export default function SettingsScreen() {
   }, [normalizedQuery])
 
   const hasAnyMatch = Object.values(matches).some(Boolean)
+
+  const handlePairSuccess = (payload: PairPayload) => {
+    setConnectedServer(payload.url)
+    setIsPairModalOpen(false)
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -77,7 +85,13 @@ export default function SettingsScreen() {
         />
 
         {matches.profile && <ProfileSection />}
-        {matches.sync && <SyncServerSection isConnected={false} />}
+        {matches.sync && (
+          <SyncServerSection
+            isConnected={Boolean(connectedServer)}
+            serverUrl={connectedServer}
+            onPressConnectServer={() => setIsPairModalOpen(true)}
+          />
+        )}
         {matches.appearance && <AppearanceSection />}
         {matches.data && <DataStorageSection stats={stats} />}
         {matches.about && <AboutSection />}
@@ -91,6 +105,12 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <PairServerModal
+        visible={isPairModalOpen}
+        onClose={() => setIsPairModalOpen(false)}
+        onPairSuccess={handlePairSuccess}
+      />
     </View>
   )
 }
