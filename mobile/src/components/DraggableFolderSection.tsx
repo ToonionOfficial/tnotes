@@ -9,7 +9,6 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from "react-native-reanimated"
 import { scheduleOnRN } from "react-native-worklets"
@@ -99,11 +98,38 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       const toIdx = hoverIndex.value
 
       if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-        scheduleOnRN(onReorder, fromIdx, toIdx)
+        const targetOffset = (toIdx - fromIdx) * ROW_HEIGHT
+        dragTranslateY.value = withTiming(
+          targetOffset,
+          {
+            duration: 120,
+            easing: Easing.bezier(0.2, 0, 0, 1),
+          },
+          (finished) => {
+            if (finished) {
+              scheduleOnRN(onReorder, fromIdx, toIdx)
+              activeDragIndex.value = -1
+              hoverIndex.value = -1
+              dragTranslateY.value = 0
+            }
+          },
+        )
+      } else {
+        dragTranslateY.value = withTiming(
+          0,
+          {
+            duration: 120,
+            easing: Easing.bezier(0.2, 0, 0, 1),
+          },
+          (finished) => {
+            if (finished) {
+              activeDragIndex.value = -1
+              hoverIndex.value = -1
+              dragTranslateY.value = 0
+            }
+          },
+        )
       }
-      activeDragIndex.value = -1
-      hoverIndex.value = -1
-      dragTranslateY.value = 0
       scheduleOnRN(triggerDropHaptic)
     })
 
@@ -115,7 +141,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       return {
         transform: [
           { translateY: dragTranslateY.value },
-          { scale: withSpring(1.03, { damping: 15, stiffness: 200 }) },
+          { scale: withTiming(1.02, { duration: 120 }) },
         ],
         zIndex: 999,
         elevation: 8,
@@ -143,15 +169,28 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
 
       return {
         transform: [
-          { translateY: withSpring(shift, { damping: 20, stiffness: 250 }) },
-          { scale: 1 },
+          {
+            translateY: withTiming(shift, {
+              duration: 160,
+              easing: Easing.bezier(0.2, 0, 0, 1),
+            }),
+          },
+          { scale: withTiming(1, { duration: 120 }) },
         ],
         zIndex: 1,
       }
     }
 
     return {
-      transform: [{ translateY: withSpring(0, { damping: 20, stiffness: 250 }) }, { scale: 1 }],
+      transform: [
+        {
+          translateY: withTiming(0, {
+            duration: 160,
+            easing: Easing.bezier(0.2, 0, 0, 1),
+          }),
+        },
+        { scale: withTiming(1, { duration: 120 }) },
+      ],
       zIndex: 1,
     }
   })
