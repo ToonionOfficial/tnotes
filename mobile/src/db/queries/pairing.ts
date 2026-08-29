@@ -43,6 +43,14 @@ export function normalizeServerUrl(rawUrl: string): string {
   return url
 }
 
+export function formatDisplayServerUrl(rawUrl?: string | null): string {
+  if (!rawUrl) return ""
+  return rawUrl
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "")
+}
+
 export async function getSyncStatusAsync(): Promise<SyncStatus> {
   const serverUrl = getSyncMeta("server_url")
   const authToken = getSyncMeta("auth_token")

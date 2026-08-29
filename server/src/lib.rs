@@ -8,7 +8,7 @@ pub mod ws;
 use axum::{
     Router,
     middleware::from_fn_with_state,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
@@ -19,6 +19,11 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/sync", post(routes::sync::sync_handler))
         .route("/api/pair", get(routes::pair::pair_handler))
         .route("/api/me", get(routes::auth::me_handler))
+        .route("/api/devices", get(routes::devices::list_devices_handler))
+        .route(
+            "/api/devices/{id}",
+            delete(routes::devices::delete_device_handler),
+        )
         .route("/api/logout", post(routes::auth::logout_handler))
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 

@@ -147,7 +147,11 @@ export default function SettingsScreen() {
         />
 
         {matches.profile && (
-          <ProfileSection username={syncStatus?.username} isConnected={syncStatus?.isConnected} />
+          <ProfileSection
+            username={syncStatus?.username}
+            isConnected={syncStatus?.isConnected}
+            onPressProfile={() => router.push("/account")}
+          />
         )}
 
         {matches.sync && (

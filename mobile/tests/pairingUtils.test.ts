@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { normalizeServerUrl } from "../src/db/queries/pairing"
+import { formatDisplayServerUrl, normalizeServerUrl } from "../src/db/queries/pairing"
 
 describe("Pairing Utilities", () => {
   describe("normalizeServerUrl", () => {
@@ -21,6 +21,21 @@ describe("Pairing Utilities", () => {
       expect(normalizeServerUrl("https://sync.myfamily.org:8443")).toBe(
         "https://sync.myfamily.org:8443",
       )
+    })
+  })
+
+  describe("formatDisplayServerUrl", () => {
+    it("strips http:// prefix and trailing slashes", () => {
+      expect(formatDisplayServerUrl("http://192.168.1.50:8787/")).toBe("192.168.1.50:8787")
+    })
+
+    it("strips https:// prefix", () => {
+      expect(formatDisplayServerUrl("https://notes.example.com")).toBe("notes.example.com")
+    })
+
+    it("handles empty or null URL cleanly", () => {
+      expect(formatDisplayServerUrl("")).toBe("")
+      expect(formatDisplayServerUrl(null)).toBe("")
     })
   })
 

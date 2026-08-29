@@ -98,6 +98,15 @@ export default function RootLayout() {
                   headerShown: true,
                 }}
               />
+              <Stack.Screen
+                name="account"
+                options={{
+                  presentation: "modal",
+                  title: "Account",
+                  headerLargeTitle: true,
+                  headerShown: true,
+                }}
+              />
             </Stack>
           </BottomSheetModalProvider>
         </KeyboardProvider>
