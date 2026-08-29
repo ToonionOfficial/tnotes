@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
-import { Plus, Trash2 } from "lucide-react-native"
+import { Menu, Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
@@ -13,11 +13,13 @@ import {
   Text,
   View,
 } from "react-native"
+import { Drawer } from "react-native-drawer-layout"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { PerformanceBenchmark } from "@/components/PerformanceBenchmark"
+import { SideDrawerContent } from "@/components/SideDrawerContent"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
 import {
@@ -46,6 +48,7 @@ export default function FoldersScreen() {
   }, [foldersList])
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [searchValue, setSearchValue] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set())
@@ -163,179 +166,227 @@ export default function FoldersScreen() {
   )
 
   return (
-    <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          title: "Folders",
-          headerLargeTitle: true,
-          headerShown: true,
-          unstable_headerRightItems: () =>
-            isEditing
-              ? [
-                  {
-                    type: "button" as const,
-                    label: "Delete",
-                    icon: {
-                      name: "trash",
-                      type: "sfSymbol",
+    <Drawer
+      open={isDrawerOpen}
+      onOpen={() => setIsDrawerOpen(true)}
+      onClose={() => setIsDrawerOpen(false)}
+      drawerType="back"
+      drawerStyle={{ width: "80%", maxWidth: 320, backgroundColor: "#141318" }}
+      swipeEdgeWidth={40}
+      swipeEnabled={!isEditing}
+      renderDrawerContent={() => (
+        <SideDrawerContent
+          noteCount={counts.total}
+          trashCount={counts.trash}
+          onPressAllNotes={() => {
+            setIsDrawerOpen(false)
+            router.push("/folders/all" as const)
+          }}
+          onPressTrash={() => {
+            setIsDrawerOpen(false)
+            router.push("/folders/trash" as const)
+          }}
+        />
+      )}
+    >
+      <View className="flex-1 bg-background">
+        <Stack.Screen
+          options={{
+            title: "Folders",
+            headerLargeTitle: true,
+            headerShown: true,
+            unstable_headerLeftItems: () =>
+              !isEditing
+                ? [
+                    {
+                      type: "button" as const,
+                      label: "Menu",
+                      icon: {
+                        name: "line.3.horizontal",
+                        type: "sfSymbol" as const,
+                      },
+                      tintColor: "#ffffff",
+                      sharesBackground: true,
+                      onPress: () => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                        setIsDrawerOpen(true)
+                      },
                     },
-                    variant: "done",
-                    tintColor: "#FF5A52",
-                    sharesBackground: true,
-                    onPress: handleBatchDeleteFolders,
-                  },
-                  {
-                    type: "button" as const,
-                    label: "Done",
-                    icon: {
-                      name: "checkmark",
-                      type: "sfSymbol",
-                    },
-                    variant: "done",
-                    tintColor: "#FFC107",
-                    sharesBackground: true,
-                    onPress: toggleEditMode,
-                  },
-                ]
-              : [
-                  ...(foldersList.length > 0
-                    ? [
-                        {
-                          type: "button" as const,
-                          label: "Edit",
-                          tintColor: "#ffffff",
-                          sharesBackground: true,
-                          onPress: toggleEditMode,
-                        },
-                      ]
-                    : []),
-                  {
-                    type: "button" as const,
-                    label: "New Folder",
-                    icon: {
-                      name: "plus",
-                      type: "sfSymbol" as const,
-                    },
-                    tintColor: "#ffffff",
-                    sharesBackground: true,
-                    onPress: () => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                      sheetRef.current?.open()
-                    },
-                  },
-                ],
-          headerRight:
-            Platform.OS !== "ios"
-              ? () =>
-                  isEditing ? (
-                    <View className="flex-row items-center">
-                      <Pressable
-                        onPress={handleBatchDeleteFolders}
-                        disabled={selectedFolderIds.size === 0}
-                        hitSlop={8}
-                        className="px-2 py-1 active:opacity-60"
-                      >
-                        <Trash2 size={20} color="#FF3B30" />
-                      </Pressable>
-                      <View className="mx-1 h-3.5 w-px bg-white/20" />
-                      <Pressable
-                        onPress={toggleEditMode}
-                        hitSlop={8}
-                        className="px-2 py-1 active:opacity-60"
-                      >
-                        <Text className="text-[17px] font-semibold text-white">Done</Text>
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <View className="flex-row items-center">
-                      {foldersList.length > 0 && (
-                        <>
-                          <Pressable
-                            onPress={toggleEditMode}
-                            hitSlop={8}
-                            className="px-2 py-1 active:opacity-60"
-                          >
-                            <Text className="text-[17px] font-medium text-white">Edit</Text>
-                          </Pressable>
-                          <View className="mx-1 h-3.5 w-px bg-white/20" />
-                        </>
-                      )}
-                      <Pressable
-                        onPress={() => {
-                          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                          sheetRef.current?.open()
-                        }}
-                        hitSlop={8}
-                        className="px-2 py-1 active:opacity-60"
-                      >
-                        <Plus size={22} color="#ffffff" />
-                      </Pressable>
-                    </View>
+                  ]
+                : [],
+            headerLeft:
+              Platform.OS !== "ios" && !isEditing
+                ? () => (
+                    <Pressable
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                        setIsDrawerOpen(true)
+                      }}
+                      hitSlop={8}
+                      className="mr-2 px-2 py-1 active:opacity-60"
+                    >
+                      <Menu size={22} color="#ffffff" />
+                    </Pressable>
                   )
-              : undefined,
-        }}
-      />
-
-      <ScrollView
-        className="flex-1"
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleScroll}
-        scrollEventThrottle={100}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 110,
-        }}
-      >
-        <VirtualFolderCard
-          title="Notes"
-          icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
-          count={getFolderCount(null)}
-          isEditing={isEditing}
-          onPress={() => router.push("/folders/all" as const)}
+                : undefined,
+            unstable_headerRightItems: () =>
+              isEditing
+                ? [
+                    {
+                      type: "button" as const,
+                      label: "Delete",
+                      icon: {
+                        name: "trash",
+                        type: "sfSymbol",
+                      },
+                      variant: "done",
+                      tintColor: "#FF5A52",
+                      sharesBackground: true,
+                      onPress: handleBatchDeleteFolders,
+                    },
+                    {
+                      type: "button" as const,
+                      label: "Done",
+                      icon: {
+                        name: "checkmark",
+                        type: "sfSymbol",
+                      },
+                      variant: "done",
+                      tintColor: "#FFC107",
+                      sharesBackground: true,
+                      onPress: toggleEditMode,
+                    },
+                  ]
+                : [
+                    ...(foldersList.length > 0
+                      ? [
+                          {
+                            type: "button" as const,
+                            label: "Edit",
+                            tintColor: "#ffffff",
+                            sharesBackground: true,
+                            onPress: toggleEditMode,
+                          },
+                        ]
+                      : []),
+                    {
+                      type: "button" as const,
+                      label: "New Folder",
+                      icon: {
+                        name: "plus",
+                        type: "sfSymbol" as const,
+                      },
+                      tintColor: "#ffffff",
+                      sharesBackground: true,
+                      onPress: () => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                        sheetRef.current?.open()
+                      },
+                    },
+                  ],
+            headerRight:
+              Platform.OS !== "ios"
+                ? () =>
+                    isEditing ? (
+                      <View className="flex-row items-center">
+                        <Pressable
+                          onPress={handleBatchDeleteFolders}
+                          disabled={selectedFolderIds.size === 0}
+                          hitSlop={8}
+                          className="px-2 py-1 active:opacity-60"
+                        >
+                          <Trash2 size={20} color="#FF3B30" />
+                        </Pressable>
+                        <View className="mx-1 h-3.5 w-px bg-white/20" />
+                        <Pressable
+                          onPress={toggleEditMode}
+                          hitSlop={8}
+                          className="px-2 py-1 active:opacity-60"
+                        >
+                          <Text className="text-[17px] font-semibold text-white">Done</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <View className="flex-row items-center">
+                        {foldersList.length > 0 && (
+                          <>
+                            <Pressable
+                              onPress={toggleEditMode}
+                              hitSlop={8}
+                              className="px-2 py-1 active:opacity-60"
+                            >
+                              <Text className="text-[17px] font-medium text-white">Edit</Text>
+                            </Pressable>
+                            <View className="mx-1 h-3.5 w-px bg-white/20" />
+                          </>
+                        )}
+                        <Pressable
+                          onPress={() => {
+                            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                            sheetRef.current?.open()
+                          }}
+                          hitSlop={8}
+                          className="px-2 py-1 active:opacity-60"
+                        >
+                          <Plus size={22} color="#ffffff" />
+                        </Pressable>
+                      </View>
+                    )
+                : undefined,
+          }}
         />
 
-        <DraggableFolderSection
-          folders={folders}
-          isEditing={isEditing}
-          selectedFolderIds={selectedFolderIds}
-          getFolderCount={getFolderCount}
-          onToggleSelect={toggleSelectFolder}
-          onPressFolder={(folderId) => router.push(`/folders/${folderId}` as const)}
-          onDeleteFolder={handleDeleteFolder}
-          onReorder={handleReorder}
+        <ScrollView
+          className="flex-1"
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: 110,
+          }}
+        >
+          <VirtualFolderCard
+            title="Notes"
+            icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
+            count={getFolderCount(null)}
+            isEditing={isEditing}
+            onPress={() => router.push("/folders/all" as const)}
+          />
+
+          <DraggableFolderSection
+            folders={folders}
+            isEditing={isEditing}
+            selectedFolderIds={selectedFolderIds}
+            getFolderCount={getFolderCount}
+            onToggleSelect={toggleSelectFolder}
+            onPressFolder={(folderId) => router.push(`/folders/${folderId}` as const)}
+            onDeleteFolder={handleDeleteFolder}
+            onReorder={handleReorder}
+          />
+
+          {isFetchingNextPage && (
+            <View className="py-4 items-center justify-center">
+              <ActivityIndicator size="small" color="#CABEFF" />
+            </View>
+          )}
+
+          <PerformanceBenchmark />
+        </ScrollView>
+
+        <BottomBar
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onPressNewNote={() => router.push("/notes/new" as const)}
         />
 
-        {isFetchingNextPage && (
-          <View className="py-4 items-center justify-center">
-            <ActivityIndicator size="small" color="#CABEFF" />
-          </View>
-        )}
-
-        <VirtualFolderCard
-          title="Trash"
-          icon={<Trash2 size={18} color="#FF6B6B" />}
-          count={counts.trash}
-          isEditing={isEditing}
-          className="mt-5"
-          textColor="text-[#FF6B6B]"
-          onPress={() => router.push("/folders/trash" as const)}
+        <NewFolderSheet
+          ref={sheetRef}
+          onCreated={(folderId) => router.push(`/folders/${folderId}` as const)}
         />
-
-        <PerformanceBenchmark />
-      </ScrollView>
-
-      <BottomBar
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        onPressNewNote={() => router.push("/notes/new" as const)}
-      />
-
-      <NewFolderSheet
-        ref={sheetRef}
-        onCreated={(folderId) => router.push(`/folders/${folderId}` as const)}
-      />
-    </View>
+      </View>
+    </Drawer>
   )
 }
