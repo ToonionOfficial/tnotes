@@ -1,3 +1,4 @@
+import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { ChevronLeft, Trash2 } from "lucide-react-native"
@@ -5,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   InteractionManager,
   Platform,
   Pressable,
@@ -364,10 +364,14 @@ export default function FolderNotesScreen() {
           <ActivityIndicator size="large" color="#CABEFF" />
         </View>
       ) : (
-        <FlatList
+        <LegendList
           data={listData}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          estimatedItemSize={68}
+          getFixedItemSize={(item) => (item.type === "header" ? 36 : undefined)}
+          recycleItems={true}
+          extraData={{ isEditing, selectedNoteIds }}
           className="flex-1"
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
@@ -392,10 +396,6 @@ export default function FolderNotesScreen() {
             }
           }}
           onEndReachedThreshold={0.5}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={7}
-          removeClippedSubviews
           ListFooterComponent={
             isFetchingNextPage ? (
               <View className="py-5">

@@ -23,6 +23,7 @@
     "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~57.0.14",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@legendapp/list": "^3.3.9",
     "@noble/hashes": "^2.4.0",
     "@tanstack/react-query": "^5.102.8",
     "drizzle-orm": "1.0.0-rc.4",
