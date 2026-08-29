@@ -44,12 +44,21 @@ export const SyncServerSection = memo(function SyncServerSection({
         showDivider
       />
 
+      <SettingsRow
+        icon={<RefreshCw size={19} color="#E6E1E9" />}
+        title="Auto-Sync"
+        subtitle="Sync changes automatically when connected"
+        isSwitch
+        switchValue={autoSync}
+        onSwitchChange={onToggleAutoSync}
+        showDivider={isConnected}
+      />
+
       {!isConnected ? (
         <SettingsRow
           icon={<Globe size={20} color="#E6E1E9" />}
           title="Connect Server"
           onPress={onPressConnectServer}
-          showDivider
         />
       ) : (
         <>
@@ -67,19 +76,9 @@ export const SyncServerSection = memo(function SyncServerSection({
             title="Disconnect Server"
             isDestructive
             onPress={onPressDisconnect}
-            showDivider
           />
         </>
       )}
-
-      <SettingsRow
-        icon={<RefreshCw size={19} color="#E6E1E9" />}
-        title="Auto-Sync"
-        subtitle="Sync changes automatically when connected"
-        isSwitch
-        switchValue={autoSync}
-        onSwitchChange={onToggleAutoSync}
-      />
     </SettingsSection>
   )
 })
