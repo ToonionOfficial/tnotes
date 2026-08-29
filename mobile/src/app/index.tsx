@@ -139,15 +139,15 @@ export default function FoldersScreen() {
             isEditing
               ? [
                   {
-                    type: "button",
+                    type: "button" as const,
                     label:
                       selectedFolderIds.size > 0 ? `Delete (${selectedFolderIds.size})` : "Delete",
-                    tintColor: selectedFolderIds.size > 0 ? "#FF6B6B" : "#8E8C99",
+                    tintColor: selectedFolderIds.size > 0 ? "#FF3B30" : "#8E8C99",
                     sharesBackground: true,
                     onPress: handleBatchDeleteFolders,
                   },
                   {
-                    type: "button",
+                    type: "button" as const,
                     label: "Done",
                     tintColor: "#ffffff",
                     sharesBackground: true,
@@ -194,7 +194,7 @@ export default function FoldersScreen() {
                       >
                         <Text
                           className={`text-[17px] font-medium ${
-                            selectedFolderIds.size > 0 ? "text-[#FF6B6B]" : "text-white/40"
+                            selectedFolderIds.size > 0 ? "text-[#FF3B30]" : "text-white/40"
                           }`}
                         >
                           {selectedFolderIds.size > 0

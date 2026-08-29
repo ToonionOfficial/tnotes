@@ -266,14 +266,14 @@ export default function FolderNotesScreen() {
             isEditing
               ? [
                   {
-                    type: "button",
+                    type: "button" as const,
                     label: selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete",
-                    tintColor: selectedNoteIds.size > 0 ? "#FF6B6B" : "#8E8C99",
+                    tintColor: selectedNoteIds.size > 0 ? "#FF3B30" : "#8E8C99",
                     sharesBackground: true,
                     onPress: handleBatchDeleteNotes,
                   },
                   {
-                    type: "button",
+                    type: "button" as const,
                     label: "Done",
                     tintColor: "#ffffff",
                     sharesBackground: true,
@@ -304,7 +304,7 @@ export default function FolderNotesScreen() {
                       >
                         <Text
                           className={`text-[17px] font-medium ${
-                            selectedNoteIds.size > 0 ? "text-[#FF6B6B]" : "text-white/40"
+                            selectedNoteIds.size > 0 ? "text-[#FF3B30]" : "text-white/40"
                           }`}
                         >
                           {selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete"}
