@@ -35,7 +35,10 @@ export function formatNoteTime(timestamp: number): string {
  * Groups notes into Apple Notes style chronological sections:
  * Pinned, Today, Yesterday, Previous 7 Days, Previous 30 Days, Month/Year
  */
-export function groupNotesByDate(notes: (Note | SearchResult)[]): NoteSection[] {
+export function groupNotesByDate(
+  notes: (Note | SearchResult)[],
+  options?: { ignorePinned?: boolean },
+): NoteSection[] {
   if (!notes || notes.length === 0) return []
 
   const now = new Date()
@@ -52,7 +55,7 @@ export function groupNotesByDate(notes: (Note | SearchResult)[]): NoteSection[] 
   const monthGroups = new Map<string, (Note | SearchResult)[]>()
 
   for (const note of notes) {
-    if (note.pinned) {
+    if (note.pinned && !options?.ignorePinned) {
       pinned.push(note)
       continue
     }

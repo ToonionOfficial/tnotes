@@ -9,7 +9,13 @@ import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { useFolder } from "@/hooks/useFolders"
-import { useNotes } from "@/hooks/useNotes"
+import {
+  useDeleteNotePermanently,
+  useNotes,
+  useRestoreNote,
+  useTogglePinNote,
+  useTrashNote,
+} from "@/hooks/useNotes"
 import { groupNotesByDate } from "@/utils/date"
 
 type FlatNoteItem =
@@ -31,26 +37,50 @@ export default function FolderNotesScreen() {
   const folderId = isAll || isTrash ? undefined : id
 
   const { data: folder } = useFolder(folderId ?? null)
-
-  const title = useMemo(() => {
-    if (isAll) return "All Notes"
-    if (isTrash) return "Trash"
-    return folder?.name || "Notes"
-  }, [isAll, isTrash, folder?.name])
+  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
 
   const [searchValue, setSearchValue] = useState("")
   const debouncedSearch = useDebouncedValue(searchValue, 150)
 
   const { data: notesList, isLoading } = useNotes({
     search: debouncedSearch,
-    folderId: isAll ? undefined : (folderId ?? null),
+    folderId: isAll || isTrash ? undefined : folderId,
     trashed: Boolean(isTrash),
   })
+  const togglePinNote = useTogglePinNote()
+  const trashNote = useTrashNote()
+  const restoreNote = useRestoreNote()
+  const deleteNotePermanently = useDeleteNotePermanently()
+
+  const handleTogglePin = useCallback(
+    (noteId: string) => {
+      togglePinNote.mutate(noteId)
+    },
+    [togglePinNote],
+  )
+
+  const handleRestore = useCallback(
+    (noteId: string) => {
+      restoreNote.mutate(noteId)
+    },
+    [restoreNote],
+  )
+
+  const handleDelete = useCallback(
+    (noteId: string) => {
+      if (isTrash) {
+        deleteNotePermanently.mutate(noteId)
+      } else {
+        trashNote.mutate(noteId)
+      }
+    },
+    [isTrash, deleteNotePermanently, trashNote],
+  )
 
   const listData = useMemo<FlatNoteItem[]>(() => {
     if (!notesList || notesList.length === 0) return []
 
-    const sections = groupNotesByDate(notesList)
+    const sections = groupNotesByDate(notesList, { ignorePinned: Boolean(isTrash) })
     const items: FlatNoteItem[] = []
 
     for (const section of sections) {
@@ -73,7 +103,7 @@ export default function FolderNotesScreen() {
     }
 
     return items
-  }, [notesList])
+  }, [notesList, isTrash])
 
   const noteCount = notesList?.length ?? 0
 
@@ -106,11 +136,15 @@ export default function FolderNotesScreen() {
           item={item.item}
           isFirst={item.isFirst}
           isLast={item.isLast}
+          isTrash={Boolean(isTrash)}
           onPress={handlePressNote}
+          onTogglePin={isTrash ? undefined : handleTogglePin}
+          onRestore={isTrash ? handleRestore : undefined}
+          onDelete={handleDelete}
         />
       )
     },
-    [handlePressNote],
+    [handleDelete, handlePressNote, handleRestore, handleTogglePin, isTrash],
   )
 
   const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
