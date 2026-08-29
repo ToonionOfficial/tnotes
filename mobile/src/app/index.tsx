@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { ChevronRight, Circle, CircleCheck, GripVertical, Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useRef, useState } from "react"
-import { Alert, FlatList, Pressable, Text, View } from "react-native"
+import { Alert, FlatList, Platform, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
@@ -243,30 +243,78 @@ export default function FoldersScreen() {
           title: "Folders",
           headerLargeTitle: true,
           headerShown: true,
-          headerRight: () =>
-            isEditing ? (
-              <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                <Text className="text-[17px] font-semibold text-primary">Done</Text>
-              </Pressable>
-            ) : (
-              <View className="flex-row items-center gap-5">
-                {foldersList.length > 0 && (
-                  <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                    <Text className="text-[17px] font-medium text-white">Edit</Text>
-                  </Pressable>
-                )}
-                <Pressable
-                  onPress={() => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                    sheetRef.current?.open()
-                  }}
-                  hitSlop={8}
-                  className="active:opacity-60"
-                >
-                  <Plus size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            ),
+          unstable_headerRightItems: () =>
+            isEditing
+              ? [
+                  {
+                    type: "button",
+                    label: "Done",
+                    variant: "done",
+                    tintColor: "#CABEFF",
+                    onPress: toggleEditMode,
+                  },
+                ]
+              : [
+                  ...(foldersList.length > 0
+                    ? [
+                        {
+                          type: "button" as const,
+                          label: "Edit",
+                          tintColor: "#ffffff",
+                          sharesBackground: true,
+                          onPress: toggleEditMode,
+                        },
+                      ]
+                    : []),
+                  {
+                    type: "button" as const,
+                    label: "New Folder",
+                    icon: {
+                      name: "plus",
+                      type: "sfSymbol" as const,
+                    },
+                    tintColor: "#ffffff",
+                    sharesBackground: true,
+                    onPress: () => {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                      sheetRef.current?.open()
+                    },
+                  },
+                ],
+          headerRight:
+            Platform.OS !== "ios"
+              ? () =>
+                  isEditing ? (
+                    <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
+                      <Text className="text-[17px] font-semibold text-primary">Done</Text>
+                    </Pressable>
+                  ) : (
+                    <View className="flex-row items-center">
+                      {foldersList.length > 0 && (
+                        <>
+                          <Pressable
+                            onPress={toggleEditMode}
+                            hitSlop={8}
+                            className="px-2 py-1 active:opacity-60"
+                          >
+                            <Text className="text-[17px] font-medium text-white">Edit</Text>
+                          </Pressable>
+                          <View className="mx-1 h-3.5 w-[1px] bg-white/20" />
+                        </>
+                      )}
+                      <Pressable
+                        onPress={() => {
+                          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                          sheetRef.current?.open()
+                        }}
+                        hitSlop={8}
+                        className="px-2 py-1 active:opacity-60"
+                      >
+                        <Plus size={22} color="#ffffff" />
+                      </Pressable>
+                    </View>
+                  )
+              : undefined,
         }}
       />
 
