@@ -18,6 +18,8 @@ pub struct PendingPairing {
     pub username: String,
     pub device_id: String,
     pub expires_at: i64,
+    pub claimed: bool,
+    pub claimed_device_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]

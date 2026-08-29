@@ -251,6 +251,16 @@ pub async fn me_handler(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::NOT_FOUND, "Device not found".into()))?;
 
+    {
+        let mut pairings = state.pending_pairings.lock().await;
+        for p in pairings.values_mut() {
+            if p.device_id == auth.device_id {
+                p.claimed = true;
+                p.claimed_device_name = Some(device.name.clone());
+            }
+        }
+    }
+
     Ok(Json(MeResponse {
         user_id: user.id,
         username: user.username,

@@ -29,6 +29,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/setup", post(routes::auth::setup_handler))
         .route("/api/login", post(routes::auth::login_handler))
         .route("/api/pair/claim", post(routes::pair::pair_claim_handler))
+        .route("/api/pair/status", get(routes::pair::pair_status_handler))
         .merge(protected_routes)
         .fallback(spa::spa_handler)
         .layer(TraceLayer::new_for_http())
