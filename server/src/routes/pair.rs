@@ -106,15 +106,13 @@ fn resolve_server_url(headers: &HeaderMap, configured_url: &str) -> String {
         return format!("{}://{}", proto, host);
     }
 
-    if is_configured_local {
-        if let Some(lan_ip) = get_lan_ip() {
-            let port = configured_url
-                .split(':')
-                .nth(2)
-                .unwrap_or("8787")
-                .trim_matches('/');
-            return format!("http://{}:{}", lan_ip, port);
-        }
+    if is_configured_local && let Some(lan_ip) = get_lan_ip() {
+        let port = configured_url
+            .split(':')
+            .nth(2)
+            .unwrap_or("8787")
+            .trim_matches('/');
+        return format!("http://{}:{}", lan_ip, port);
     }
 
     configured_url.to_string()
@@ -226,7 +224,12 @@ pub async fn pair_claim_handler(
     if let Some(device_name) = req.device_name {
         let platform = req.platform.unwrap_or_else(|| "mobile".into());
         let conn = state.db.lock().await;
-        let device = Device::new(&pending.device_id, &device_name, &platform, &pending.user_id);
+        let device = Device::new(
+            &pending.device_id,
+            &device_name,
+            &platform,
+            &pending.user_id,
+        );
         let _ = upsert_device(&conn, &device);
     }
 
