@@ -511,6 +511,10 @@ export function deleteNotePermanently(id: string): void {
   })
 }
 
+export function moveNote(id: string, folderId: string | null): Note {
+  return updateNote(id, { folderId })
+}
+
 export function batchTrashNotes(ids: string[]): void {
   for (const id of ids) {
     trashNote(id)
@@ -520,5 +524,11 @@ export function batchTrashNotes(ids: string[]): void {
 export function batchDeleteNotesPermanently(ids: string[]): void {
   for (const id of ids) {
     deleteNotePermanently(id)
+  }
+}
+
+export function batchMoveNotes(ids: string[], folderId: string | null): void {
+  for (const id of ids) {
+    updateNote(id, { folderId })
   }
 }

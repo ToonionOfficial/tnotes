@@ -1,8 +1,8 @@
 import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft, Trash2 } from "lucide-react-native"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { ChevronLeft } from "lucide-react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -13,20 +13,25 @@ import {
   View,
 } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
+import { MoveNoteSheet, type MoveNoteSheetRef } from "@/components/MoveNoteSheet"
+import { NoteActionSheet, type NoteActionSheetRef } from "@/components/NoteActionSheet"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
+import { NotesEditBottomBar } from "@/components/NotesEditBottomBar"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { useFolder } from "@/hooks/useFolders"
 import {
   useBatchDeleteNotesPermanently,
+  useBatchMoveNotes,
   useBatchTrashNotes,
   useDeleteNotePermanently,
   useNotes,
   useRestoreNote,
   useTogglePinNote,
   useTrashNote,
+  useUpdateNote,
 } from "@/hooks/useNotes"
 import { groupNotesByDate } from "@/utils/date"
 
@@ -53,6 +58,10 @@ export default function FolderNotesScreen() {
   const [isEditing, setIsEditing] = useState(false)
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
   const [isReadyToLoad, setIsReadyToLoad] = useState(false)
+  const [actionNote, setActionNote] = useState<Note | SearchResult | null>(null)
+
+  const actionSheetRef = useRef<NoteActionSheetRef>(null)
+  const moveSheetRef = useRef<MoveNoteSheetRef>(null)
 
   useEffect(() => {
     const interaction = InteractionManager.runAfterInteractions(() => setIsReadyToLoad(true))
@@ -78,6 +87,8 @@ export default function FolderNotesScreen() {
   )
   const notesList = useMemo(() => notePages?.pages.flatMap((page) => page.notes) ?? [], [notePages])
   const togglePinNote = useTogglePinNote()
+  const updateNoteMutation = useUpdateNote()
+  const batchMoveNotes = useBatchMoveNotes()
   const trashNote = useTrashNote()
   const restoreNote = useRestoreNote()
   const deleteNotePermanently = useDeleteNotePermanently()
@@ -95,6 +106,14 @@ export default function FolderNotesScreen() {
       }
       return next
     })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedNoteIds(new Set(notesList.map((n) => n.id)))
+  }, [notesList])
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedNoteIds(new Set())
   }, [])
 
   const toggleEditMode = useCallback(() => {
@@ -131,22 +150,27 @@ export default function FolderNotesScreen() {
         ],
       )
     } else {
-      Alert.alert(`Move ${count} ${count === 1 ? "Note" : "Notes"} to Trash?`, "", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Move to Trash",
-          style: "destructive",
-          onPress: () => {
-            batchTrashNotes.mutate(ids)
-            setSelectedNoteIds(new Set())
+      Alert.alert(
+        `Move ${count} ${count === 1 ? "Note" : "Notes"} to Trash?`,
+        "You can restore them later from the Trash.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: `Move to Trash`,
+            style: "destructive",
+            onPress: () => {
+              batchTrashNotes.mutate(ids)
+              setSelectedNoteIds(new Set())
+            },
           },
-        },
-      ])
+        ],
+      )
     }
   }, [batchDeleteNotesPermanently, batchTrashNotes, isTrash, selectedNoteIds])
 
   const handleTogglePin = useCallback(
     (noteId: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       togglePinNote.mutate(noteId)
     },
     [togglePinNote],
@@ -154,6 +178,7 @@ export default function FolderNotesScreen() {
 
   const handleRestore = useCallback(
     (noteId: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       restoreNote.mutate(noteId)
     },
     [restoreNote],
@@ -161,19 +186,57 @@ export default function FolderNotesScreen() {
 
   const handleDelete = useCallback(
     (noteId: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
       if (isTrash) {
-        deleteNotePermanently.mutate(noteId)
+        Alert.alert("Delete Note Permanently?", "This action cannot be undone.", [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => deleteNotePermanently.mutate(noteId),
+          },
+        ])
       } else {
         trashNote.mutate(noteId)
       }
     },
-    [isTrash, deleteNotePermanently, trashNote],
+    [deleteNotePermanently, isTrash, trashNote],
   )
 
-  const listData = useMemo<FlatNoteItem[]>(() => {
+  const handleLongPressNote = useCallback((note: Note | SearchResult) => {
+    setActionNote(note)
+    actionSheetRef.current?.open(note)
+  }, [])
+
+  const handleActionMoveToFolder = useCallback((note: Note | SearchResult) => {
+    moveSheetRef.current?.open(note)
+  }, [])
+
+  const handleSelectTargetFolder = useCallback(
+    (targetFolderId: string | null) => {
+      if (isEditing && selectedNoteIds.size > 0) {
+        batchMoveNotes.mutate({
+          ids: Array.from(selectedNoteIds),
+          folderId: targetFolderId,
+        })
+        setSelectedNoteIds(new Set())
+        setIsEditing(false)
+      } else if (actionNote) {
+        updateNoteMutation.mutate({
+          id: actionNote.id,
+          input: { folderId: targetFolderId },
+        })
+      }
+    },
+    [actionNote, batchMoveNotes, isEditing, selectedNoteIds, updateNoteMutation],
+  )
+
+  const flatItems = useMemo(() => {
     if (notesList.length === 0) return []
 
-    const sections = groupNotesByDate(notesList, { ignorePinned: Boolean(isTrash) })
+    const sections = groupNotesByDate(notesList, {
+      ignorePinned: Boolean(isTrash),
+    })
     const items: FlatNoteItem[] = []
 
     for (const section of sections) {
@@ -244,6 +307,7 @@ export default function FolderNotesScreen() {
           isEditing={isEditing}
           isSelected={selectedNoteIds.has(item.item.id)}
           onPress={handleNotePress}
+          onLongPress={handleLongPressNote}
           onTogglePin={isTrash ? undefined : handleTogglePin}
           onRestore={isTrash ? handleRestore : undefined}
           onDelete={handleDelete}
@@ -254,6 +318,7 @@ export default function FolderNotesScreen() {
       handleDelete,
       handleRestore,
       handleTogglePin,
+      handleLongPressNote,
       handleNotePress,
       isEditing,
       isTrash,
@@ -262,6 +327,15 @@ export default function FolderNotesScreen() {
   )
 
   const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
+
+  const legendListExtraData = useMemo(
+    () => ({
+      isEditing,
+      selectedCount: selectedNoteIds.size,
+      selectedNoteIds,
+    }),
+    [isEditing, selectedNoteIds],
+  )
 
   return (
     <View className="flex-1 bg-background">
@@ -296,17 +370,6 @@ export default function FolderNotesScreen() {
               ? [
                   {
                     type: "button" as const,
-                    label: "Delete",
-                    icon: {
-                      name: "trash",
-                      type: "sfSymbol" as const,
-                    },
-                    tintColor: "#FF3B30",
-                    sharesBackground: true,
-                    onPress: handleBatchDeleteNotes,
-                  },
-                  {
-                    type: "button" as const,
                     label: "Done",
                     tintColor: "#ffffff",
                     sharesBackground: true,
@@ -328,53 +391,29 @@ export default function FolderNotesScreen() {
             Platform.OS !== "ios"
               ? () =>
                   isEditing ? (
-                    <View className="flex-row items-center">
-                      <Pressable
-                        onPress={handleBatchDeleteNotes}
-                        disabled={selectedNoteIds.size === 0}
-                        hitSlop={8}
-                        className="px-2 py-1 active:opacity-60"
-                      >
-                        <Trash2 size={20} color="#FF3B30" />
-                      </Pressable>
-                      <View className="mx-1 h-3.5 w-px bg-white/20" />
-                      <Pressable
-                        onPress={toggleEditMode}
-                        hitSlop={8}
-                        className="px-2 py-1 active:opacity-60"
-                      >
-                        <Text className="text-[17px] font-semibold text-white">Done</Text>
-                      </Pressable>
-                    </View>
-                  ) : noteCount > 0 ? (
-                    <Pressable
-                      onPress={toggleEditMode}
-                      hitSlop={8}
-                      className="px-2 py-1 active:opacity-60"
-                    >
-                      <Text className="text-[17px] font-medium text-white">Edit</Text>
+                    <Pressable onPress={toggleEditMode} hitSlop={8}>
+                      <Text className="text-[16px] font-semibold text-white">Done</Text>
                     </Pressable>
-                  ) : undefined
+                  ) : noteCount > 0 ? (
+                    <Pressable onPress={toggleEditMode} hitSlop={8}>
+                      <Text className="text-[16px] font-medium text-white">Edit</Text>
+                    </Pressable>
+                  ) : null
               : undefined,
         }}
       />
 
-      {!isReadyToLoad || isLoading ? (
+      {isLoading && !isReadyToLoad ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#CABEFF" />
+          <ActivityIndicator color="#CABEFF" size="large" />
         </View>
       ) : (
         <LegendList
-          data={listData}
-          keyExtractor={keyExtractor}
+          data={flatItems}
           renderItem={renderItem}
-          estimatedItemSize={68}
-          getFixedItemSize={(item) => (item.type === "header" ? 36 : undefined)}
-          recycleItems={true}
-          extraData={{ isEditing, selectedNoteIds }}
-          className="flex-1"
+          keyExtractor={keyExtractor}
+          extraData={legendListExtraData}
           contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 4,
@@ -424,10 +463,39 @@ export default function FolderNotesScreen() {
         />
       )}
 
-      <BottomBar
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        onPressNewNote={handlePressNewNote}
+      {isEditing ? (
+        <NotesEditBottomBar
+          selectedCount={selectedNoteIds.size}
+          totalCount={notesList.length}
+          isTrash={Boolean(isTrash)}
+          onMove={() => moveSheetRef.current?.open()}
+          onDelete={handleBatchDeleteNotes}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+        />
+      ) : (
+        <BottomBar
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onPressNewNote={handlePressNewNote}
+        />
+      )}
+
+      <NoteActionSheet
+        ref={actionSheetRef}
+        note={actionNote}
+        isTrash={Boolean(isTrash)}
+        onTogglePin={(note) => handleTogglePin(note.id)}
+        onMoveToFolder={handleActionMoveToFolder}
+        onTrash={(note) => handleDelete(note.id)}
+        onRestore={(note) => handleRestore(note.id)}
+        onDeletePermanently={(note) => handleDelete(note.id)}
+      />
+
+      <MoveNoteSheet
+        ref={moveSheetRef}
+        note={actionNote}
+        onSelectFolder={handleSelectTargetFolder}
       />
     </View>
   )

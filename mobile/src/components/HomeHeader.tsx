@@ -7,7 +7,7 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers"
 import * as Haptics from "expo-haptics"
-import { Menu, Plus } from "lucide-react-native"
+import { FolderPlus, Menu } from "lucide-react-native"
 import { memo } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 import Animated, {
@@ -34,9 +34,9 @@ const MENU_ICON = Icon.select({
   android: import("@expo/material-symbols/menu.xml"),
 })
 
-const PLUS_ICON = Icon.select({
-  ios: "plus",
-  android: import("@expo/material-symbols/add.xml"),
+const NEW_FOLDER_ICON = Icon.select({
+  ios: "folder.badge.plus",
+  android: import("@expo/material-symbols/create_new_folder.xml"),
 })
 
 export const HomeHeader = memo(function HomeHeader({
@@ -126,7 +126,7 @@ export const HomeHeader = memo(function HomeHeader({
                   foregroundStyle("#ffffff"),
                 ]}
               >
-                <Icon name={PLUS_ICON} color="#ffffff" size={20} />
+                <Icon name={NEW_FOLDER_ICON} color="#ffffff" size={20} />
               </Button>
             </Host>
           </Animated.View>
@@ -185,7 +185,7 @@ export const HomeHeader = memo(function HomeHeader({
             hitSlop={8}
             className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
           >
-            <Plus size={22} color="#ffffff" />
+            <FolderPlus size={22} color="#ffffff" />
           </Pressable>
         </Animated.View>
 
