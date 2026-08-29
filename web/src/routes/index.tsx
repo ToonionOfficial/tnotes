@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { apiFetch } from '@/lib/api'
 import type { LogoutResponse, MeResponse, SetupStatusResponse } from '@/lib/types'
+import { useWebSocketSync } from '@/lib/useWebSocketSync'
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
@@ -44,6 +45,10 @@ function DashboardPage() {
   const navigate = useNavigate()
   const context = Route.useRouteContext()
   const me = context?.me
+
+  useWebSocketSync({
+    enabled: Boolean(me),
+  })
 
   async function handleLogout() {
     try {

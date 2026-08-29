@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { db } from "@/db"
 import migrations from "@/drizzle/migrations"
-import { useAutoSyncRunner } from "@/services/sync"
+import { useAutoSyncRunner, useWebSocketSync } from "@/services/sync"
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +25,7 @@ export const queryClient = new QueryClient({
 
 function AutoSyncManager() {
   useAutoSyncRunner()
+  useWebSocketSync()
   return null
 }
 
