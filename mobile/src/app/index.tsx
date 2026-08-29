@@ -2,7 +2,17 @@ import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  Alert,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
@@ -98,6 +108,25 @@ export default function FoldersScreen() {
     },
     [reorderFolders],
   )
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent
+      const paddingToBottom = 300
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+        if (hasNextPage && !isFetchingNextPage) {
+          void fetchNextPage()
+        }
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  )
+
+  useEffect(() => {
+    if (isEditing && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    }
+  }, [isEditing, hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const getFolderCount = useCallback(
     (folderId: string | null) => {
@@ -251,6 +280,8 @@ export default function FoldersScreen() {
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 12,
@@ -276,16 +307,10 @@ export default function FoldersScreen() {
           onReorder={handleReorder}
         />
 
-        {hasNextPage && (
-          <Pressable
-            onPress={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="mt-3 items-center rounded-xl bg-white/[0.07] py-3 active:opacity-70 disabled:opacity-40"
-          >
-            <Text className="text-[14px] font-semibold text-[#CABEFF]">
-              {isFetchingNextPage ? "Loading folders…" : "Load 50 more folders"}
-            </Text>
-          </Pressable>
+        {isFetchingNextPage && (
+          <View className="py-4 items-center justify-center">
+            <ActivityIndicator size="small" color="#CABEFF" />
+          </View>
         )}
 
         <VirtualFolderCard
