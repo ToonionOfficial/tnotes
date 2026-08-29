@@ -18,18 +18,18 @@ pub async fn sync_handler(
     Extension(auth): Extension<AuthenticatedDevice>,
     Json(envelope): Json<SyncEnvelope>,
 ) -> Result<Json<SyncResponse>, (StatusCode, String)> {
-    tracing::info!(
-        "[SYNC_ROUTE] Received sync from user_id='{}', device_id='{}', incoming_changes={}",
-        auth.user_id,
-        auth.device_id,
-        envelope.changes.len()
+    tracing::debug!(
+        user_id = %auth.user_id,
+        device_id = %auth.device_id,
+        changes_count = envelope.changes.len(),
+        "Sync request received"
     );
 
     if envelope.device_id != auth.device_id {
         tracing::warn!(
-            "[SYNC_ROUTE] Device mismatch: envelope.device_id='{}' vs auth.device_id='{}'",
-            envelope.device_id,
-            auth.device_id
+            envelope_device_id = %envelope.device_id,
+            auth_device_id = %auth.device_id,
+            "Device mismatch on sync envelope"
         );
         return Err((
             StatusCode::FORBIDDEN,
@@ -40,22 +40,16 @@ pub async fn sync_handler(
     let mut conn = state.db.lock().await;
 
     let response = process_sync_envelope(&mut conn, &envelope, &auth.user_id).map_err(|e| {
-        tracing::error!("[SYNC_ROUTE] Error processing sync envelope: {}", e);
+        tracing::error!("Error processing sync envelope: {}", e);
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?;
 
-    let rx_count = state.ws_sender.receiver_count();
     let broadcast_msg = WsBroadcastMessage {
-        sender_device_id: auth.device_id.clone(),
-        user_id: auth.user_id.clone(),
+        sender_device_id: auth.device_id,
+        user_id: auth.user_id,
         changes: envelope.changes,
     };
-    let send_res = state.ws_sender.send(broadcast_msg);
-    tracing::info!(
-        "[SYNC_ROUTE] Broadcasted sync event (active WS receivers: {}, send_res: {:?})",
-        rx_count,
-        send_res.is_ok()
-    );
+    let _ = state.ws_sender.send(broadcast_msg);
 
     Ok(Json(response))
 }

@@ -49,14 +49,12 @@ export function useWebSocketSync({
 
         let ticket: string | null = null
         try {
-          console.log('[WEB_WS] Requesting WebSocket ticket from /api/ws/ticket...')
           const res = await apiFetch<{ ticket: string }>('/api/ws/ticket', {
             method: 'POST',
           })
           ticket = res?.ticket ?? null
-          console.log('[WEB_WS] Ticket received:', ticket)
-        } catch (ticketErr) {
-          console.warn('[WEB_WS] Ticket request failed, falling back to cookie:', ticketErr)
+        } catch {
+          // Fallback to cookie
         }
 
         if (isDisposed) return
@@ -65,12 +63,10 @@ export function useWebSocketSync({
         const baseUrl = `${protocol}//${window.location.host}/ws/sync`
         const wsUrl = ticket ? `${baseUrl}?ticket=${encodeURIComponent(ticket)}` : baseUrl
 
-        console.log('[WEB_WS] Opening WebSocket connection:', wsUrl)
         const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
         ws.onopen = () => {
-          console.log('[WEB_WS] WebSocket connected successfully!')
           reconnectDelayRef.current = 1000
           onStatusChangeRef.current?.('connected')
           if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current)
@@ -86,26 +82,21 @@ export function useWebSocketSync({
         ws.onmessage = (event) => {
           try {
             const rawData = typeof event.data === 'string' ? event.data : String(event.data)
-            console.log('[WEB_WS] Received message:', rawData)
             const msg = JSON.parse(rawData) as {
               type?: string
               data?: WsSyncPayload
             }
             if (msg?.type === 'sync_notification' || msg?.type === 'sync_required') {
-              console.log('[WEB_WS] Dispatching onSyncNotification event:', msg)
               onSyncNotificationRef.current?.(msg.data)
             }
-          } catch (parseErr) {
-            console.warn('[WEB_WS] Failed to parse message JSON:', parseErr)
-          }
+          } catch {}
         }
 
-        ws.onerror = (err) => {
-          console.warn('[WEB_WS] WebSocket error:', err)
+        ws.onerror = () => {
+          // Handled in onclose
         }
 
-        ws.onclose = (event) => {
-          console.log(`[WEB_WS] WebSocket closed: code=${event.code}, reason='${event.reason}'`)
+        ws.onclose = () => {
           wsRef.current = null
           onStatusChangeRef.current?.('disconnected')
           if (heartbeatIntervalRef.current) {

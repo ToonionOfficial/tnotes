@@ -93,17 +93,14 @@ export function useWebSocketSync(): void {
       if (isDisposed || wsRef.current) return
 
       try {
-        console.log("[MOBILE_WS] Requesting WS ticket from server...")
         const ticket = await fetchWsTicketAsync(serverUrl, authToken, deviceId)
         if (isDisposed || wsRef.current) return
 
         const wsUrl = buildWebSocketUrl(serverUrl, ticket)
-        console.log(`[MOBILE_WS] Connecting to WebSocket: ${wsUrl}`)
         const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
         ws.onopen = () => {
-          console.log("[MOBILE_WS] WebSocket connected successfully!")
           reconnectDelayRef.current = 1000
           if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current)
           heartbeatIntervalRef.current = setInterval(() => {
@@ -118,23 +115,18 @@ export function useWebSocketSync(): void {
         ws.onmessage = (event) => {
           try {
             const rawData = typeof event.data === "string" ? event.data : String(event.data)
-            console.log(`[MOBILE_WS] Message received: ${rawData}`)
             const msg = JSON.parse(rawData) as { type?: string }
             if (msg?.type === "sync_notification" || msg?.type === "sync_required") {
-              console.log(`[MOBILE_WS] Triggering instant sync for event: ${msg.type}`)
               void triggerSyncRef.current()
             }
           } catch {}
         }
 
-        ws.onerror = (err) => {
-          console.warn("[MOBILE_WS] WebSocket error:", err)
+        ws.onerror = () => {
+          // Handled in onclose
         }
 
-        ws.onclose = (event) => {
-          console.log(
-            `[MOBILE_WS] WebSocket closed (code: ${event.code}, reason: '${event.reason}')`,
-          )
+        ws.onclose = () => {
           wsRef.current = null
           if (heartbeatIntervalRef.current) {
             clearInterval(heartbeatIntervalRef.current)
@@ -150,8 +142,7 @@ export function useWebSocketSync(): void {
             }, delay)
           }
         }
-      } catch (err) {
-        console.warn("[MOBILE_WS] Ticket or connect error:", err)
+      } catch {
         if (!isDisposed) {
           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
           reconnectTimeoutRef.current = setTimeout(() => {

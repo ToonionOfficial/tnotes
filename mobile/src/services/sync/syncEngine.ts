@@ -150,10 +150,6 @@ export async function executeSyncAsync(): Promise<SyncResult> {
     changes,
   }
 
-  console.log(
-    `[MOBILE_SYNC] Starting sync: serverUrl='${creds.serverUrl}', deviceId='${creds.deviceId}', pendingChanges=${changes.length}`,
-  )
-
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000)
@@ -173,7 +169,6 @@ export async function executeSyncAsync(): Promise<SyncResult> {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.warn(`[MOBILE_SYNC] Sync failed: HTTP ${response.status} - ${errorText}`)
       return {
         success: false,
         syncedUpCount: 0,
@@ -185,10 +180,6 @@ export async function executeSyncAsync(): Promise<SyncResult> {
 
     const data = (await response.json()) as SyncResponse
     const syncedDownCount = await applyRemoteChangesAsync(data.changes ?? [])
-
-    console.log(
-      `[MOBILE_SYNC] Sync successful! Pushed: ${changes.length}, Pulled: ${syncedDownCount}`,
-    )
 
     clearLocalChanges(changeIds)
 
