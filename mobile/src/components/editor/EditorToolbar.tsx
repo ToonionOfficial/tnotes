@@ -29,6 +29,15 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
     }
   })
 
+  const dismissContainerStyle = useAnimatedStyle(() => {
+    return {
+      opacity: progress.value,
+      width: interpolate(progress.value, [0, 1], [0, 48]),
+      transform: [{ scale: interpolate(progress.value, [0, 1], [0.6, 1]) }],
+      overflow: "hidden" as const,
+    }
+  })
+
   const dismissAllKeyboards = () => {
     try {
       editor.blur()
@@ -172,9 +181,14 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
             />
           </ScrollView>
 
-          <View className="border-l border-white/15 pl-2">
-            <ToolbarButton icon="dismiss" size={21} onPress={handleDismissKeyboard} />
-          </View>
+          <Animated.View
+            style={dismissContainerStyle}
+            className="flex-row items-center justify-end"
+          >
+            <View className="border-l border-white/15 pl-2">
+              <ToolbarButton icon="dismiss" size={21} onPress={handleDismissKeyboard} />
+            </View>
+          </Animated.View>
         </View>
       </GlassView>
     </Animated.View>
