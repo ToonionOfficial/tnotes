@@ -1,8 +1,17 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { ChevronLeft, Trash2 } from "lucide-react-native"
-import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from "react-native"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  InteractionManager,
+  Platform,
+  Pressable,
+  Text,
+  View,
+} from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
@@ -39,19 +48,35 @@ export default function FolderNotesScreen() {
   const isTrash = id === "trash"
   const folderId = isAll || isTrash ? undefined : id
 
-  const { data: folder } = useFolder(folderId ?? null)
-  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
-
   const [searchValue, setSearchValue] = useState("")
   const debouncedSearch = useDebouncedValue(searchValue, 150)
   const [isEditing, setIsEditing] = useState(false)
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
+  const [isReadyToLoad, setIsReadyToLoad] = useState(false)
 
-  const { data: notesList, isLoading } = useNotes({
-    search: debouncedSearch,
-    folderId: isAll || isTrash ? undefined : folderId,
-    trashed: Boolean(isTrash),
-  })
+  useEffect(() => {
+    const interaction = InteractionManager.runAfterInteractions(() => setIsReadyToLoad(true))
+    return () => interaction.cancel()
+  }, [])
+
+  const { data: folder } = useFolder(folderId ?? null, isReadyToLoad)
+  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
+
+  const {
+    data: notePages,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useNotes(
+    {
+      search: debouncedSearch,
+      folderId: isAll || isTrash ? undefined : folderId,
+      trashed: Boolean(isTrash),
+    },
+    isReadyToLoad,
+  )
+  const notesList = useMemo(() => notePages?.pages.flatMap((page) => page.notes) ?? [], [notePages])
   const togglePinNote = useTogglePinNote()
   const trashNote = useTrashNote()
   const restoreNote = useRestoreNote()
@@ -146,7 +171,7 @@ export default function FolderNotesScreen() {
   )
 
   const listData = useMemo<FlatNoteItem[]>(() => {
-    if (!notesList || notesList.length === 0) return []
+    if (notesList.length === 0) return []
 
     const sections = groupNotesByDate(notesList, { ignorePinned: Boolean(isTrash) })
     const items: FlatNoteItem[] = []
@@ -173,13 +198,24 @@ export default function FolderNotesScreen() {
     return items
   }, [notesList, isTrash])
 
-  const noteCount = notesList?.length ?? 0
+  const noteCount = notesList.length
 
   const handlePressNote = useCallback(
     (noteId: string) => {
       router.push(`/notes/${noteId}` as const)
     },
     [router],
+  )
+
+  const handleNotePress = useCallback(
+    (noteId: string) => {
+      if (isEditing) {
+        toggleSelectNote(noteId)
+      } else {
+        handlePressNote(noteId)
+      }
+    },
+    [handlePressNote, isEditing, toggleSelectNote],
   )
 
   const handlePressNewNote = () => {
@@ -207,13 +243,7 @@ export default function FolderNotesScreen() {
           isTrash={Boolean(isTrash)}
           isEditing={isEditing}
           isSelected={selectedNoteIds.has(item.item.id)}
-          onPress={(noteId) => {
-            if (isEditing) {
-              toggleSelectNote(noteId)
-            } else {
-              handlePressNote(noteId)
-            }
-          }}
+          onPress={handleNotePress}
           onTogglePin={isTrash ? undefined : handleTogglePin}
           onRestore={isTrash ? handleRestore : undefined}
           onDelete={handleDelete}
@@ -222,13 +252,12 @@ export default function FolderNotesScreen() {
     },
     [
       handleDelete,
-      handlePressNote,
       handleRestore,
       handleTogglePin,
+      handleNotePress,
       isEditing,
       isTrash,
       selectedNoteIds,
-      toggleSelectNote,
     ],
   )
 
@@ -330,7 +359,7 @@ export default function FolderNotesScreen() {
         }}
       />
 
-      {isLoading ? (
+      {!isReadyToLoad || isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#CABEFF" />
         </View>
@@ -351,8 +380,26 @@ export default function FolderNotesScreen() {
             noteCount > 0 ? (
               <View className="mb-1 px-1">
                 <Text className="text-[13px] text-muted-foreground/60">
-                  {noteCount} {noteCount === 1 ? "note" : "notes"}
+                  {noteCount}
+                  {hasNextPage ? "+" : ""} {noteCount === 1 ? "note" : "notes"}
                 </Text>
+              </View>
+            ) : null
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage()
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View className="py-5">
+                <ActivityIndicator color="#CABEFF" />
               </View>
             ) : null
           }

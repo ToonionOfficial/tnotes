@@ -1,15 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   batchDeleteNotesPermanently,
   batchTrashNotes,
+  createBenchmarkNotes,
   createNote,
+  deleteBenchmarkNotes,
   deleteNotePermanently,
-  getFolderNoteCounts,
-  getNoteById,
-  getNotes,
+  getFolderNoteCountsAsync,
+  getNoteByIdAsync,
+  getNotesPageAsync,
   type NoteFilters,
   restoreNote,
-  searchNotes,
   togglePinNote,
   trashNote,
   updateNote,
@@ -19,6 +20,7 @@ export const noteKeys = {
   all: ["notes"] as const,
   lists: () => [...noteKeys.all, "list"] as const,
   list: (filters?: NoteFilters) => [...noteKeys.lists(), filters] as const,
+  infinite: (filters?: NoteFilters) => [...noteKeys.all, "infinite", filters] as const,
   details: () => [...noteKeys.all, "detail"] as const,
   detail: (id: string) => [...noteKeys.details(), id] as const,
   counts: () => [...noteKeys.all, "counts"] as const,
@@ -26,25 +28,52 @@ export const noteKeys = {
     [...noteKeys.all, "search", query, folderId] as const,
 }
 
-export function useNotes(filters?: NoteFilters) {
-  return useQuery({
-    queryKey: noteKeys.list(filters),
-    queryFn: async () => getNotes(filters),
+const NOTES_PAGE_SIZE = 50
+const NOTES_QUERY_OPTIONS = {
+  staleTime: 1000 * 60 * 5,
+  gcTime: 1000 * 60 * 5,
+  refetchOnMount: false,
+} as const
+
+export function useNotes(filters?: NoteFilters, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: noteKeys.infinite(filters),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const notes = await getNotesPageAsync({
+        ...filters,
+        limit: NOTES_PAGE_SIZE + 1,
+        offset: pageParam,
+      })
+      return {
+        notes: notes.slice(0, NOTES_PAGE_SIZE),
+        nextOffset: notes.length > NOTES_PAGE_SIZE ? pageParam + NOTES_PAGE_SIZE : undefined,
+      }
+    },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    enabled,
+    ...NOTES_QUERY_OPTIONS,
   })
 }
 
 export function useFolderNoteCounts() {
   return useQuery({
     queryKey: noteKeys.counts(),
-    queryFn: async () => getFolderNoteCounts(),
+    queryFn: getFolderNoteCountsAsync,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   })
 }
 
 export function useNote(id: string | undefined | null) {
   return useQuery({
     queryKey: noteKeys.detail(id ?? ""),
-    queryFn: async () => (id ? getNoteById(id) : null),
+    queryFn: () => (id ? getNoteByIdAsync(id) : null),
     enabled: Boolean(id && id !== "new"),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   })
 }
 
@@ -52,10 +81,25 @@ export function useSearchNotes(
   query: string,
   filters?: { folderId?: string | null; trashed?: boolean; limit?: number },
 ) {
-  return useQuery({
+  const pageSize = filters?.limit ?? NOTES_PAGE_SIZE
+  return useInfiniteQuery({
     queryKey: noteKeys.search(query, filters?.folderId),
-    queryFn: async () => searchNotes(query, filters),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const notes = await getNotesPageAsync({
+        ...filters,
+        search: query,
+        limit: pageSize + 1,
+        offset: pageParam,
+      })
+      return {
+        notes: notes.slice(0, pageSize),
+        nextOffset: notes.length > pageSize ? pageParam + pageSize : undefined,
+      }
+    },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
     enabled: query.trim().length > 0,
+    ...NOTES_QUERY_OPTIONS,
   })
 }
 
@@ -71,6 +115,28 @@ export function useCreateNote() {
     onSuccess: (newNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.setQueryData(noteKeys.detail(newNote.id), newNote)
+    },
+  })
+}
+
+export function useCreateBenchmarkNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (count: number) => createBenchmarkNotes(count),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: ["folders"] })
+    },
+  })
+}
+
+export function useDeleteBenchmarkNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteBenchmarkNotes,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: ["folders"] })
     },
   })
 }
@@ -102,7 +168,7 @@ export function useTogglePinNote() {
   return useMutation({
     mutationFn: async (id: string) => togglePinNote(id),
     onSuccess: (updatedNote) => {
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
     },
   })

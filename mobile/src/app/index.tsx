@@ -1,25 +1,30 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Plus, Trash2 } from "lucide-react-native"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
+import { PerformanceBenchmark } from "@/components/PerformanceBenchmark"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
 import {
   useBatchDeleteFolders,
   useDeleteFolder,
-  useFolders,
+  useInfiniteFolders,
   useReorderFolders,
 } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
 export default function FoldersScreen() {
   const router = useRouter()
-  const { data: foldersList = [] } = useFolders()
+  const { data: folderPages, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteFolders()
+  const foldersList = useMemo(
+    () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
+    [folderPages],
+  )
   const deleteFolder = useDeleteFolder()
   const batchDeleteFolders = useBatchDeleteFolders()
   const reorderFolders = useReorderFolders()
@@ -271,6 +276,18 @@ export default function FoldersScreen() {
           onReorder={handleReorder}
         />
 
+        {hasNextPage && (
+          <Pressable
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="mt-3 items-center rounded-xl bg-white/[0.07] py-3 active:opacity-70 disabled:opacity-40"
+          >
+            <Text className="text-[14px] font-semibold text-[#CABEFF]">
+              {isFetchingNextPage ? "Loading folders…" : "Load 50 more folders"}
+            </Text>
+          </Pressable>
+        )}
+
         <VirtualFolderCard
           title="Trash"
           icon={<Trash2 size={18} color="#FF6B6B" />}
@@ -280,6 +297,8 @@ export default function FoldersScreen() {
           textColor="text-[#FF6B6B]"
           onPress={() => router.push("/folders/trash" as const)}
         />
+
+        <PerformanceBenchmark />
       </ScrollView>
 
       <BottomBar

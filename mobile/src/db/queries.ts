@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { computeChecksum } from "@/utils/crypto"
 import { ulid } from "@/utils/id"
-import { db } from "./index"
+import { db, expo } from "./index"
 import {
   type Folder,
   folders,
@@ -15,6 +15,104 @@ import {
 
 const DEFAULT_USER_ID = "default_user"
 const DEFAULT_USERNAME = "Local User"
+const BENCHMARK_NOTE_MARKER = "__tnotes_benchmark_note_v1__:"
+const BENCHMARK_FOLDER_MARKER = "__tnotes_benchmark_folder_v1__:"
+
+export interface BenchmarkResult {
+  noteCount: number
+  folderCount: number
+  elapsedMs: number
+}
+
+function toSqlString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+/**
+ * Inserts benchmark data into the same SQLite tables and FTS index used by the app.
+ * The data intentionally skips local_changes so a local performance test is never synced
+ * to another device or server.
+ */
+export async function createBenchmarkNotes(noteCount: number): Promise<BenchmarkResult> {
+  const userId = getCurrentUserId()
+  const deviceId = getOrCreateDeviceId()
+  const batchId = ulid()
+  // About ten notes per folder reproduces a large library where individual folders stay small.
+  const folderCount = Math.ceil(noteCount / 10)
+  const now = Date.now()
+  const folderIds = Array.from({ length: folderCount }, () => ulid())
+  const shuffledFolderIds = [...folderIds]
+
+  for (let index = shuffledFolderIds.length - 1; index > 0; index--) {
+    const randomIndex = Math.floor(Math.random() * (index + 1))
+    ;[shuffledFolderIds[index], shuffledFolderIds[randomIndex]] = [
+      shuffledFolderIds[randomIndex],
+      shuffledFolderIds[index],
+    ]
+  }
+
+  const statements = ["BEGIN IMMEDIATE"]
+  for (let index = 0; index < folderCount; index++) {
+    const folderName = `${BENCHMARK_FOLDER_MARKER}${batchId}:${index + 1}`
+    statements.push(`INSERT INTO folders (
+      id, user_id, parent_id, name, icon, sort_order, version, updated_at, created_at, deleted_at, device_id
+    ) VALUES (
+      ${toSqlString(folderIds[index])}, ${toSqlString(userId)}, NULL, ${toSqlString(folderName)}, 'folder',
+      ${index}, 1, ${now}, ${now}, NULL, ${toSqlString(deviceId)}
+    )`)
+  }
+
+  for (let index = 0; index < noteCount; index++) {
+    const body = `${BENCHMARK_NOTE_MARKER}${batchId}:${index + 1}`
+    statements.push(`INSERT INTO notes (
+      id, user_id, folder_id, title, body, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
+    ) VALUES (
+      ${toSqlString(ulid())}, ${toSqlString(userId)}, ${toSqlString(shuffledFolderIds[index % folderCount])},
+      ${toSqlString(`Benchmark note ${index + 1}`)}, ${toSqlString(body)}, 0, 0, 1, ${now}, ${now}, NULL,
+      ${toSqlString(deviceId)}, ${toSqlString(computeChecksum(body))}
+    )`)
+  }
+  statements.push("COMMIT")
+
+  const startedAt = Date.now()
+  await expo.execAsync(`${statements.join(";\n")};`)
+
+  return { noteCount, folderCount, elapsedMs: Date.now() - startedAt }
+}
+
+/** Permanently removes only rows created by createBenchmarkNotes, including its test folders. */
+export async function deleteBenchmarkNotes(): Promise<BenchmarkResult> {
+  const startedAt = Date.now()
+  const noteCount = Number(
+    (
+      await expo.getFirstAsync<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ?`,
+        BENCHMARK_NOTE_MARKER,
+      )
+    )?.count ?? 0,
+  )
+  const folderCount = Number(
+    (
+      await expo.getFirstAsync<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ?`,
+        BENCHMARK_FOLDER_MARKER,
+      )
+    )?.count ?? 0,
+  )
+
+  await expo.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync(
+      `DELETE FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ?`,
+      BENCHMARK_NOTE_MARKER,
+    )
+    await transaction.runAsync(
+      `DELETE FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ?`,
+      BENCHMARK_FOLDER_MARKER,
+    )
+  })
+
+  return { noteCount, folderCount, elapsedMs: Date.now() - startedAt }
+}
 
 /**
  * Ensures a default user exists in the local database.
@@ -140,10 +238,95 @@ export interface NoteFilters {
   trashed?: boolean
   pinned?: boolean
   search?: string
+  limit?: number
+  offset?: number
 }
 
 export interface SearchResult extends Note {
   snippet?: string
+}
+
+type NoteRow = Omit<Note, "folderId" | "pinned" | "trashed" | "deletedAt"> & {
+  folderId: string | null
+  pinned: number
+  trashed: number
+  deletedAt: number | null
+  snippet?: string | null
+}
+
+function mapNoteRow(row: NoteRow): SearchResult {
+  return {
+    ...row,
+    folderId: row.folderId,
+    pinned: Boolean(row.pinned),
+    trashed: Boolean(row.trashed),
+    deletedAt: row.deletedAt,
+    snippet: row.snippet ?? undefined,
+  }
+}
+
+/** Async, paged reads keep SQLite work off the JavaScript thread during navigation. */
+export async function getNotesPageAsync(filters: NoteFilters = {}): Promise<SearchResult[]> {
+  const limit = filters.limit ?? 50
+  const offset = filters.offset ?? 0
+
+  if (filters.search?.trim()) {
+    const tokens = filters.search
+      .trim()
+      .replace(/['"*^(){}:~-]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+    if (tokens.length === 0) return []
+
+    const conditions = ["notes_fts MATCH ?", "n.trashed = ?"]
+    const params: Array<string | number> = [
+      tokens.map((token) => `"${token}"*`).join(" "),
+      filters.trashed ? 1 : 0,
+    ]
+    if (filters.folderId === null) {
+      conditions.push("n.folder_id IS NULL")
+    } else if (filters.folderId !== undefined) {
+      conditions.push("n.folder_id = ?")
+      params.push(filters.folderId)
+    }
+    params.push(limit, offset)
+    const rows = await expo.getAllAsync<NoteRow>(
+      `SELECT n.id, n.user_id AS userId, n.folder_id AS folderId, n.title,
+        substr(n.body, 1, 300) AS body, n.pinned, n.trashed, n.version,
+        n.created_at AS createdAt, n.updated_at AS updatedAt, n.deleted_at AS deletedAt,
+        n.device_id AS deviceId, n.checksum,
+        snippet(notes_fts, 1, '<mark>', '</mark>', '...', 20) AS snippet
+      FROM notes n JOIN notes_fts f ON n.rowid = f.rowid
+      WHERE ${conditions.join(" AND ")} ORDER BY f.rank LIMIT ? OFFSET ?`,
+      params,
+    )
+    return rows.map(mapNoteRow)
+  }
+
+  const conditions = ["trashed = ?"]
+  const params: Array<string | number> = [filters.trashed ? 1 : 0]
+  if (filters.folderId === null) {
+    conditions.push("folder_id IS NULL")
+  } else if (filters.folderId !== undefined) {
+    conditions.push("folder_id = ?")
+    params.push(filters.folderId)
+  }
+  if (filters.pinned !== undefined) {
+    conditions.push("pinned = ?")
+    params.push(filters.pinned ? 1 : 0)
+  }
+  params.push(limit, offset)
+  const orderBy = filters.trashed
+    ? "updated_at DESC, id DESC"
+    : "pinned DESC, updated_at DESC, id DESC"
+  const rows = await expo.getAllAsync<NoteRow>(
+    `SELECT id, user_id AS userId, folder_id AS folderId, title, substr(body, 1, 300) AS body,
+      pinned, trashed, version, created_at AS createdAt, updated_at AS updatedAt,
+      deleted_at AS deletedAt, device_id AS deviceId, checksum
+    FROM notes WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+    params,
+  )
+  return rows.map(mapNoteRow)
 }
 
 /**
@@ -151,7 +334,7 @@ export interface SearchResult extends Note {
  */
 export function searchNotes(
   query: string,
-  filters?: { folderId?: string | null; trashed?: boolean; limit?: number },
+  filters?: { folderId?: string | null; trashed?: boolean; limit?: number; offset?: number },
 ): SearchResult[] {
   const trimmed = query.trim()
   if (!trimmed) return []
@@ -168,6 +351,7 @@ export function searchNotes(
   const matchQuery = tokens.map((t) => `"${t}"*`).join(" ")
   const trashedVal = filters?.trashed ? 1 : 0
   const limit = filters?.limit ?? 50
+  const offset = filters?.offset ?? 0
 
   let rows: Array<Record<string, unknown>> = []
 
@@ -196,6 +380,7 @@ export function searchNotes(
           AND n.folder_id IS NULL
         ORDER BY f.rank
         LIMIT ${limit}
+        OFFSET ${offset}
       `)
     } else {
       rows = db.all(sql`
@@ -221,6 +406,7 @@ export function searchNotes(
           AND n.folder_id = ${filters.folderId}
         ORDER BY f.rank
         LIMIT ${limit}
+        OFFSET ${offset}
       `)
     }
   } else {
@@ -246,6 +432,7 @@ export function searchNotes(
         AND n.trashed = ${trashedVal}
       ORDER BY f.rank
       LIMIT ${limit}
+      OFFSET ${offset}
     `)
   }
 
@@ -273,6 +460,34 @@ export interface FolderNoteCounts {
   trash: number
 }
 
+export async function getFolderNoteCountsAsync(): Promise<FolderNoteCounts> {
+  const rows = await expo.getAllAsync<{
+    folderId: string | null
+    activeCount: number
+    trashCount: number
+  }>(`SELECT folder_id AS folderId,
+      COUNT(CASE WHEN trashed = 0 THEN 1 END) AS activeCount,
+      COUNT(CASE WHEN trashed = 1 THEN 1 END) AS trashCount
+    FROM notes GROUP BY folder_id`)
+  return folderNoteCountsFromRows(rows)
+}
+
+function folderNoteCountsFromRows(
+  rows: Array<{ folderId: string | null; activeCount: number; trashCount: number }>,
+): FolderNoteCounts {
+  let total = 0
+  let trash = 0
+  const byFolder: Record<string, number> = {}
+  for (const row of rows) {
+    const active = Number(row.activeCount)
+    const trashed = Number(row.trashCount)
+    total += active
+    trash += trashed
+    if (row.folderId) byFolder[row.folderId] = active
+  }
+  return { total, byFolder, trash }
+}
+
 /**
  * Returns aggregated note counts (total active, per folder, and trash) using fast SQLite index scans.
  */
@@ -290,27 +505,7 @@ export function getFolderNoteCounts(): FolderNoteCounts {
     GROUP BY folder_id
   `)
 
-  let total = 0
-  let trash = 0
-  const byFolder: Record<string, number> = {}
-
-  for (const row of rows) {
-    const active = Number(row.activeCount)
-    const trashed = Number(row.trashCount)
-
-    total += active
-    trash += trashed
-
-    if (row.folderId) {
-      byFolder[row.folderId] = active
-    }
-  }
-
-  return {
-    total,
-    byFolder,
-    trash,
-  }
+  return folderNoteCountsFromRows(rows)
 }
 
 export function getNotes(filters?: NoteFilters): Note[] {
@@ -319,6 +514,8 @@ export function getNotes(filters?: NoteFilters): Note[] {
     return searchNotes(filters.search, {
       folderId: filters.folderId,
       trashed: filters.trashed,
+      limit: filters.limit,
+      offset: filters.offset,
     })
   }
 
@@ -345,7 +542,7 @@ export function getNotes(filters?: NoteFilters): Note[] {
     conditions.push(eq(notes.pinned, filters.pinned))
   }
 
-  return db
+  const query = db
     .select({
       id: notes.id,
       userId: notes.userId,
@@ -366,12 +563,30 @@ export function getNotes(filters?: NoteFilters): Note[] {
     .orderBy(
       ...(filters?.trashed ? [desc(notes.updatedAt)] : [desc(notes.pinned), desc(notes.updatedAt)]),
     )
-    .all()
+
+  if (filters?.limit !== undefined) {
+    return query
+      .limit(filters.limit)
+      .offset(filters.offset ?? 0)
+      .all()
+  }
+
+  return query.all()
 }
 
 export function getNoteById(id: string): Note | null {
   const result = db.select().from(notes).where(eq(notes.id, id)).get()
   return result ?? null
+}
+
+export async function getNoteByIdAsync(id: string): Promise<Note | null> {
+  const row = await expo.getFirstAsync<NoteRow>(
+    `SELECT id, user_id AS userId, folder_id AS folderId, title, body, pinned, trashed, version,
+      created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt,
+      device_id AS deviceId, checksum FROM notes WHERE id = ?`,
+    id,
+  )
+  return row ? mapNoteRow(row) : null
 }
 
 export function createNote(input: {
@@ -538,6 +753,8 @@ export function batchDeleteNotesPermanently(ids: string[]): void {
 export interface FolderFilters {
   includeDeleted?: boolean
   parentId?: string | null
+  limit?: number
+  offset?: number
 }
 
 export function getFolders(filters?: FolderFilters): Folder[] {
@@ -555,17 +772,54 @@ export function getFolders(filters?: FolderFilters): Folder[] {
     }
   }
 
-  return db
+  const query = db
     .select()
     .from(folders)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(folders.sortOrder, folders.name)
-    .all()
+
+  if (filters?.limit !== undefined) {
+    return query
+      .limit(filters.limit)
+      .offset(filters.offset ?? 0)
+      .all()
+  }
+
+  return query.all()
 }
 
 export function getFolderById(id: string): Folder | null {
   const result = db.select().from(folders).where(eq(folders.id, id)).get()
   return result ?? null
+}
+
+export async function getFolderByIdAsync(id: string): Promise<Folder | null> {
+  const row = await expo.getFirstAsync<Folder>(
+    `SELECT id, user_id AS userId, parent_id AS parentId, name, icon, sort_order AS sortOrder,
+      version, updated_at AS updatedAt, created_at AS createdAt, deleted_at AS deletedAt, device_id AS deviceId
+    FROM folders WHERE id = ?`,
+    id,
+  )
+  return row ?? null
+}
+
+export async function getFoldersPageAsync(filters: FolderFilters = {}): Promise<Folder[]> {
+  const conditions = filters.includeDeleted ? [] : ["deleted_at IS NULL"]
+  const params: Array<string | number> = []
+  if (filters.parentId === null) {
+    conditions.push("parent_id IS NULL")
+  } else if (filters.parentId !== undefined) {
+    conditions.push("parent_id = ?")
+    params.push(filters.parentId)
+  }
+  params.push(filters.limit ?? 50, filters.offset ?? 0)
+  return expo.getAllAsync<Folder>(
+    `SELECT id, user_id AS userId, parent_id AS parentId, name, icon, sort_order AS sortOrder,
+      version, updated_at AS updatedAt, created_at AS createdAt, deleted_at AS deletedAt, device_id AS deviceId
+    FROM folders${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""}
+    ORDER BY sort_order, name, id LIMIT ? OFFSET ?`,
+    params,
+  )
 }
 
 export function createFolder(input: {
