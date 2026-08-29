@@ -235,13 +235,11 @@ export default function FoldersScreen() {
           <HomeHeader
             isEditing={isEditing}
             hasFolders={foldersList.length > 0}
-            selectedCount={selectedFolderIds.size}
             onPressMenu={() => setIsDrawerOpen(true)}
             onToggleEdit={toggleEditMode}
             onPressNewFolder={() => {
               sheetRef.current?.open()
             }}
-            onDeleteSelected={handleBatchDeleteFolders}
           />
 
           {/* Large Screen Title */}
