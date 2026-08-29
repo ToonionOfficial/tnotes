@@ -6,17 +6,22 @@ use crate::models::{compute_checksum, current_time_ms};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     pub id: String,
+    #[serde(alias = "userId")]
     pub user_id: String,
+    #[serde(alias = "folderId", skip_serializing_if = "Option::is_none")]
     pub folder_id: Option<String>,
     pub title: String,
     pub body: String,
     pub pinned: bool,
     pub trashed: bool,
     pub version: u64,
+    #[serde(alias = "updatedAt")]
     pub updated_at: i64,
+    #[serde(alias = "createdAt")]
     pub created_at: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "deletedAt", skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<i64>,
+    #[serde(alias = "deviceId")]
     pub device_id: String,
     pub checksum: String,
 }
