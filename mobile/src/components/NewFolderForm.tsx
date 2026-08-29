@@ -12,19 +12,21 @@ import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
 import { DEFAULT_FOLDER_ICON, FOLDER_ICON_OPTIONS, FolderIcon } from "./FolderIcon"
 
 interface NewFolderSheetProps {
+  parentId?: string | null
   onCreated?: (folderId: string) => void
   onUpdated?: (folder: Folder) => void
 }
 
 export interface NewFolderSheetRef {
-  open: (folderToEdit?: Folder | null) => void
+  open: (folderToEdit?: Folder | null, parentIdOverride?: string | null) => void
   close: () => void
 }
 
 export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>(
-  function NewFolderSheet({ onCreated, onUpdated }, ref) {
+  function NewFolderSheet({ parentId: defaultParentId = null, onCreated, onUpdated }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+    const [targetParentId, setTargetParentId] = useState<string | null>(defaultParentId ?? null)
     const [folderName, setFolderName] = useState("")
     const [selectedIcon, setSelectedIcon] = useState(DEFAULT_FOLDER_ICON)
 
@@ -33,9 +35,10 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
 
     const resetForm = useCallback(() => {
       setEditingFolder(null)
+      setTargetParentId(defaultParentId ?? null)
       setFolderName("")
       setSelectedIcon(DEFAULT_FOLDER_ICON)
-    }, [])
+    }, [defaultParentId])
 
     const close = useCallback(() => {
       Keyboard.dismiss()
@@ -44,13 +47,17 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
     }, [resetForm])
 
     const open = useCallback(
-      (folderToEdit?: Folder | null) => {
+      (folderToEdit?: Folder | null, parentIdOverride?: string | null) => {
         if (folderToEdit) {
           setEditingFolder(folderToEdit)
+          setTargetParentId(folderToEdit.parentId ?? null)
           setFolderName(folderToEdit.name)
           setSelectedIcon(folderToEdit.icon || DEFAULT_FOLDER_ICON)
         } else {
           resetForm()
+          if (parentIdOverride !== undefined) {
+            setTargetParentId(parentIdOverride)
+          }
         }
         bottomSheetModalRef.current?.present()
       },
@@ -77,6 +84,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
         const created = await createFolderMutation.mutateAsync({
           name: trimmed,
           icon: selectedIcon,
+          parentId: targetParentId,
         })
         close()
         onCreated?.(created.id)

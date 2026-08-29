@@ -5,13 +5,20 @@ import {
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
-import { Check, Folder as FolderOutline } from "lucide-react-native"
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight,
+  Folder as FolderOutline,
+} from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useInfiniteFolders } from "@/hooks/useFolders"
-import { FolderIcon } from "./FolderIcon"
+import { buildFolderTree } from "@/utils/folderTree"
+import { DEFAULT_FOLDER_ICON, FolderIcon } from "./FolderIcon"
 
 interface MoveNoteSheetProps {
   note?: Note | SearchResult | null
@@ -27,21 +34,61 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
   function MoveNoteSheet({ note: propNote, onSelectFolder }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
+    const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
 
     const activeNote = propNote ?? internalNote
 
     const { data: folderPages } = useInfiniteFolders()
-    const allFolders = folderPages?.pages.flatMap((page) => page.folders) ?? []
+    const allFolders = useMemo(
+      () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
+      [folderPages],
+    )
 
+    const treeFolders = useMemo(
+      () => buildFolderTree(allFolders, expandedFolderIds),
+      [allFolders, expandedFolderIds],
+    )
     const snapPoints = useMemo(() => ["65%"], [])
 
-    const open = useCallback((noteToOpen?: Note | SearchResult) => {
-      if (noteToOpen) {
-        setInternalNote(noteToOpen)
-      }
+    const toggleExpand = useCallback((folderId: string) => {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      bottomSheetModalRef.current?.present()
+      setExpandedFolderIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(folderId)) {
+          next.delete(folderId)
+        } else {
+          next.add(folderId)
+        }
+        return next
+      })
     }, [])
+
+    const open = useCallback(
+      (noteToOpen?: Note | SearchResult) => {
+        const targetNote = noteToOpen ?? propNote
+        if (noteToOpen) {
+          setInternalNote(noteToOpen)
+        }
+
+        const targetFolderId = targetNote?.folderId ?? null
+        if (targetFolderId) {
+          const set = new Set<string>()
+          const folderMap = new Map(allFolders.map((f) => [f.id, f]))
+          let current = folderMap.get(targetFolderId)
+          while (current?.parentId) {
+            set.add(current.parentId)
+            current = folderMap.get(current.parentId)
+          }
+          setExpandedFolderIds(set)
+        } else {
+          setExpandedFolderIds(new Set())
+        }
+
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        bottomSheetModalRef.current?.present()
+      },
+      [allFolders, propNote],
+    )
 
     const close = useCallback(() => {
       bottomSheetModalRef.current?.dismiss()
@@ -103,32 +150,80 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
           <Text className="mb-3 text-[17px] font-bold text-foreground">Move to Folder</Text>
 
           <View className="overflow-hidden">
-            {/* Root "Notes" (no folder) option */}
+            {/* Root "All Notes" (no folder) option */}
             <Pressable
               onPress={() => handleSelect(null)}
               className="flex-row items-center justify-between py-3.5 active:opacity-60"
             >
-              <View className="flex-row items-center gap-3">
-                <FolderOutline size={20} color="#CABEFF" />
-                <Text className="text-[15px] font-medium text-white">Notes (No folder)</Text>
+              <View className="flex-1 flex-row items-center gap-3">
+                <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
+                  <FolderOutline size={18} color="#CABEFF" />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  className={`text-[15px] font-medium ${
+                    currentFolderId === null ? "font-semibold text-[#CABEFF]" : "text-white"
+                  }`}
+                >
+                  All Notes (No folder)
+                </Text>
               </View>
               {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
             </Pressable>
 
-            {allFolders.map((folder) => {
+            {treeFolders.map(({ folder, depth, hasChildren, isCollapsed }) => {
               const isSelected = currentFolderId === folder.id
+              const indentPadding = depth * 20
+
               return (
                 <View key={folder.id}>
-                  <View className="ml-8 h-[0.5px] bg-white/10" />
+                  <View
+                    style={{ marginLeft: 36 + indentPadding }}
+                    className="h-[0.5px] bg-white/10"
+                  />
                   <Pressable
                     onPress={() => handleSelect(folder.id)}
-                    className="flex-row items-center justify-between py-3.5 active:opacity-60"
+                    style={{ paddingLeft: indentPadding }}
+                    className="flex-row items-center justify-between py-3 active:opacity-60"
                   >
-                    <View className="flex-row items-center gap-3">
-                      <FolderIcon name={folder.icon} size={20} />
+                    <View className="flex-1 flex-row items-center gap-2">
+                      {/* Interactive Collapse/Expand Chevron or Branch guide */}
+                      {hasChildren ? (
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation?.()
+                            toggleExpand(folder.id)
+                          }}
+                          hitSlop={10}
+                          className="size-6 items-center justify-center rounded active:bg-white/10"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={16} color="#8E8C99" />
+                          ) : (
+                            <ChevronDown size={16} color="#8E8C99" />
+                          )}
+                        </Pressable>
+                      ) : depth > 0 ? (
+                        <View className="size-6 items-center justify-center">
+                          <CornerDownRight size={14} color="#6E6B77" strokeWidth={2} />
+                        </View>
+                      ) : (
+                        <View className="w-1" />
+                      )}
+
+                      <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
+                        <FolderIcon
+                          name={folder.icon || DEFAULT_FOLDER_ICON}
+                          size={18}
+                          color="#CABEFF"
+                          fill="#CABEFF"
+                        />
+                      </View>
                       <Text
                         numberOfLines={1}
-                        className="text-[15px] font-medium text-white max-w-55"
+                        className={`flex-1 text-[15px] font-medium ${
+                          isSelected ? "font-semibold text-[#CABEFF]" : "text-white"
+                        }`}
                       >
                         {folder.name}
                       </Text>

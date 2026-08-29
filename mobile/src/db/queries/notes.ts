@@ -233,39 +233,80 @@ export interface FolderNoteCounts {
   trash: number
 }
 
-function folderNoteCountsFromRows(
-  rows: Array<{ folderId: string | null; activeCount: number; trashCount: number }>,
-): FolderNoteCounts {
+export function computeRecursiveCounts(
+  foldersList: Array<{ id: string; parentId: string | null }>,
+  directCounts: Record<string, number>,
+): Record<string, number> {
+  const childrenMap = new Map<string, string[]>()
+  for (const f of foldersList) {
+    if (f.parentId) {
+      const list = childrenMap.get(f.parentId) || []
+      list.push(f.id)
+      childrenMap.set(f.parentId, list)
+    }
+  }
+
+  const memo = new Map<string, number>()
+  const visited = new Set<string>()
+
+  function getRecursiveCount(folderId: string): number {
+    const cached = memo.get(folderId)
+    if (cached !== undefined) return cached
+    if (visited.has(folderId)) return 0
+    visited.add(folderId)
+
+    let count = directCounts[folderId] ?? 0
+    const children = childrenMap.get(folderId) || []
+    for (const childId of children) {
+      count += getRecursiveCount(childId)
+    }
+    visited.delete(folderId)
+    memo.set(folderId, count)
+    return count
+  }
+
+  const result: Record<string, number> = {}
+  for (const f of foldersList) {
+    result[f.id] = getRecursiveCount(f.id)
+  }
+  return result
+}
+
+export async function getFolderNoteCountsAsync(): Promise<FolderNoteCounts> {
+  const [noteRows, folderRows] = await Promise.all([
+    expo.getAllAsync<{
+      folderId: string | null
+      activeCount: number
+      trashCount: number
+    }>(`SELECT folder_id AS folderId,
+        COUNT(CASE WHEN trashed = 0 THEN 1 END) AS activeCount,
+        COUNT(CASE WHEN trashed = 1 THEN 1 END) AS trashCount
+      FROM notes GROUP BY folder_id`),
+    expo.getAllAsync<{ id: string; parentId: string | null }>(
+      `SELECT id, parent_id AS parentId FROM folders WHERE deleted_at IS NULL`,
+    ),
+  ])
+
   let total = 0
   let trash = 0
-  const byFolder: Record<string, number> = {}
-  for (const row of rows) {
+  const directCounts: Record<string, number> = {}
+  for (const row of noteRows) {
     const active = Number(row.activeCount)
     const trashed = Number(row.trashCount)
     total += active
     trash += trashed
-    if (row.folderId) byFolder[row.folderId] = active
+    if (row.folderId) directCounts[row.folderId] = active
   }
+
+  const byFolder = computeRecursiveCounts(folderRows, directCounts)
   return { total, byFolder, trash }
 }
 
-export async function getFolderNoteCountsAsync(): Promise<FolderNoteCounts> {
-  const rows = await expo.getAllAsync<{
-    folderId: string | null
-    activeCount: number
-    trashCount: number
-  }>(`SELECT folder_id AS folderId,
-      COUNT(CASE WHEN trashed = 0 THEN 1 END) AS activeCount,
-      COUNT(CASE WHEN trashed = 1 THEN 1 END) AS trashCount
-    FROM notes GROUP BY folder_id`)
-  return folderNoteCountsFromRows(rows)
-}
-
 /**
- * Returns aggregated note counts (total active, per folder, and trash) using fast SQLite index scans.
+ * Returns aggregated note counts (total active, per folder recursively, and trash).
  */
 export function getFolderNoteCounts(): FolderNoteCounts {
-  const rows = db.all<{
+  const noteRows = db.all<{
     folderId: string | null
     activeCount: number
     trashCount: number
@@ -278,7 +319,23 @@ export function getFolderNoteCounts(): FolderNoteCounts {
     GROUP BY folder_id
   `)
 
-  return folderNoteCountsFromRows(rows)
+  const folderRows = db.all<{ id: string; parentId: string | null }>(sql`
+    SELECT id, parent_id AS parentId FROM folders WHERE deleted_at IS NULL
+  `)
+
+  let total = 0
+  let trash = 0
+  const directCounts: Record<string, number> = {}
+  for (const row of noteRows) {
+    const active = Number(row.activeCount)
+    const trashed = Number(row.trashCount)
+    total += active
+    trash += trashed
+    if (row.folderId) directCounts[row.folderId] = active
+  }
+
+  const byFolder = computeRecursiveCounts(folderRows, directCounts)
+  return { total, byFolder, trash }
 }
 
 export function getNotes(filters?: NoteFilters): Note[] {
@@ -530,5 +587,11 @@ export function batchDeleteNotesPermanently(ids: string[]): void {
 export function batchMoveNotes(ids: string[], folderId: string | null): void {
   for (const id of ids) {
     updateNote(id, { folderId })
+  }
+}
+
+export function batchRestoreNotes(ids: string[]): void {
+  for (const id of ids) {
+    restoreNote(id)
   }
 }

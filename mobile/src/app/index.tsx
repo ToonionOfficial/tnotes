@@ -37,7 +37,12 @@ export default function FoldersScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
-  const { data: folderPages, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteFolders()
+  const {
+    data: folderPages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteFolders({ parentId: null })
   const foldersList = useMemo(
     () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
     [folderPages],
@@ -230,13 +235,11 @@ export default function FoldersScreen() {
           <HomeHeader
             isEditing={isEditing}
             hasFolders={foldersList.length > 0}
-            selectedCount={selectedFolderIds.size}
             onPressMenu={() => setIsDrawerOpen(true)}
             onToggleEdit={toggleEditMode}
             onPressNewFolder={() => {
               sheetRef.current?.open()
             }}
-            onDeleteSelected={handleBatchDeleteFolders}
           />
 
           {/* Large Screen Title */}
@@ -256,7 +259,7 @@ export default function FoldersScreen() {
           }}
         >
           <VirtualFolderCard
-            title="Notes"
+            title="All Notes"
             icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
             count={getFolderCount(null)}
             isEditing={isEditing}

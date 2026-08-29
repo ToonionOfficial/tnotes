@@ -1,7 +1,7 @@
 import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft } from "lucide-react-native"
+import { ChevronLeft, FolderPlus } from "lucide-react-native"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
@@ -13,7 +13,10 @@ import {
   View,
 } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
+import { DraggableFolderSection } from "@/components/DraggableFolderSection"
+import { FolderActionSheet, type FolderActionSheetRef } from "@/components/FolderActionSheet"
 import { MoveNoteSheet, type MoveNoteSheetRef } from "@/components/MoveNoteSheet"
+import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { NoteActionSheet, type NoteActionSheetRef } from "@/components/NoteActionSheet"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
@@ -21,12 +24,21 @@ import { NotesEditBottomBar } from "@/components/NotesEditBottomBar"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
-import { useFolder } from "@/hooks/useFolders"
+import {
+  useBatchDeleteFolders,
+  useDeleteFolder,
+  useFolder,
+  useInfiniteFolders,
+  useReorderFolders,
+  useUpdateFolder,
+} from "@/hooks/useFolders"
 import {
   useBatchDeleteNotesPermanently,
   useBatchMoveNotes,
+  useBatchRestoreNotes,
   useBatchTrashNotes,
   useDeleteNotePermanently,
+  useFolderNoteCounts,
   useNotes,
   useRestoreNote,
   useTogglePinNote,
@@ -57,11 +69,14 @@ export default function FolderNotesScreen() {
   const debouncedSearch = useDebouncedValue(searchValue, 150)
   const [isEditing, setIsEditing] = useState(false)
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
+  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set())
   const [isReadyToLoad, setIsReadyToLoad] = useState(false)
   const [actionNote, setActionNote] = useState<Note | SearchResult | null>(null)
 
   const actionSheetRef = useRef<NoteActionSheetRef>(null)
   const moveSheetRef = useRef<MoveNoteSheetRef>(null)
+  const newFolderSheetRef = useRef<NewFolderSheetRef>(null)
+  const folderActionSheetRef = useRef<FolderActionSheetRef>(null)
 
   useEffect(() => {
     const interaction = InteractionManager.runAfterInteractions(() => setIsReadyToLoad(true))
@@ -69,7 +84,7 @@ export default function FolderNotesScreen() {
   }, [])
 
   const { data: folder } = useFolder(folderId ?? null, isReadyToLoad)
-  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
+  const title = isAll ? "All Notes" : isTrash ? "Trash" : folder?.name || "All Notes"
 
   const {
     data: notePages,
@@ -86,6 +101,22 @@ export default function FolderNotesScreen() {
     isReadyToLoad,
   )
   const notesList = useMemo(() => notePages?.pages.flatMap((page) => page.notes) ?? [], [notePages])
+
+  const { data: subfolderPages } = useInfiniteFolders(
+    { parentId: folderId ?? null },
+    isReadyToLoad && Boolean(folderId),
+  )
+  const subfoldersList = useMemo(
+    () => (folderId ? (subfolderPages?.pages.flatMap((page) => page.folders) ?? []) : []),
+    [subfolderPages, folderId],
+  )
+
+  const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
+  const deleteFolderMutation = useDeleteFolder()
+  const batchDeleteFoldersMutation = useBatchDeleteFolders()
+  const updateFolderMutation = useUpdateFolder()
+  const reorderFoldersMutation = useReorderFolders()
+
   const togglePinNote = useTogglePinNote()
   const updateNoteMutation = useUpdateNote()
   const batchMoveNotes = useBatchMoveNotes()
@@ -94,6 +125,7 @@ export default function FolderNotesScreen() {
   const deleteNotePermanently = useDeleteNotePermanently()
   const batchTrashNotes = useBatchTrashNotes()
   const batchDeleteNotesPermanently = useBatchDeleteNotesPermanently()
+  const batchRestoreNotes = useBatchRestoreNotes()
 
   const toggleSelectNote = useCallback((noteId: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -108,11 +140,28 @@ export default function FolderNotesScreen() {
     })
   }, [])
 
+  const toggleSelectFolder = useCallback((fId: string) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setSelectedFolderIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(fId)) {
+        next.delete(fId)
+      } else {
+        next.add(fId)
+      }
+      return next
+    })
+  }, [])
+
   const handleSelectAll = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setSelectedFolderIds(new Set(subfoldersList.map((f) => f.id)))
     setSelectedNoteIds(new Set(notesList.map((n) => n.id)))
-  }, [notesList])
+  }, [subfoldersList, notesList])
 
   const handleDeselectAll = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setSelectedFolderIds(new Set())
     setSelectedNoteIds(new Set())
   }, [])
 
@@ -120,53 +169,69 @@ export default function FolderNotesScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     setIsEditing((prev) => {
       if (prev) {
+        setSelectedFolderIds(new Set())
         setSelectedNoteIds(new Set())
       }
       return !prev
     })
   }, [])
 
-  const handleBatchDeleteNotes = useCallback(() => {
-    const ids = Array.from(selectedNoteIds)
-    if (ids.length === 0) return
+  const handleBatchDeleteItems = useCallback(() => {
+    const noteIds = Array.from(selectedNoteIds)
+    const folderIds = Array.from(selectedFolderIds)
+    const totalCount = noteIds.length + folderIds.length
+    if (totalCount === 0) return
 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    const count = ids.length
+    const itemLabel = totalCount === 1 ? "Item" : "Items"
 
-    if (isTrash) {
-      Alert.alert(
-        `Delete ${count} ${count === 1 ? "Note" : "Notes"} Permanently?`,
-        "This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: `Delete ${count === 1 ? "Note" : "Notes"}`,
-            style: "destructive",
-            onPress: () => {
-              batchDeleteNotesPermanently.mutate(ids)
-              setSelectedNoteIds(new Set())
-            },
+    Alert.alert(
+      `Delete ${totalCount} ${itemLabel}?`,
+      folderIds.length > 0
+        ? "Deleting folders will also move all contained notes to the Trash."
+        : isTrash
+          ? "This action cannot be undone."
+          : "You can restore them later from the Trash.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: isTrash ? "Delete Permanently" : "Delete",
+          style: "destructive",
+          onPress: () => {
+            if (folderIds.length > 0) {
+              batchDeleteFoldersMutation.mutate(folderIds)
+            }
+            if (noteIds.length > 0) {
+              if (isTrash) {
+                batchDeleteNotesPermanently.mutate(noteIds)
+              } else {
+                batchTrashNotes.mutate(noteIds)
+              }
+            }
+            setSelectedFolderIds(new Set())
+            setSelectedNoteIds(new Set())
           },
-        ],
-      )
-    } else {
-      Alert.alert(
-        `Move ${count} ${count === 1 ? "Note" : "Notes"} to Trash?`,
-        "You can restore them later from the Trash.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: `Move to Trash`,
-            style: "destructive",
-            onPress: () => {
-              batchTrashNotes.mutate(ids)
-              setSelectedNoteIds(new Set())
-            },
-          },
-        ],
-      )
-    }
-  }, [batchDeleteNotesPermanently, batchTrashNotes, isTrash, selectedNoteIds])
+        },
+      ],
+    )
+  }, [
+    batchDeleteFoldersMutation,
+    batchDeleteNotesPermanently,
+    batchTrashNotes,
+    isTrash,
+    selectedFolderIds,
+    selectedNoteIds,
+  ])
+
+  const handleBatchRestore = useCallback(() => {
+    const noteIds = Array.from(selectedNoteIds)
+    if (noteIds.length === 0) return
+
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    batchRestoreNotes.mutate(noteIds)
+    setSelectedNoteIds(new Set())
+    setIsEditing(false)
+  }, [batchRestoreNotes, selectedNoteIds])
 
   const handleTogglePin = useCallback(
     (noteId: string) => {
@@ -214,11 +279,27 @@ export default function FolderNotesScreen() {
 
   const handleSelectTargetFolder = useCallback(
     (targetFolderId: string | null) => {
-      if (isEditing && selectedNoteIds.size > 0) {
-        batchMoveNotes.mutate({
-          ids: Array.from(selectedNoteIds),
-          folderId: targetFolderId,
-        })
+      const noteIds = Array.from(selectedNoteIds)
+      const folderIds = Array.from(selectedFolderIds)
+
+      if (isEditing && (noteIds.length > 0 || folderIds.length > 0)) {
+        if (noteIds.length > 0) {
+          batchMoveNotes.mutate({
+            ids: noteIds,
+            folderId: targetFolderId,
+          })
+        }
+        if (folderIds.length > 0) {
+          for (const fId of folderIds) {
+            if (fId !== targetFolderId) {
+              updateFolderMutation.mutate({
+                id: fId,
+                input: { parentId: targetFolderId },
+              })
+            }
+          }
+        }
+        setSelectedFolderIds(new Set())
         setSelectedNoteIds(new Set())
         setIsEditing(false)
       } else if (actionNote) {
@@ -228,7 +309,15 @@ export default function FolderNotesScreen() {
         })
       }
     },
-    [actionNote, batchMoveNotes, isEditing, selectedNoteIds, updateNoteMutation],
+    [
+      actionNote,
+      batchMoveNotes,
+      isEditing,
+      selectedFolderIds,
+      selectedNoteIds,
+      updateFolderMutation,
+      updateNoteMutation,
+    ],
   )
 
   const flatItems = useMemo(() => {
@@ -262,6 +351,8 @@ export default function FolderNotesScreen() {
   }, [notesList, isTrash])
 
   const noteCount = notesList.length
+  const totalItemsCount = subfoldersList.length + notesList.length
+  const totalSelectedCount = selectedFolderIds.size + selectedNoteIds.size
 
   const handlePressNote = useCallback(
     (noteId: string) => {
@@ -331,10 +422,12 @@ export default function FolderNotesScreen() {
   const legendListExtraData = useMemo(
     () => ({
       isEditing,
-      selectedCount: selectedNoteIds.size,
+      totalSelectedCount,
       selectedNoteIds,
+      selectedFolderIds,
+      subfoldersCount: subfoldersList.length,
     }),
-    [isEditing, selectedNoteIds],
+    [isEditing, totalSelectedCount, selectedNoteIds, selectedFolderIds, subfoldersList.length],
   )
 
   return (
@@ -365,28 +458,43 @@ export default function FolderNotesScreen() {
                   </Pressable>
                 )
               : undefined,
-          unstable_headerRightItems: () =>
-            isEditing
-              ? [
-                  {
-                    type: "button" as const,
-                    label: "Done",
-                    tintColor: "#ffffff",
-                    sharesBackground: true,
-                    onPress: toggleEditMode,
-                  },
-                ]
-              : noteCount > 0
-                ? [
-                    {
-                      type: "button" as const,
-                      label: "Edit",
-                      tintColor: "#ffffff",
-                      sharesBackground: true,
-                      onPress: toggleEditMode,
-                    },
-                  ]
-                : [],
+          unstable_headerRightItems: () => {
+            if (isEditing) {
+              return [
+                {
+                  type: "button" as const,
+                  label: "Done",
+                  tintColor: "#ffffff",
+                  sharesBackground: true,
+                  onPress: toggleEditMode,
+                },
+              ]
+            }
+            const items = []
+            if (folderId) {
+              items.push({
+                type: "button" as const,
+                label: "New Folder",
+                icon: {
+                  name: "folder.badge.plus" as const,
+                  type: "sfSymbol" as const,
+                },
+                tintColor: "#ffffff",
+                sharesBackground: true,
+                onPress: () => newFolderSheetRef.current?.open(null, folderId),
+              })
+            }
+            if (noteCount > 0 || subfoldersList.length > 0) {
+              items.push({
+                type: "button" as const,
+                label: "Edit",
+                tintColor: "#ffffff",
+                sharesBackground: true,
+                onPress: toggleEditMode,
+              })
+            }
+            return items
+          },
           headerRight:
             Platform.OS !== "ios"
               ? () =>
@@ -394,11 +502,24 @@ export default function FolderNotesScreen() {
                     <Pressable onPress={toggleEditMode} hitSlop={8}>
                       <Text className="text-[16px] font-semibold text-white">Done</Text>
                     </Pressable>
-                  ) : noteCount > 0 ? (
-                    <Pressable onPress={toggleEditMode} hitSlop={8}>
-                      <Text className="text-[16px] font-medium text-white">Edit</Text>
-                    </Pressable>
-                  ) : null
+                  ) : (
+                    <View className="flex-row items-center gap-2">
+                      {folderId && (
+                        <Pressable
+                          onPress={() => newFolderSheetRef.current?.open(null, folderId)}
+                          hitSlop={8}
+                          className="mr-1"
+                        >
+                          <FolderPlus size={22} color="#FFFFFF" />
+                        </Pressable>
+                      )}
+                      {(noteCount > 0 || subfoldersList.length > 0) && (
+                        <Pressable onPress={toggleEditMode} hitSlop={8}>
+                          <Text className="text-[16px] font-medium text-white">Edit</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )
               : undefined,
         }}
       />
@@ -420,14 +541,61 @@ export default function FolderNotesScreen() {
             paddingBottom: 110,
           }}
           ListHeaderComponent={
-            noteCount > 0 ? (
-              <View className="mb-1 px-1">
-                <Text className="text-[13px] text-muted-foreground/60">
-                  {noteCount}
-                  {hasNextPage ? "+" : ""} {noteCount === 1 ? "note" : "notes"}
-                </Text>
-              </View>
-            ) : null
+            <View className="mb-2">
+              {subfoldersList.length > 0 && (
+                <View className="mb-4">
+                  <View className="mb-1 flex-row items-center justify-between px-1">
+                    <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                      Folders
+                    </Text>
+                    <Text className="text-[13px] text-muted-foreground/60">
+                      {subfoldersList.length} {subfoldersList.length === 1 ? "folder" : "folders"}
+                    </Text>
+                  </View>
+                  <DraggableFolderSection
+                    folders={subfoldersList}
+                    isEditing={isEditing}
+                    selectedFolderIds={selectedFolderIds}
+                    getFolderCount={(subId) => (subId ? (counts.byFolder[subId] ?? 0) : 0)}
+                    onToggleSelect={toggleSelectFolder}
+                    onPressFolder={(subId) => router.push(`/folders/${subId}` as const)}
+                    onLongPressFolder={(subFolder) => folderActionSheetRef.current?.open(subFolder)}
+                    onDeleteFolder={(subFolder) => {
+                      Alert.alert(
+                        `Delete "${subFolder.name}"?`,
+                        "All notes inside will be moved to the Trash.",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: () => deleteFolderMutation.mutate(subFolder.id),
+                          },
+                        ],
+                      )
+                    }}
+                    onReorder={(fromIdx, toIdx) => {
+                      const next = [...subfoldersList]
+                      const [moved] = next.splice(fromIdx, 1)
+                      next.splice(toIdx, 0, moved)
+                      reorderFoldersMutation.mutate(next.map((f) => f.id))
+                    }}
+                  />
+                </View>
+              )}
+
+              {noteCount > 0 && (
+                <View className="mb-1 flex-row items-center justify-between px-1">
+                  <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                    Notes
+                  </Text>
+                  <Text className="text-[13px] text-muted-foreground/60">
+                    {noteCount}
+                    {hasNextPage ? "+" : ""} {noteCount === 1 ? "note" : "notes"}
+                  </Text>
+                </View>
+              )}
+            </View>
           }
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) {
@@ -443,33 +611,36 @@ export default function FolderNotesScreen() {
             ) : null
           }
           ListEmptyComponent={
-            <View className="items-center justify-center pt-24 px-6">
-              <Text className="mt-4 text-center text-lg font-semibold text-foreground">
-                {debouncedSearch
-                  ? "No matching notes"
-                  : isTrash
-                    ? "Trash is empty"
-                    : "No notes yet"}
-              </Text>
-              <Text className="mt-1.5 text-center text-[15px] text-muted-foreground">
-                {debouncedSearch
-                  ? `Nothing matches "${debouncedSearch}"`
-                  : isTrash
-                    ? "Deleted notes will appear here"
-                    : "Tap the button below to start writing"}
-              </Text>
-            </View>
+            subfoldersList.length === 0 ? (
+              <View className="items-center justify-center pt-24 px-6">
+                <Text className="mt-4 text-center text-lg font-semibold text-foreground">
+                  {debouncedSearch
+                    ? "No matching notes"
+                    : isTrash
+                      ? "Trash is empty"
+                      : "No notes yet"}
+                </Text>
+                <Text className="mt-1.5 text-center text-[15px] text-muted-foreground">
+                  {debouncedSearch
+                    ? `Nothing matches "${debouncedSearch}"`
+                    : isTrash
+                      ? "Deleted notes will appear here"
+                      : "Tap the button below to start writing"}
+                </Text>
+              </View>
+            ) : null
           }
         />
       )}
 
       {isEditing ? (
         <NotesEditBottomBar
-          selectedCount={selectedNoteIds.size}
-          totalCount={notesList.length}
+          selectedCount={totalSelectedCount}
+          totalCount={totalItemsCount}
           isTrash={Boolean(isTrash)}
           onMove={() => moveSheetRef.current?.open()}
-          onDelete={handleBatchDeleteNotes}
+          onRestore={handleBatchRestore}
+          onDelete={handleBatchDeleteItems}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
         />
@@ -496,6 +667,32 @@ export default function FolderNotesScreen() {
         ref={moveSheetRef}
         note={actionNote}
         onSelectFolder={handleSelectTargetFolder}
+      />
+
+      <NewFolderSheet
+        ref={newFolderSheetRef}
+        parentId={folderId ?? null}
+        onCreated={(subId) => router.push(`/folders/${subId}` as const)}
+      />
+
+      <FolderActionSheet
+        ref={folderActionSheetRef}
+        onEdit={(subFolder) => newFolderSheetRef.current?.open(subFolder)}
+        onDelete={(subFolder) => {
+          Alert.alert(
+            `Delete "${subFolder.name}"?`,
+            "All notes inside will be moved to the Trash.",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: () => deleteFolderMutation.mutate(subFolder.id),
+              },
+            ],
+          )
+        }}
+        getFolderCount={(subId) => (subId ? (counts.byFolder[subId] ?? 0) : 0)}
       />
     </View>
   )

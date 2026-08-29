@@ -8,7 +8,8 @@ export interface NotesEditBottomBarProps {
   selectedCount: number
   totalCount: number
   isTrash?: boolean
-  onMove: () => void
+  onMove?: () => void
+  onRestore?: () => void
   onDelete: () => void
   onSelectAll: () => void
   onDeselectAll: () => void
@@ -19,6 +20,7 @@ export const NotesEditBottomBar = memo(function NotesEditBottomBar({
   totalCount,
   isTrash = false,
   onMove,
+  onRestore,
   onDelete,
   onSelectAll,
   onDeselectAll,
@@ -49,7 +51,11 @@ export const NotesEditBottomBar = memo(function NotesEditBottomBar({
           onPress={() => {
             if (isSelected) {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-              onMove()
+              if (isTrash) {
+                onRestore?.()
+              } else {
+                onMove?.()
+              }
             }
           }}
           disabled={!isSelected}

@@ -17,16 +17,13 @@ import Animated, {
   useDerivedValue,
   withTiming,
 } from "react-native-reanimated"
-import { EditHeaderActions } from "./EditHeaderActions"
 
 interface HomeHeaderProps {
   isEditing: boolean
   hasFolders: boolean
-  selectedCount: number
   onPressMenu: () => void
   onToggleEdit: () => void
   onPressNewFolder: () => void
-  onDeleteSelected: () => void
 }
 
 const MENU_ICON = Icon.select({
@@ -42,11 +39,9 @@ const NEW_FOLDER_ICON = Icon.select({
 export const HomeHeader = memo(function HomeHeader({
   isEditing,
   hasFolders,
-  selectedCount,
   onPressMenu,
   onToggleEdit,
   onPressNewFolder,
-  onDeleteSelected,
 }: HomeHeaderProps) {
   const editProgress = useDerivedValue(() => {
     return withTiming(isEditing ? 1 : 0, {
@@ -135,11 +130,22 @@ export const HomeHeader = memo(function HomeHeader({
             style={[editingActionsStyle, { position: "absolute", right: 0 }]}
             pointerEvents={isEditing ? "auto" : "none"}
           >
-            <EditHeaderActions
-              selectedCount={selectedCount}
-              onDelete={onDeleteSelected}
-              onDone={onToggleEdit}
-            />
+            <Host matchContents ignoreSafeArea="all">
+              <Button
+                variant="filled"
+                label="Done"
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                  onToggleEdit()
+                }}
+                modifiers={[
+                  buttonStyle("glass"),
+                  buttonBorderShape("capsule"),
+                  controlSize("large"),
+                  foregroundStyle("#ffffff"),
+                ]}
+              />
+            </Host>
           </Animated.View>
         </View>
       </View>
@@ -193,11 +199,16 @@ export const HomeHeader = memo(function HomeHeader({
           style={[editingActionsStyle, { position: "absolute", right: 0 }]}
           pointerEvents={isEditing ? "auto" : "none"}
         >
-          <EditHeaderActions
-            selectedCount={selectedCount}
-            onDelete={onDeleteSelected}
-            onDone={onToggleEdit}
-          />
+          <Pressable
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              onToggleEdit()
+            }}
+            hitSlop={8}
+            className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
+          >
+            <Text className="text-[15px] font-semibold text-white">Done</Text>
+          </Pressable>
         </Animated.View>
       </View>
     </View>

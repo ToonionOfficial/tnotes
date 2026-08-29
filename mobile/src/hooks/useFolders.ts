@@ -31,7 +31,7 @@ const FOLDERS_QUERY_OPTIONS = {
   refetchOnMount: false,
 } as const
 
-export function useInfiniteFolders(filters?: FolderFilters) {
+export function useInfiniteFolders(filters?: FolderFilters, enabled = true) {
   return useInfiniteQuery({
     queryKey: folderKeys.infinite(filters),
     initialPageParam: 0,
@@ -47,6 +47,7 @@ export function useInfiniteFolders(filters?: FolderFilters) {
       }
     },
     getNextPageParam: (lastPage) => lastPage.nextOffset,
+    enabled,
     ...FOLDERS_QUERY_OPTIONS,
   })
 }
