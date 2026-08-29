@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { db } from "@/db"
 import migrations from "@/drizzle/migrations"
+import { useAutoSyncRunner } from "@/services/sync"
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,11 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+function AutoSyncManager() {
+  useAutoSyncRunner()
+  return null
+}
 
 export default function RootLayout() {
   const { success, error } = useMigrations(
@@ -48,6 +54,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AutoSyncManager />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <BottomSheetModalProvider>
