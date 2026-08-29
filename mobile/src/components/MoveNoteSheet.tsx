@@ -3,11 +3,10 @@ import {
   type BottomSheetBackdropProps,
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetView,
 } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Check, Folder as FolderOutline } from "lucide-react-native"
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react"
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
@@ -29,6 +28,8 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const { data: folderPages } = useInfiniteFolders()
     const allFolders = folderPages?.pages.flatMap((page) => page.folders) ?? []
+
+    const snapPoints = useMemo(() => ["65%"], [])
 
     const open = useCallback(() => {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -67,7 +68,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
     return (
       <BottomSheetModal
         ref={bottomSheetModalRef}
-        snapPoints={["60%"]}
+        snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
@@ -86,49 +87,54 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
           borderColor: "rgba(255, 255, 255, 0.1)",
         }}
       >
-        <BottomSheetView className="flex-1 px-5 pt-2 pb-6">
+        <BottomSheetScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: 40,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
           <Text className="mb-3 text-[17px] font-bold text-foreground">Move to Folder</Text>
 
-          <BottomSheetScrollView showsVerticalScrollIndicator={false} className="flex-1">
-            <View className="overflow-hidden">
-              {/* Root "Notes" (no folder) option */}
-              <Pressable
-                onPress={() => handleSelect(null)}
-                className="flex-row items-center justify-between py-3.5 active:opacity-60"
-              >
-                <View className="flex-row items-center gap-3">
-                  <FolderOutline size={20} color="#CABEFF" />
-                  <Text className="text-[15px] font-medium text-white">Notes (No folder)</Text>
-                </View>
-                {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
-              </Pressable>
+          <View className="overflow-hidden">
+            {/* Root "Notes" (no folder) option */}
+            <Pressable
+              onPress={() => handleSelect(null)}
+              className="flex-row items-center justify-between py-3.5 active:opacity-60"
+            >
+              <View className="flex-row items-center gap-3">
+                <FolderOutline size={20} color="#CABEFF" />
+                <Text className="text-[15px] font-medium text-white">Notes (No folder)</Text>
+              </View>
+              {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
+            </Pressable>
 
-              {allFolders.map((folder) => {
-                const isSelected = currentFolderId === folder.id
-                return (
-                  <View key={folder.id}>
-                    <View className="ml-8 h-[0.5px] bg-white/10" />
-                    <Pressable
-                      onPress={() => handleSelect(folder.id)}
-                      className="flex-row items-center justify-between py-3.5 active:opacity-60"
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <FolderIcon name={folder.icon} size={20} />
-                        <Text
-                          numberOfLines={1}
-                          className="text-[15px] font-medium text-white max-w-[220px]"
-                        >
-                          {folder.name}
-                        </Text>
-                      </View>
-                      {isSelected && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
-                    </Pressable>
-                  </View>
-                )
-              })}
-            </View>
-          </BottomSheetScrollView>
-        </BottomSheetView>
+            {allFolders.map((folder) => {
+              const isSelected = currentFolderId === folder.id
+              return (
+                <View key={folder.id}>
+                  <View className="ml-8 h-[0.5px] bg-white/10" />
+                  <Pressable
+                    onPress={() => handleSelect(folder.id)}
+                    className="flex-row items-center justify-between py-3.5 active:opacity-60"
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <FolderIcon name={folder.icon} size={20} />
+                      <Text
+                        numberOfLines={1}
+                        className="text-[15px] font-medium text-white max-w-[220px]"
+                      >
+                        {folder.name}
+                      </Text>
+                    </View>
+                    {isSelected && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
+                  </Pressable>
+                </View>
+              )
+            })}
+          </View>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     )
   },
