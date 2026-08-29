@@ -11,8 +11,8 @@ import {
 } from "@expo/ui/swift-ui/modifiers"
 import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
-import { ChevronLeft, Ellipsis, Share2, Undo2 } from "lucide-react-native"
-import { Keyboard, Platform, Pressable, Text, View } from "react-native"
+import { Check, ChevronLeft, Ellipsis, Share2, Undo2 } from "lucide-react-native"
+import { Keyboard, Platform, Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface EditorHeaderProps {
@@ -42,6 +42,11 @@ const SHARE_ICON = Icon.select({
 const MORE_ICON = Icon.select({
   ios: "ellipsis",
   android: import("@expo/material-symbols/more_horiz.xml"),
+})
+
+const CHECK_ICON = Icon.select({
+  ios: "checkmark",
+  android: import("@expo/material-symbols/check.xml"),
 })
 
 export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: EditorHeaderProps) {
@@ -175,15 +180,17 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             <Host matchContents ignoreSafeArea="all">
               <Button
                 variant="filled"
-                label="Done"
                 onPress={handleDone}
                 modifiers={[
                   buttonStyle("glass"),
-                  buttonBorderShape("capsule"),
+                  buttonBorderShape("circle"),
                   controlSize("large"),
+                  tint("#ffffff"),
                   foregroundStyle("#ffffff"),
                 ]}
-              />
+              >
+                <Icon name={CHECK_ICON} color="#ffffff" size={18} />
+              </Button>
             </Host>
           </View>
         </View>
@@ -232,9 +239,9 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             <Pressable
               onPress={handleDone}
               hitSlop={8}
-              className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
+              className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
             >
-              <Text className="text-[15px] font-semibold text-white">Done</Text>
+              <Check size={20} color="#ffffff" strokeWidth={2.5} />
             </Pressable>
           </View>
         </View>
