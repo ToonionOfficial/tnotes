@@ -5,10 +5,14 @@ import { Pressable, Text, View } from "react-native"
 import { SettingsSection } from "./SettingsSection"
 
 export interface ProfileSectionProps {
+  username?: string
+  isConnected?: boolean
   onPressProfile?: () => void
 }
 
 export const ProfileSection = memo(function ProfileSection({
+  username = "Local Account",
+  isConnected = false,
   onPressProfile,
 }: ProfileSectionProps) {
   const handlePress = () => {
@@ -27,10 +31,12 @@ export const ProfileSection = memo(function ProfileSection({
             <User size={22} color="#CABEFF" />
           </View>
           <View>
-            <Text className="text-[16px] font-semibold text-white">Local Account</Text>
+            <Text className="text-[16px] font-semibold text-white">{username}</Text>
             <View className="flex-row items-center gap-1.5 pt-0.5">
               <Smartphone size={12} color="#8E8D94" />
-              <Text className="text-[12px] text-muted-foreground">On-device</Text>
+              <Text className="text-[12px] text-muted-foreground">
+                {isConnected ? "Synced with server" : "On-device"}
+              </Text>
             </View>
           </View>
         </View>

@@ -4,7 +4,7 @@ import { memo, useState } from "react"
 import { Pressable, Text, TextInput, View } from "react-native"
 
 export interface ManualServerFormProps {
-  onConnect: (payload: { url: string; token?: string }) => void
+  onConnect: (payload: { url: string; token: string }) => void
   onSwitchToScanner: () => void
 }
 
@@ -13,24 +13,27 @@ export const ManualServerForm = memo(function ManualServerForm({
   onSwitchToScanner,
 }: ManualServerFormProps) {
   const [url, setUrl] = useState("")
-  const [token, setToken] = useState("")
+  const [codeOrToken, setCodeOrToken] = useState("")
+
+  const isValid = url.trim().length > 0 && codeOrToken.trim().length > 0
 
   const handleConnect = () => {
-    if (!url.trim()) return
+    if (!isValid) return
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    onConnect({ url: url.trim(), token: token.trim() || undefined })
+    onConnect({
+      url: url.trim(),
+      token: codeOrToken.trim(),
+    })
   }
 
   return (
     <View className="flex-1 justify-center px-6 py-8">
       <Text className="text-[22px] font-bold text-white">Manual Connection</Text>
       <Text className="mt-1 text-[13px] text-muted-foreground">
-        Enter the address and access token of your self-hosted sync server.
+        Enter your server address and the 6-digit pairing code or token from your dashboard.
       </Text>
 
-      {/* Input Group */}
       <View className="mt-6 gap-3">
-        {/* Server URL Input */}
         <View className="flex-row items-center rounded-2xl bg-white/7 px-4 py-3">
           <Globe size={18} color="#8E8D94" />
           <TextInput
@@ -45,29 +48,26 @@ export const ManualServerForm = memo(function ManualServerForm({
           />
         </View>
 
-        {/* Token Input */}
         <View className="flex-row items-center rounded-2xl bg-white/7 px-4 py-3">
           <KeyRound size={18} color="#8E8D94" />
           <TextInput
-            value={token}
-            onChangeText={setToken}
-            placeholder="Pairing Token (Optional)"
+            value={codeOrToken}
+            onChangeText={setCodeOrToken}
+            placeholder="6-Digit Code or Pairing Token"
             placeholderTextColor="#8E8D94"
             autoCapitalize="none"
             autoCorrect={false}
-            secureTextEntry
             className="ml-3 flex-1 text-[16px] text-white"
           />
         </View>
       </View>
 
-      {/* Actions */}
       <View className="mt-6 gap-3">
         <Pressable
-          disabled={!url.trim()}
+          disabled={!isValid}
           onPress={handleConnect}
           className={`h-12 items-center justify-center rounded-full bg-[#CABEFF] ${
-            !url.trim() ? "opacity-40" : "active:opacity-85"
+            !isValid ? "opacity-40" : "active:opacity-85"
           }`}
         >
           <Text className="text-[16px] font-semibold text-[#141318]">Connect Server</Text>

@@ -2,15 +2,12 @@ import { CameraView, useCameraPermissions } from "expo-camera"
 import * as Haptics from "expo-haptics"
 import { memo, useCallback, useState } from "react"
 import { KeyboardAvoidingView, Modal, Platform, StyleSheet, View } from "react-native"
+import type { QrPairPayload } from "@/db/queries"
 import { CameraPermissionGate } from "./CameraPermissionGate"
 import { ManualServerForm } from "./ManualServerForm"
 import { QRScannerOverlay } from "./QRScannerOverlay"
 
-export interface PairPayload {
-  url: string
-  token?: string
-  deviceId?: string
-}
+export type PairPayload = QrPairPayload
 
 export interface PairServerModalProps {
   visible: boolean
@@ -37,7 +34,7 @@ export const PairServerModal = memo(function PairServerModal({
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       setIsSuccess(true)
 
-      let parsed: PairPayload = { url: result.data }
+      let parsed: PairPayload = { url: result.data, token: "" }
       try {
         const json = JSON.parse(result.data)
         if (json.url) {
@@ -62,10 +59,13 @@ export const PairServerModal = memo(function PairServerModal({
     onClose()
   }
 
-  const handleManualConnect = (payload: PairPayload) => {
+  const handleManualConnect = (payload: { url: string; token: string }) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     handleClose()
-    onPairSuccess(payload)
+    onPairSuccess({
+      url: payload.url,
+      token: payload.token,
+    })
   }
 
   return (

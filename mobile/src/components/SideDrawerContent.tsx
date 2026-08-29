@@ -9,6 +9,8 @@ const APP_ICON = require("../../assets/images/icon.png")
 
 interface SideDrawerContentProps {
   trashCount: number
+  username?: string
+  isConnected?: boolean
   onPressTrash: () => void
   onPressFavorites?: () => void
   onPressProfile?: () => void
@@ -17,6 +19,8 @@ interface SideDrawerContentProps {
 
 export const SideDrawerContent = memo(function SideDrawerContent({
   trashCount,
+  username = "Local Account",
+  isConnected = false,
   onPressTrash,
   onPressFavorites,
   onPressProfile,
@@ -109,10 +113,14 @@ export const SideDrawerContent = memo(function SideDrawerContent({
               <User size={22} color="#CABEFF" />
             </View>
             <View className="flex-1">
-              <Text className="text-[15px] font-semibold text-white">Local Account</Text>
+              <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
+                {username}
+              </Text>
               <View className="flex-row items-center gap-1.5 pt-0.5">
                 <Smartphone size={12} color="#8E8D94" />
-                <Text className="text-[12px] text-muted-foreground">On-device storage</Text>
+                <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
+                  {isConnected ? "Synced with server" : "On-device storage"}
+                </Text>
               </View>
             </View>
           </View>

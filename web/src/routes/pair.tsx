@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { Check, Copy, FolderSync, Globe, RefreshCw, Smartphone, Sparkles, User } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
@@ -38,6 +38,24 @@ function PairPage() {
 
   const [copied, setCopied] = useState<'code' | 'url' | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    return Math.max(0, Math.floor((pairData.expires_at - Date.now()) / 1000))
+  })
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((pairData.expires_at - Date.now()) / 1000))
+      setTimeLeft(remaining)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [pairData.expires_at])
+
+  function formatTimer(seconds: number) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s < 10 ? '0' : ''}${s}`
+  }
 
   function handleCopy(type: 'code' | 'url', text: string) {
     navigator.clipboard.writeText(text)
@@ -64,7 +82,7 @@ function PairPage() {
           <CardDescription className="text-sm">
             {isWelcome
               ? 'Your vault is ready. Scan with the mobile app to sync your notes, or continue to the web editor.'
-              : 'Scan this QR code with the Notat Mobile App to instantly pair your device.'}
+              : 'Scan this QR code with the TNotes Mobile App to instantly pair your device.'}
           </CardDescription>
         </CardHeader>
 
@@ -100,20 +118,46 @@ function PairPage() {
               </div>
 
               {/* 6-Digit Manual Code */}
-              <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs text-muted-foreground">Manual pairing code:</span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy('code', pairData.pairing_code)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/80 px-3 py-1 font-mono text-sm font-bold tracking-widest text-foreground hover:bg-muted transition-colors shadow-sm"
-                >
-                  {pairData.pairing_code}
-                  {copied === 'code' ? (
-                    <Check className="h-3.5 w-3.5 text-success" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </button>
+              <div className="w-full space-y-2 pt-1 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Manual pairing code:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('code', pairData.pairing_code)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/80 px-3 py-1 font-mono text-sm font-bold tracking-widest text-foreground hover:bg-muted transition-colors shadow-sm"
+                  >
+                    {pairData.pairing_code}
+                    {copied === 'code' ? (
+                      <Check className="h-3.5 w-3.5 text-success" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-0.5">
+                  <span>
+                    {timeLeft > 0 ? (
+                      <>
+                        Expires in{' '}
+                        <span className="font-mono font-medium text-foreground">
+                          {formatTimer(timeLeft)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-destructive font-medium">Code expired</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={isRefreshing}
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    Refresh Code
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -129,44 +173,21 @@ function PairPage() {
                 Open the <strong>TNotes</strong> app on your iOS or Android device.
               </li>
               <li>
-                Tap <strong>"Scan QR Code"</strong> on the welcome screen.
+                Open <strong>Settings</strong> $\rightarrow$ tap <strong>"Connect Server"</strong>.
               </li>
-              <li>Point your camera at this QR code to connect and sync.</li>
+              <li>Scan the QR code or enter the 6-digit code manually.</li>
             </ol>
           </div>
 
           {/* Action Buttons */}
           <div className="space-y-2 pt-1">
             <Button
-              className="w-full text-sm font-semibold h-10 shadow-md"
               onClick={() => navigate({ to: '/' })}
+              className="w-full shadow-md font-medium"
+              size="lg"
             >
-              Open Notes Workspace →
+              {isWelcome ? 'Open My Vault' : 'Done'}
             </Button>
-
-            <div className="flex items-center justify-between pt-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground h-8"
-                onClick={handleRegenerate}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Regenerate QR
-              </Button>
-
-              {!isWelcome && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground h-8"
-                  onClick={() => navigate({ to: '/' })}
-                >
-                  Back to Notes
-                </Button>
-              )}
-            </div>
           </div>
         </CardContent>
       </Card>

@@ -1,0 +1,72 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  getSyncStatusAsync,
+  pairWithServerAsync,
+  type QrPairPayload,
+  unpairServerAsync,
+} from "@/db/queries"
+import { statsKeys } from "@/hooks/useDatabaseStats"
+import { folderKeys } from "@/hooks/useFolders"
+import { noteKeys } from "@/hooks/useNotes"
+import { executeSyncAsync } from "@/services/sync"
+
+export const syncKeys = {
+  all: ["syncStatus"] as const,
+}
+
+export function useSyncState() {
+  return useQuery({
+    queryKey: syncKeys.all,
+    queryFn: getSyncStatusAsync,
+  })
+}
+
+export function usePairServerMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: QrPairPayload) => {
+      const status = await pairWithServerAsync(payload)
+      try {
+        await executeSyncAsync()
+      } catch {}
+      return status
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+      void queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      void queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      void queryClient.invalidateQueries({ queryKey: statsKeys.all })
+    },
+  })
+}
+
+export function useUnpairServerMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => unpairServerAsync(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+      void queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      void queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      void queryClient.invalidateQueries({ queryKey: statsKeys.all })
+    },
+  })
+}
+
+export function useSyncNowMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => executeSyncAsync(),
+    onSuccess: (result) => {
+      if (result.success) {
+        void queryClient.invalidateQueries({ queryKey: syncKeys.all })
+        void queryClient.invalidateQueries({ queryKey: noteKeys.all })
+        void queryClient.invalidateQueries({ queryKey: folderKeys.all })
+        void queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      }
+    },
+  })
+}

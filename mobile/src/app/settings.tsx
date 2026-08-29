@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { useMemo, useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
   AboutSection,
@@ -12,13 +12,23 @@ import {
   SyncServerSection,
 } from "@/components/settings"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
+import {
+  usePairServerMutation,
+  useSyncNowMutation,
+  useSyncState,
+  useUnpairServerMutation,
+} from "@/hooks/useSyncState"
 
 export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
-  const [connectedServer, setConnectedServer] = useState<string | undefined>(undefined)
+
+  const { data: syncStatus } = useSyncState()
   const { data: stats } = useDatabaseStats()
+  const pairMutation = usePairServerMutation()
+  const unpairMutation = useUnpairServerMutation()
+  const syncNowMutation = useSyncNowMutation()
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
@@ -27,7 +37,7 @@ export default function SettingsScreen() {
       profile: !normalizedQuery || "account profile user local offline".includes(normalizedQuery),
       sync:
         !normalizedQuery ||
-        "sync server connect websocket cloud backend url".includes(normalizedQuery),
+        "sync server connect websocket cloud backend url disconnect".includes(normalizedQuery),
       appearance:
         !normalizedQuery ||
         "theme appearance dark oled accent color font typography".includes(normalizedQuery),
@@ -42,9 +52,51 @@ export default function SettingsScreen() {
 
   const hasAnyMatch = Object.values(matches).some(Boolean)
 
-  const handlePairSuccess = (payload: PairPayload) => {
-    setConnectedServer(payload.url)
+  const handlePairSuccess = async (payload: PairPayload) => {
+    if (!payload.token) return
     setIsPairModalOpen(false)
+    try {
+      await pairMutation.mutateAsync(payload)
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Saved credentials, but could not immediately verify the server. Sync will retry when online."
+      Alert.alert("Pairing Error", msg)
+    }
+  }
+
+  const handleSyncNow = async () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    try {
+      const result = await syncNowMutation.mutateAsync()
+      if (result.success) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      } else {
+        Alert.alert("Sync Notice", result.error ?? "Failed to complete sync.")
+      }
+    } catch {
+      Alert.alert("Sync Error", "Could not reach the sync server.")
+    }
+  }
+
+  const handleDisconnect = () => {
+    Alert.alert(
+      "Disconnect Server",
+      "Are you sure you want to disconnect from this sync server? Your local notes will remain on this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: () => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+            void unpairMutation.mutateAsync()
+          },
+        },
+      ],
+    )
   }
 
   return (
@@ -84,14 +136,21 @@ export default function SettingsScreen() {
           placeholder="Search settings"
         />
 
-        {matches.profile && <ProfileSection />}
+        {matches.profile && (
+          <ProfileSection username={syncStatus?.username} isConnected={syncStatus?.isConnected} />
+        )}
+
         {matches.sync && (
           <SyncServerSection
-            isConnected={Boolean(connectedServer)}
-            serverUrl={connectedServer}
+            isConnected={syncStatus?.isConnected}
+            serverUrl={syncStatus?.serverUrl}
+            isSyncing={syncNowMutation.isPending}
             onPressConnectServer={() => setIsPairModalOpen(true)}
+            onPressSyncNow={handleSyncNow}
+            onPressDisconnect={handleDisconnect}
           />
         )}
+
         {matches.appearance && <AppearanceSection />}
         {matches.data && <DataStorageSection stats={stats} />}
         {matches.about && <AboutSection />}
