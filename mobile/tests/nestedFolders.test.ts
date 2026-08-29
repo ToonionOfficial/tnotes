@@ -28,33 +28,28 @@ describe("Nested Folders & Hierarchical Actions", () => {
       expect(projectSubfolders.map((f) => f.name)).toEqual(["Q3 Launch"])
     })
 
-    it("builds a pre-order depth-first tree with depth indices for Move Sheet", () => {
-      const tree = buildFolderTree(sampleFolders)
-
-      // Expected order:
-      // Work (depth 0)
-      //   -> Projects (depth 1)
-      //     -> Q3 Launch (depth 2)
-      //   -> Meetings (depth 1)
-      // Personal (depth 0)
-      //   -> Finance (depth 1)
-      expect(tree.map((t) => ({ id: t.folder.id, depth: t.depth }))).toEqual([
-        { id: "root_1", depth: 0 },
-        { id: "sub_1_1", depth: 1 },
-        { id: "sub_1_1_1", depth: 2 },
-        { id: "sub_1_2", depth: 1 },
-        { id: "root_2", depth: 0 },
-        { id: "sub_2_1", depth: 1 },
-      ])
+    it("folds subtrees by default unless folder ID is in expandedFolderIds", () => {
+      // By default (no expanded IDs), only root level folders appear and they are marked as collapsed
+      const defaultTree = buildFolderTree(sampleFolders)
+      expect(defaultTree.map((t) => t.folder.id)).toEqual(["root_1", "root_2"])
+      expect(defaultTree.find((t) => t.folder.id === "root_1")?.isCollapsed).toBe(true)
+      expect(defaultTree.find((t) => t.folder.id === "root_1")?.hasChildren).toBe(true)
     })
 
-    it("collapses subtrees when parent folder ID is in collapsedFolderIds", () => {
-      // Collapsing 'root_1' (Work) should hide all its subfolders ('sub_1_1', 'sub_1_1_1', 'sub_1_2')
-      const collapsedTree = buildFolderTree(sampleFolders, new Set(["root_1"]))
+    it("expands specific subtrees when folder ID is in expandedFolderIds", () => {
+      // Expanding 'root_1' and 'sub_1_1'
+      const expandedTree = buildFolderTree(sampleFolders, new Set(["root_1", "sub_1_1"]))
 
-      expect(collapsedTree.map((t) => t.folder.id)).toEqual(["root_1", "root_2", "sub_2_1"])
-      expect(collapsedTree.find((t) => t.folder.id === "root_1")?.isCollapsed).toBe(true)
-      expect(collapsedTree.find((t) => t.folder.id === "root_1")?.hasChildren).toBe(true)
+      expect(expandedTree.map((t) => t.folder.id)).toEqual([
+        "root_1",
+        "sub_1_1",
+        "sub_1_1_1",
+        "sub_1_2",
+        "root_2",
+      ])
+      expect(expandedTree.find((t) => t.folder.id === "root_1")?.isCollapsed).toBe(false)
+      expect(expandedTree.find((t) => t.folder.id === "sub_1_1")?.isCollapsed).toBe(false)
+      expect(expandedTree.find((t) => t.folder.id === "sub_1_2")?.isCollapsed).toBe(false)
     })
   })
 

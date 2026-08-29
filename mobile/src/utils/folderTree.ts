@@ -9,10 +9,11 @@ export interface TreeFolderItem {
 
 /**
  * Builds a depth-first pre-order flattened folder tree with depth levels and collapsible subtree support.
+ * By default, folders with children are folded (collapsed) unless included in `expandedFolderIds`.
  */
 export function buildFolderTree(
   folders: Folder[],
-  collapsedFolderIds?: Set<string>,
+  expandedFolderIds?: Set<string>,
 ): TreeFolderItem[] {
   const childrenMap = new Map<string | null, Folder[]>()
   const folderIdSet = new Set(folders.map((f) => f.id))
@@ -35,7 +36,8 @@ export function buildFolderTree(
 
       const directChildren = childrenMap.get(child.id) || []
       const hasChildren = directChildren.length > 0
-      const isCollapsed = Boolean(collapsedFolderIds?.has(child.id))
+      const isExpanded = Boolean(expandedFolderIds?.has(child.id))
+      const isCollapsed = hasChildren && !isExpanded
 
       result.push({
         folder: child,
@@ -44,8 +46,8 @@ export function buildFolderTree(
         isCollapsed,
       })
 
-      // Only traverse children if this folder is not collapsed
-      if (!isCollapsed) {
+      // Only traverse children if this folder is expanded (not collapsed)
+      if (isExpanded || !hasChildren) {
         traverse(child.id, depth + 1)
       }
     }

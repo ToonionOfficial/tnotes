@@ -34,7 +34,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
   function MoveNoteSheet({ note: propNote, onSelectFolder }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
-    const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(new Set())
+    const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
 
     const activeNote = propNote ?? internalNote
 
@@ -45,14 +45,14 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
     )
 
     const treeFolders = useMemo(
-      () => buildFolderTree(allFolders, collapsedFolderIds),
-      [allFolders, collapsedFolderIds],
+      () => buildFolderTree(allFolders, expandedFolderIds),
+      [allFolders, expandedFolderIds],
     )
     const snapPoints = useMemo(() => ["65%"], [])
 
-    const toggleCollapse = useCallback((folderId: string) => {
+    const toggleExpand = useCallback((folderId: string) => {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      setCollapsedFolderIds((prev) => {
+      setExpandedFolderIds((prev) => {
         const next = new Set(prev)
         if (next.has(folderId)) {
           next.delete(folderId)
@@ -63,13 +63,32 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
       })
     }, [])
 
-    const open = useCallback((noteToOpen?: Note | SearchResult) => {
-      if (noteToOpen) {
-        setInternalNote(noteToOpen)
-      }
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      bottomSheetModalRef.current?.present()
-    }, [])
+    const open = useCallback(
+      (noteToOpen?: Note | SearchResult) => {
+        const targetNote = noteToOpen ?? propNote
+        if (noteToOpen) {
+          setInternalNote(noteToOpen)
+        }
+
+        const targetFolderId = targetNote?.folderId ?? null
+        if (targetFolderId) {
+          const set = new Set<string>()
+          const folderMap = new Map(allFolders.map((f) => [f.id, f]))
+          let current = folderMap.get(targetFolderId)
+          while (current?.parentId) {
+            set.add(current.parentId)
+            current = folderMap.get(current.parentId)
+          }
+          setExpandedFolderIds(set)
+        } else {
+          setExpandedFolderIds(new Set())
+        }
+
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        bottomSheetModalRef.current?.present()
+      },
+      [allFolders, propNote],
+    )
 
     const close = useCallback(() => {
       bottomSheetModalRef.current?.dismiss()
@@ -173,7 +192,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation?.()
-                            toggleCollapse(folder.id)
+                            toggleExpand(folder.id)
                           }}
                           hitSlop={10}
                           className="size-6 items-center justify-center rounded active:bg-white/10"
