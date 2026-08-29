@@ -523,6 +523,18 @@ export function deleteNotePermanently(id: string): void {
   })
 }
 
+export function batchTrashNotes(ids: string[]): void {
+  for (const id of ids) {
+    trashNote(id)
+  }
+}
+
+export function batchDeleteNotesPermanently(ids: string[]): void {
+  for (const id of ids) {
+    deleteNotePermanently(id)
+  }
+}
+
 export interface FolderFilters {
   includeDeleted?: boolean
   parentId?: string | null
@@ -697,6 +709,12 @@ export function deleteFolder(id: string): void {
     .set({ trashed: true })
     .where(and(isNotNull(notes.deletedAt), eq(notes.trashed, false)))
     .run()
+}
+
+export function batchDeleteFolders(ids: string[]): void {
+  for (const id of ids) {
+    deleteFolder(id)
+  }
 }
 
 export function restoreFolder(id: string): void {

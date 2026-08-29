@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  batchDeleteNotesPermanently,
+  batchTrashNotes,
   createNote,
   deleteNotePermanently,
   getFolderNoteCounts,
@@ -135,6 +137,30 @@ export function useDeleteNotePermanently() {
   return useMutation({
     mutationFn: async (id: string) => {
       deleteNotePermanently(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+    },
+  })
+}
+
+export function useBatchTrashNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      batchTrashNotes(ids)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+    },
+  })
+}
+
+export function useBatchDeleteNotesPermanently() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      batchDeleteNotesPermanently(ids)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })

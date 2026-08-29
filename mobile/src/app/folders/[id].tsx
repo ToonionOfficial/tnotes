@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { ChevronLeft } from "lucide-react-native"
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from "react-native"
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
@@ -11,6 +11,8 @@ import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { useFolder } from "@/hooks/useFolders"
 import {
+  useBatchDeleteNotesPermanently,
+  useBatchTrashNotes,
   useDeleteNotePermanently,
   useNotes,
   useRestoreNote,
@@ -54,6 +56,8 @@ export default function FolderNotesScreen() {
   const trashNote = useTrashNote()
   const restoreNote = useRestoreNote()
   const deleteNotePermanently = useDeleteNotePermanently()
+  const batchTrashNotes = useBatchTrashNotes()
+  const batchDeleteNotesPermanently = useBatchDeleteNotesPermanently()
 
   const toggleSelectNote = useCallback((noteId: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -77,6 +81,44 @@ export default function FolderNotesScreen() {
       return !prev
     })
   }, [])
+
+  const handleBatchDeleteNotes = useCallback(() => {
+    const ids = Array.from(selectedNoteIds)
+    if (ids.length === 0) return
+
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    const count = ids.length
+
+    if (isTrash) {
+      Alert.alert(
+        `Delete ${count} ${count === 1 ? "Note" : "Notes"} Permanently?`,
+        "This action cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: `Delete ${count === 1 ? "Note" : "Notes"}`,
+            style: "destructive",
+            onPress: () => {
+              batchDeleteNotesPermanently.mutate(ids)
+              setSelectedNoteIds(new Set())
+            },
+          },
+        ],
+      )
+    } else {
+      Alert.alert(`Move ${count} ${count === 1 ? "Note" : "Notes"} to Trash?`, "", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: () => {
+            batchTrashNotes.mutate(ids)
+            setSelectedNoteIds(new Set())
+          },
+        },
+      ])
+    }
+  }, [batchDeleteNotesPermanently, batchTrashNotes, isTrash, selectedNoteIds])
 
   const handleTogglePin = useCallback(
     (noteId: string) => {
@@ -225,6 +267,13 @@ export default function FolderNotesScreen() {
               ? [
                   {
                     type: "button",
+                    label: selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete",
+                    tintColor: selectedNoteIds.size > 0 ? "#FF6B6B" : "#8E8C99",
+                    sharesBackground: true,
+                    onPress: handleBatchDeleteNotes,
+                  },
+                  {
+                    type: "button",
                     label: "Done",
                     tintColor: "#ffffff",
                     sharesBackground: true,
@@ -246,9 +295,30 @@ export default function FolderNotesScreen() {
             Platform.OS !== "ios"
               ? () =>
                   isEditing ? (
-                    <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                      <Text className="text-[17px] font-semibold text-white">Done</Text>
-                    </Pressable>
+                    <View className="flex-row items-center">
+                      <Pressable
+                        onPress={handleBatchDeleteNotes}
+                        disabled={selectedNoteIds.size === 0}
+                        hitSlop={8}
+                        className="px-2 py-1 active:opacity-60"
+                      >
+                        <Text
+                          className={`text-[17px] font-medium ${
+                            selectedNoteIds.size > 0 ? "text-[#FF6B6B]" : "text-white/40"
+                          }`}
+                        >
+                          {selectedNoteIds.size > 0 ? `Delete (${selectedNoteIds.size})` : "Delete"}
+                        </Text>
+                      </Pressable>
+                      <View className="mx-1 h-3.5 w-px bg-white/20" />
+                      <Pressable
+                        onPress={toggleEditMode}
+                        hitSlop={8}
+                        className="px-2 py-1 active:opacity-60"
+                      >
+                        <Text className="text-[17px] font-semibold text-white">Done</Text>
+                      </Pressable>
+                    </View>
                   ) : noteCount > 0 ? (
                     <Pressable
                       onPress={toggleEditMode}
