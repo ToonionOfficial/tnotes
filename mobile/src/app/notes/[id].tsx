@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useRef } from "react"
 import { ActivityIndicator, View } from "react-native"
 import { NoteEditor } from "@/components/editor/NoteEditor"
+import { useFolder } from "@/hooks/useFolders"
 import { useCreateNote, useNote, useUpdateNote } from "@/hooks/useNotes"
 import { extractTitle } from "@/utils/text"
 
@@ -14,6 +15,8 @@ export default function NoteScreen() {
   const isNew = id === "new"
 
   const { data: note, isLoading } = useNote(id)
+  const activeFolderId = note?.folderId ?? folderId ?? null
+  const { data: currentFolder } = useFolder(activeFolderId)
   const createNoteMutation = useCreateNote()
   const updateNoteMutation = useUpdateNote()
 
@@ -55,7 +58,7 @@ export default function NoteScreen() {
     <NoteEditor
       initialContent={note?.body ?? ""}
       autofocus={isNew}
-      headerTitle="Notes"
+      headerTitle={currentFolder?.name ?? "All Notes"}
       onSave={handleSave}
       onBack={() => router.back()}
       onDone={() => router.back()}

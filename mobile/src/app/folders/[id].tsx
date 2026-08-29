@@ -83,7 +83,7 @@ export default function FolderNotesScreen() {
   }, [])
 
   const { data: folder } = useFolder(folderId ?? null, isReadyToLoad)
-  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
+  const title = isAll ? "All Notes" : isTrash ? "Trash" : folder?.name || "All Notes"
 
   const {
     data: notePages,

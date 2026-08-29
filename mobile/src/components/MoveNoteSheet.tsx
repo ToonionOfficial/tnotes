@@ -110,7 +110,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
             >
               <View className="flex-row items-center gap-3">
                 <FolderOutline size={20} color="#CABEFF" />
-                <Text className="text-[15px] font-medium text-white">Notes (No folder)</Text>
+                <Text className="text-[15px] font-medium text-white">All Notes (No folder)</Text>
               </View>
               {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
             </Pressable>

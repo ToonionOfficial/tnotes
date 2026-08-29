@@ -261,7 +261,7 @@ export default function FoldersScreen() {
           }}
         >
           <VirtualFolderCard
-            title="Notes"
+            title="All Notes"
             icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
             count={getFolderCount(null)}
             isEditing={isEditing}
