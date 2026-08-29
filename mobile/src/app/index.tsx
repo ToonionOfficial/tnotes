@@ -86,7 +86,7 @@ export default function FoldersScreen() {
                 <View className="size-8 items-center justify-center rounded-lg">
                   <FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />
                 </View>
-                <Text className="text-[17px] text-foreground">All Notes</Text>
+                <Text className="text-[17px] text-foreground">Notes</Text>
               </View>
               <View className="flex-row items-center gap-1.5">
                 <Text className="text-[15px] text-muted-foreground">{getFolderCount(null)}</Text>

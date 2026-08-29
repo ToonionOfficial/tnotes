@@ -37,7 +37,7 @@ export default function FolderNotesScreen() {
   const folderId = isAll || isTrash ? undefined : id
 
   const { data: folder } = useFolder(folderId ?? null)
-  const title = isAll ? "All Notes" : isTrash ? "Trash" : folder?.name || "Notes"
+  const title = isAll ? "Notes" : isTrash ? "Trash" : folder?.name || "Notes"
 
   const [searchValue, setSearchValue] = useState("")
   const debouncedSearch = useDebouncedValue(searchValue, 150)
