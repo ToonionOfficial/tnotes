@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tnotes_core::{Connection, sync::envelope::Change};
 use tokio::sync::{Mutex, broadcast};
 
-/// Broadcast message sent over WebSockets when changes occur
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsBroadcastMessage {
     pub sender_device_id: String,
@@ -11,7 +10,16 @@ pub struct WsBroadcastMessage {
     pub changes: Vec<Change>,
 }
 
-/// Server runtime configuration loaded from environment variables
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingPairing {
+    pub code: String,
+    pub token: String,
+    pub user_id: String,
+    pub username: String,
+    pub device_id: String,
+    pub expires_at: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     pub host: String,
@@ -49,23 +57,23 @@ impl ServerConfig {
     }
 }
 
-/// Shared application state injected into all Axum route handlers
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub ws_sender: broadcast::Sender<WsBroadcastMessage>,
     pub config: Arc<ServerConfig>,
+    pub pending_pairings: Arc<Mutex<HashMap<String, PendingPairing>>>,
 }
 
 impl AppState {
     pub fn new(conn: Connection, config: ServerConfig) -> Self {
-        // Buffer up to 128 broadcast messages
         let (ws_sender, _) = broadcast::channel(128);
 
         Self {
             db: Arc::new(Mutex::new(conn)),
             ws_sender,
             config: Arc::new(config),
+            pending_pairings: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

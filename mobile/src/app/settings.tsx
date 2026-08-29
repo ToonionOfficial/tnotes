@@ -12,7 +12,12 @@ import {
   SyncServerSection,
 } from "@/components/settings"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
-import { usePairServerMutation, useSyncState, useUnpairServerMutation } from "@/hooks/useSyncState"
+import {
+  usePairServerMutation,
+  useSyncNowMutation,
+  useSyncState,
+  useUnpairServerMutation,
+} from "@/hooks/useSyncState"
 
 export default function SettingsScreen() {
   const router = useRouter()
@@ -23,6 +28,7 @@ export default function SettingsScreen() {
   const { data: stats } = useDatabaseStats()
   const pairMutation = usePairServerMutation()
   const unpairMutation = useUnpairServerMutation()
+  const syncNowMutation = useSyncNowMutation()
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
@@ -52,11 +58,26 @@ export default function SettingsScreen() {
     try {
       await pairMutation.mutateAsync(payload)
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Saved credentials, but could not immediately verify the server. Sync will retry when online."
+      Alert.alert("Pairing Error", msg)
+    }
+  }
+
+  const handleSyncNow = async () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    try {
+      const result = await syncNowMutation.mutateAsync()
+      if (result.success) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      } else {
+        Alert.alert("Sync Notice", result.error ?? "Failed to complete sync.")
+      }
     } catch {
-      Alert.alert(
-        "Pairing Warning",
-        "Saved credentials, but could not immediately verify the server. Sync will retry when online.",
-      )
+      Alert.alert("Sync Error", "Could not reach the sync server.")
     }
   }
 
@@ -123,7 +144,9 @@ export default function SettingsScreen() {
           <SyncServerSection
             isConnected={syncStatus?.isConnected}
             serverUrl={syncStatus?.serverUrl}
+            isSyncing={syncNowMutation.isPending}
             onPressConnectServer={() => setIsPairModalOpen(true)}
+            onPressSyncNow={handleSyncNow}
             onPressDisconnect={handleDisconnect}
           />
         )}

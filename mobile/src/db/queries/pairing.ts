@@ -55,43 +55,87 @@ export async function getSyncStatusAsync(): Promise<SyncStatus> {
 
 export async function pairWithServerAsync(payload: QrPairPayload): Promise<SyncStatus> {
   const serverUrl = normalizeServerUrl(payload.url)
-  const token = payload.token.trim()
-  const deviceId = payload.device_id || payload.deviceId || getOrCreateDeviceId()
-  const userId = payload.user_id || payload.userId || "synced_user"
-  const username = payload.username?.trim() || "Synced User"
+  const inputCodeOrToken = payload.token.trim() || payload.pairing_code?.trim() || ""
+  const is6DigitCode = /^\d{6}$/.test(inputCodeOrToken)
+
+  let activeToken = inputCodeOrToken
+  let activeDeviceId = payload.device_id || payload.deviceId || getOrCreateDeviceId()
+  let activeUserId = payload.user_id || payload.userId || "synced_user"
+  let activeUsername = payload.username?.trim() || "Synced User"
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 6000)
+
+  try {
+    if (is6DigitCode) {
+      const claimRes = await fetch(`${serverUrl}/api/pair/claim`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: inputCodeOrToken,
+          device_name: "Mobile App",
+          platform: "mobile",
+        }),
+      })
+
+      if (!claimRes.ok) {
+        const errorText = await claimRes.text()
+        throw new Error(errorText || "Invalid or expired pairing code")
+      }
+
+      const claimData = (await claimRes.json()) as {
+        token: string
+        user_id: string
+        username: string
+        device_id: string
+      }
+
+      activeToken = claimData.token
+      activeUserId = claimData.user_id
+      activeUsername = claimData.username
+      activeDeviceId = claimData.device_id
+    } else {
+      const meRes = await fetch(`${serverUrl}/api/me`, {
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+          "X-Device-ID": activeDeviceId,
+        },
+      })
+
+      if (meRes.ok) {
+        const meData = (await meRes.json()) as {
+          user_id: string
+          username: string
+        }
+        if (meData.username) activeUsername = meData.username
+        if (meData.user_id) activeUserId = meData.user_id
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   setSyncMeta("server_url", serverUrl)
-  setSyncMeta("auth_token", token)
-  setSyncMeta("device_id", deviceId)
-  setSyncMeta("user_id", userId)
-  setSyncMeta("username", username)
+  setSyncMeta("auth_token", activeToken)
+  setSyncMeta("device_id", activeDeviceId)
+  setSyncMeta("user_id", activeUserId)
+  setSyncMeta("username", activeUsername)
   setSyncMeta("paired_at", String(Date.now()))
 
-  const existingUser = db.select().from(users).where(eq(users.id, userId)).get()
+  const existingUser = db.select().from(users).where(eq(users.id, activeUserId)).get()
   if (!existingUser) {
     db.insert(users)
       .values({
-        id: userId,
-        username,
+        id: activeUserId,
+        username: activeUsername,
         createdAt: Date.now(),
       })
       .run()
   } else {
-    db.update(users).set({ username }).where(eq(users.id, userId)).run()
+    db.update(users).set({ username: activeUsername }).where(eq(users.id, activeUserId)).run()
   }
-
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 4000)
-    await fetch(`${serverUrl}/api/health`, {
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "X-Device-ID": deviceId,
-      },
-    })
-    clearTimeout(timeoutId)
-  } catch {}
 
   return getSyncStatusAsync()
 }

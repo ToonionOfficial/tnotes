@@ -9,10 +9,15 @@ use tnotes_core::{
     Ulid,
     auth::token::{create_session_for_device, generate_pairing_code},
     db::{devices::upsert_device, sessions::create_session, users::get_user_by_id},
-    models::device::Device,
+    models::{current_time_ms, device::Device},
 };
 
-use crate::{middleware::AuthenticatedDevice, state::AppState};
+use crate::{
+    middleware::AuthenticatedDevice,
+    state::{AppState, PendingPairing},
+};
+
+const PAIRING_CODE_TTL_MS: i64 = 5 * 60 * 1000; // 5 minutes
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PairingDataResponse {
@@ -39,12 +44,41 @@ pub struct QrPayload {
     pub expires_at: i64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PairClaimRequest {
+    pub code: String,
+    pub device_name: Option<String>,
+    pub platform: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PairClaimResponse {
+    pub ok: bool,
+    pub token: String,
+    pub user_id: String,
+    pub username: String,
+    pub device_id: String,
+    pub expires_at: i64,
+}
+
+fn get_lan_ip() -> Option<String> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    let addr = socket.local_addr().ok()?;
+    let ip = addr.ip();
+    if ip.is_loopback() || ip.is_unspecified() {
+        None
+    } else {
+        Some(ip.to_string())
+    }
+}
+
 fn resolve_server_url(headers: &HeaderMap, configured_url: &str) -> String {
-    let is_local_default = configured_url.contains("localhost")
+    let is_configured_local = configured_url.contains("localhost")
         || configured_url.contains("127.0.0.1")
         || configured_url.contains("0.0.0.0");
 
-    if !is_local_default {
+    if !is_configured_local && !configured_url.is_empty() {
         return configured_url.to_string();
     }
 
@@ -57,7 +91,30 @@ fn resolve_server_url(headers: &HeaderMap, configured_url: &str) -> String {
             .get("x-forwarded-proto")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("http");
+
+        let is_host_local = host.starts_with("localhost")
+            || host.starts_with("127.0.0.1")
+            || host.starts_with("0.0.0.0");
+
+        if is_host_local {
+            let port = host.split(':').nth(1).unwrap_or("8787");
+            if let Some(lan_ip) = get_lan_ip() {
+                return format!("http://{}:{}", lan_ip, port);
+            }
+        }
+
         return format!("{}://{}", proto, host);
+    }
+
+    if is_configured_local {
+        if let Some(lan_ip) = get_lan_ip() {
+            let port = configured_url
+                .split(':')
+                .nth(2)
+                .unwrap_or("8787")
+                .trim_matches('/');
+            return format!("http://{}:{}", lan_ip, port);
+        }
     }
 
     configured_url.to_string()
@@ -71,20 +128,38 @@ pub async fn pair_handler(
     let new_device_id = Ulid::generate().to_string();
     let session = create_session_for_device(&new_device_id, None);
     let pairing_code = generate_pairing_code();
+    let now = current_time_ms();
+    let code_expires_at = now + PAIRING_CODE_TTL_MS;
 
     let conn = state.db.lock().await;
 
-    // Get the username for the authenticated owner
     let user = get_user_by_id(&conn, &auth.user_id)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::UNAUTHORIZED, "User not found".into()))?;
 
-    let device = Device::new(&new_device_id, "Paired Device", "mobile", &auth.user_id);
+    let device = Device::new(&new_device_id, "Paired Mobile", "mobile", &auth.user_id);
     upsert_device(&conn, &device)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     create_session(&conn, &session)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // Register pending pairing in server state with 5-minute expiration
+    {
+        let mut pairings = state.pending_pairings.lock().await;
+        pairings.retain(|_, v| v.expires_at > now);
+        pairings.insert(
+            pairing_code.clone(),
+            PendingPairing {
+                code: pairing_code.clone(),
+                token: session.token.clone(),
+                user_id: auth.user_id.clone(),
+                username: user.username.clone(),
+                device_id: new_device_id.clone(),
+                expires_at: code_expires_at,
+            },
+        );
+    }
 
     let server_url = resolve_server_url(&headers, &state.config.server_url);
 
@@ -96,7 +171,7 @@ pub async fn pair_handler(
         user_id: auth.user_id.clone(),
         username: user.username.clone(),
         pairing_code: pairing_code.clone(),
-        expires_at: session.expires_at,
+        expires_at: code_expires_at,
     };
 
     let qr_payload = serde_json::to_string(&qr_payload_struct)
@@ -120,6 +195,47 @@ pub async fn pair_handler(
         pairing_code,
         qr_svg,
         qr_payload,
-        expires_at: session.expires_at,
+        expires_at: code_expires_at,
+    }))
+}
+
+pub async fn pair_claim_handler(
+    State(state): State<AppState>,
+    Json(req): Json<PairClaimRequest>,
+) -> Result<Json<PairClaimResponse>, (StatusCode, String)> {
+    let code = req.code.trim();
+    let now = current_time_ms();
+
+    let mut pairings = state.pending_pairings.lock().await;
+    pairings.retain(|_, v| v.expires_at > now);
+
+    let pending = pairings.remove(code).ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Invalid or expired 6-digit pairing code".to_string(),
+        )
+    })?;
+
+    if now > pending.expires_at {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Pairing code has expired. Please refresh the code on your dashboard.".to_string(),
+        ));
+    }
+
+    if let Some(device_name) = req.device_name {
+        let platform = req.platform.unwrap_or_else(|| "mobile".into());
+        let conn = state.db.lock().await;
+        let device = Device::new(&pending.device_id, &device_name, &platform, &pending.user_id);
+        let _ = upsert_device(&conn, &device);
+    }
+
+    Ok(Json(PairClaimResponse {
+        ok: true,
+        token: pending.token,
+        user_id: pending.user_id,
+        username: pending.username,
+        device_id: pending.device_id,
+        expires_at: pending.expires_at,
     }))
 }
