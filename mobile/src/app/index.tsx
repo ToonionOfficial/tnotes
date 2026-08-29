@@ -37,7 +37,12 @@ export default function FoldersScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
-  const { data: folderPages, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteFolders()
+  const {
+    data: folderPages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteFolders({ parentId: null })
   const foldersList = useMemo(
     () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
     [folderPages],

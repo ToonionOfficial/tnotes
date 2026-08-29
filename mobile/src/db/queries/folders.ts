@@ -197,38 +197,60 @@ export function deleteFolder(id: string): void {
 
   const deviceId = getOrCreateDeviceId()
   const now = Date.now()
-  const nextVersion = existing.version + 1
 
-  const updatedFolder: Folder = {
-    ...existing,
-    deletedAt: now,
-    version: nextVersion,
-    updatedAt: now,
-    deviceId,
+  // Collect all descendant folder IDs recursively
+  const allFolderIds: string[] = [id]
+  const queue: string[] = [id]
+  while (queue.length > 0) {
+    const currentId = queue.shift()
+    if (!currentId) break
+    const children = db
+      .select()
+      .from(folders)
+      .where(and(eq(folders.parentId, currentId), isNull(folders.deletedAt)))
+      .all()
+    for (const child of children) {
+      allFolderIds.push(child.id)
+      queue.push(child.id)
+    }
   }
 
-  db.update(folders).set(updatedFolder).where(eq(folders.id, id)).run()
-  recordLocalChange("folder", id, nextVersion, now, true, updatedFolder)
+  for (const folderId of allFolderIds) {
+    const folder = getFolderById(folderId)
+    if (!folder || folder.deletedAt !== null) continue
 
-  // Soft-delete and trash all active child notes in this folder
-  const childNotes = db
-    .select()
-    .from(notes)
-    .where(and(eq(notes.folderId, id), eq(notes.trashed, false)))
-    .all()
-
-  for (const note of childNotes) {
-    const nextNoteVersion = note.version + 1
-    const updatedNote: Note = {
-      ...note,
-      trashed: true,
+    const nextVersion = folder.version + 1
+    const updatedFolder: Folder = {
+      ...folder,
       deletedAt: now,
-      version: nextNoteVersion,
+      version: nextVersion,
       updatedAt: now,
       deviceId,
     }
-    db.update(notes).set(updatedNote).where(eq(notes.id, note.id)).run()
-    recordLocalChange("note", note.id, nextNoteVersion, now, true, updatedNote)
+
+    db.update(folders).set(updatedFolder).where(eq(folders.id, folderId)).run()
+    recordLocalChange("folder", folderId, nextVersion, now, true, updatedFolder)
+
+    // Soft-delete and trash all active child notes in this folder
+    const childNotes = db
+      .select()
+      .from(notes)
+      .where(and(eq(notes.folderId, folderId), eq(notes.trashed, false)))
+      .all()
+
+    for (const note of childNotes) {
+      const nextNoteVersion = note.version + 1
+      const updatedNote: Note = {
+        ...note,
+        trashed: true,
+        deletedAt: now,
+        version: nextNoteVersion,
+        updatedAt: now,
+        deviceId,
+      }
+      db.update(notes).set(updatedNote).where(eq(notes.id, note.id)).run()
+      recordLocalChange("note", note.id, nextNoteVersion, now, true, updatedNote)
+    }
   }
 
   // Ensure any orphaned soft-deleted notes have trashed = true
