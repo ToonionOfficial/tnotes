@@ -249,8 +249,8 @@ export default function FoldersScreen() {
                   {
                     type: "button",
                     label: "Done",
-                    variant: "done",
-                    tintColor: "#CABEFF",
+                    tintColor: "#ffffff",
+                    sharesBackground: true,
                     onPress: toggleEditMode,
                   },
                 ]
@@ -286,7 +286,7 @@ export default function FoldersScreen() {
               ? () =>
                   isEditing ? (
                     <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                      <Text className="text-[17px] font-semibold text-primary">Done</Text>
+                      <Text className="text-[17px] font-semibold text-white">Done</Text>
                     </Pressable>
                   ) : (
                     <View className="flex-row items-center">
