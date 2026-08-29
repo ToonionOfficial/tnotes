@@ -10,10 +10,12 @@ import {
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
+import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 
 export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
+  const { data: stats } = useDatabaseStats()
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
@@ -77,7 +79,7 @@ export default function SettingsScreen() {
         {matches.profile && <ProfileSection />}
         {matches.sync && <SyncServerSection isConnected={false} />}
         {matches.appearance && <AppearanceSection />}
-        {matches.data && <DataStorageSection />}
+        {matches.data && <DataStorageSection stats={stats} />}
         {matches.about && <AboutSection />}
 
         {!hasAnyMatch && (
