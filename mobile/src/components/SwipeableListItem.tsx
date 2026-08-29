@@ -7,11 +7,11 @@ import ReanimatedSwipeable, {
 } from "react-native-gesture-handler/ReanimatedSwipeable"
 import Animated, {
   interpolate,
-  runOnJS,
   type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
 } from "react-native-reanimated"
+import { scheduleOnRN } from "react-native-worklets"
 
 export interface SwipeAction {
   label: string
@@ -57,10 +57,10 @@ function SwipeActionView({
         current >= SWIPE_TO_CONFIRM_DISTANCE &&
         (previous === null || previous < SWIPE_TO_CONFIRM_DISTANCE)
       ) {
-        runOnJS(triggerHaptic)()
+        scheduleOnRN(triggerHaptic)
       }
       if (current > 0) {
-        runOnJS(onDragUpdate)(current)
+        scheduleOnRN(onDragUpdate, current)
       }
     },
     [triggerHaptic, onDragUpdate],
@@ -77,7 +77,7 @@ function SwipeActionView({
 
   return (
     <Animated.View
-      className="w-[76px] items-center justify-center"
+      className="w-19 items-center justify-center"
       style={[
         {
           backgroundColor: action.color,
