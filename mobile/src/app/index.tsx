@@ -162,7 +162,7 @@ export default function FoldersScreen() {
                           >
                             <Text className="text-[17px] font-medium text-white">Edit</Text>
                           </Pressable>
-                          <View className="mx-1 h-3.5 w-[1px] bg-white/20" />
+                          <View className="mx-1 h-3.5 w-px bg-white/20" />
                         </>
                       )}
                       <Pressable
