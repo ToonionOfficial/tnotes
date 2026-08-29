@@ -27,6 +27,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/health", get(routes::health::health_check))
         .route("/api/setup/status", get(routes::auth::setup_status_handler))
         .route("/api/setup", post(routes::auth::setup_handler))
+        .route("/api/register", post(routes::auth::register_handler))
         .route("/api/login", post(routes::auth::login_handler))
         .route("/api/pair/claim", post(routes::pair::pair_claim_handler))
         .route("/api/pair/status", get(routes::pair::pair_status_handler))

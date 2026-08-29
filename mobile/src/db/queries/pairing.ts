@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { db } from "../index"
-import { folders, notes, syncMeta, users } from "../schema"
-import { ensureUser, getOrCreateDeviceId, getSyncMeta, setSyncMeta } from "./sync"
+import { folders, localChanges, notes, syncMeta, users } from "../schema"
+import { getOrCreateDeviceId, getSyncMeta, setSyncMeta } from "./sync"
 
 export interface QrPairPayload {
   v?: number
@@ -128,6 +128,8 @@ export async function pairWithServerAsync(payload: QrPairPayload): Promise<SyncS
     clearTimeout(timeoutId)
   }
 
+  const previousUserId = getSyncMeta("user_id")
+
   setSyncMeta("server_url", serverUrl)
   setSyncMeta("auth_token", activeToken)
   setSyncMeta("device_id", activeDeviceId)
@@ -152,9 +154,17 @@ export async function pairWithServerAsync(payload: QrPairPayload): Promise<SyncS
     db.update(users).set({ username: activeUsername }).where(eq(users.id, activeUserId)).run()
   }
 
-  // Migrate local notes and folders created under default_user to the authenticated user ID
-  db.update(notes).set({ userId: activeUserId }).where(eq(notes.userId, "default_user")).run()
-  db.update(folders).set({ userId: activeUserId }).where(eq(folders.userId, "default_user")).run()
+  // If pairing to a DIFFERENT authenticated user account, wipe local cache so new account starts clean
+  if (previousUserId && previousUserId !== "default_user" && previousUserId !== activeUserId) {
+    db.delete(notes).run()
+    db.delete(folders).run()
+    db.delete(localChanges).run()
+    db.delete(syncMeta).where(eq(syncMeta.key, "last_synced_at")).run()
+  } else if (previousUserId === "default_user" || !previousUserId) {
+    // Migrate local notes and folders created under default_user to the authenticated user ID
+    db.update(notes).set({ userId: activeUserId }).where(eq(notes.userId, "default_user")).run()
+    db.update(folders).set({ userId: activeUserId }).where(eq(folders.userId, "default_user")).run()
+  }
 
   return getSyncStatusAsync()
 }
@@ -164,10 +174,6 @@ export async function unpairServerAsync(): Promise<SyncStatus> {
   db.delete(syncMeta).where(eq(syncMeta.key, "auth_token")).run()
   db.delete(syncMeta).where(eq(syncMeta.key, "paired_at")).run()
   db.delete(syncMeta).where(eq(syncMeta.key, "last_synced_at")).run()
-
-  ensureUser()
-  setSyncMeta("user_id", "default_user")
-  setSyncMeta("username", "Local User")
 
   return getSyncStatusAsync()
 }

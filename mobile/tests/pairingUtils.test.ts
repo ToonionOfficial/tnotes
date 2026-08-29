@@ -42,4 +42,34 @@ describe("Pairing Utilities", () => {
       expect(is6DigitCode("")).toBe(false)
     })
   })
+
+  describe("Account Switching Decision Logic", () => {
+    type SwitchAction = "wipe_and_resync" | "migrate_offline" | "resume_sync"
+
+    const determineSwitchAction = (
+      previousUserId: string | null,
+      newUserId: string,
+    ): SwitchAction => {
+      if (previousUserId && previousUserId !== "default_user" && previousUserId !== newUserId) {
+        return "wipe_and_resync"
+      }
+      if (previousUserId === "default_user" || !previousUserId) {
+        return "migrate_offline"
+      }
+      return "resume_sync"
+    }
+
+    it("resumes sync when reconnecting to the same account", () => {
+      expect(determineSwitchAction("user_alice", "user_alice")).toBe("resume_sync")
+    })
+
+    it("migrates offline notes on initial pairing from default_user", () => {
+      expect(determineSwitchAction("default_user", "user_alice")).toBe("migrate_offline")
+      expect(determineSwitchAction(null, "user_alice")).toBe("migrate_offline")
+    })
+
+    it("wipes previous user local cache when switching to a different account", () => {
+      expect(determineSwitchAction("user_alice", "user_bob")).toBe("wipe_and_resync")
+    })
+  })
 })

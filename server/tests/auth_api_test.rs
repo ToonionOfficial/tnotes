@@ -174,4 +174,62 @@ async fn test_auth_api_flow() {
     let login_res: LoginResponse = serde_json::from_slice(&body).unwrap();
     assert_eq!(login_res.device_id, "pixel_1");
     assert_eq!(login_res.token.len(), 64);
+
+    // 9. Register duplicate username -> 409 Conflict
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({ "username": "admin", "password": "password456!" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CONFLICT);
+
+    // 10. Register new 2nd user account -> 201 Created
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({ "username": "alharith", "password": "securepassword123" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+
+    // 11. Login as 2nd user -> 200 OK
+    let res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/login")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "username": "alharith",
+                        "password": "securepassword123",
+                        "device_id": "iphone_1",
+                        "device_name": "iPhone 16 Pro",
+                        "platform": "mobile"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
 }
