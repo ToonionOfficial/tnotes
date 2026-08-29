@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { computeRecursiveCounts } from "../src/db/queries/notes"
+import type { Folder } from "../src/db/schema"
 import { normalizePayloadForSync } from "../src/services/sync/syncEngine"
+import { buildFolderTree } from "../src/utils/folderTree"
 
 describe("Nested Folders & Hierarchical Actions", () => {
   describe("Tree Hierarchy & Filtering", () => {
@@ -11,7 +13,7 @@ describe("Nested Folders & Hierarchical Actions", () => {
       { id: "sub_1_2", parentId: "root_1", name: "Meetings" },
       { id: "sub_1_1_1", parentId: "sub_1_1", name: "Q3 Launch" },
       { id: "sub_2_1", parentId: "root_2", name: "Finance" },
-    ]
+    ] as Folder[]
 
     it("identifies root level folders (parentId === null)", () => {
       const rootFolders = sampleFolders.filter((f) => f.parentId === null)
@@ -24,6 +26,26 @@ describe("Nested Folders & Hierarchical Actions", () => {
 
       const projectSubfolders = sampleFolders.filter((f) => f.parentId === "sub_1_1")
       expect(projectSubfolders.map((f) => f.name)).toEqual(["Q3 Launch"])
+    })
+
+    it("builds a pre-order depth-first tree with depth indices for Move Sheet", () => {
+      const tree = buildFolderTree(sampleFolders)
+
+      // Expected order:
+      // Work (depth 0)
+      //   -> Projects (depth 1)
+      //     -> Q3 Launch (depth 2)
+      //   -> Meetings (depth 1)
+      // Personal (depth 0)
+      //   -> Finance (depth 1)
+      expect(tree.map((t) => ({ id: t.folder.id, depth: t.depth }))).toEqual([
+        { id: "root_1", depth: 0 },
+        { id: "sub_1_1", depth: 1 },
+        { id: "sub_1_1_1", depth: 2 },
+        { id: "sub_1_2", depth: 1 },
+        { id: "root_2", depth: 0 },
+        { id: "sub_2_1", depth: 1 },
+      ])
     })
   })
 
@@ -97,8 +119,14 @@ describe("Nested Folders & Hierarchical Actions", () => {
         { id: "f_other_root", parentId: null, deletedAt: null },
       ]
 
+      type FolderRecord = {
+        id: string
+        parentId: string | null
+        deletedAt: number | null
+      }
+
       // Recursive descendant collection logic used in deleteFolder
-      function collectDescendantIds(targetId: string, foldersList: typeof allFolders): string[] {
+      function collectDescendantIds(targetId: string, foldersList: FolderRecord[]): string[] {
         const collected: string[] = [targetId]
         const queue: string[] = [targetId]
         while (queue.length > 0) {
