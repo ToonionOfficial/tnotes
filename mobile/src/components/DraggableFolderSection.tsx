@@ -8,6 +8,7 @@ import Animated, {
   interpolate,
   type SharedValue,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated"
@@ -47,14 +48,12 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   onDelete,
   onReorder,
 }: DraggableFolderItemProps) {
-  const editProgress = useSharedValue(isEditing ? 1 : 0)
-
-  useEffect(() => {
-    editProgress.value = withTiming(isEditing ? 1 : 0, {
+  const editProgress = useDerivedValue(() => {
+    return withTiming(isEditing ? 1 : 0, {
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     })
-  }, [isEditing, editProgress])
+  }, [isEditing])
 
   const triggerLiftHaptic = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)

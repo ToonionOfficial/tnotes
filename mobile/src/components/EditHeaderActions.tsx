@@ -1,6 +1,5 @@
 import { Button, Host, Icon } from "@expo/ui"
 import {
-  background,
   buttonBorderShape,
   buttonStyle,
   controlSize,
@@ -54,9 +53,9 @@ export function EditHeaderActions({
 
   if (Platform.OS === "ios") {
     return (
-      <Host matchContents ignoreSafeArea="all">
-        <View className="flex-row items-center gap-2">
-          {/* Delete Button */}
+      <View className="flex-row items-center gap-2.5">
+        {/* Delete Button */}
+        <Host matchContents ignoreSafeArea="all">
           <Button
             variant="filled"
             onPress={() => {
@@ -67,17 +66,18 @@ export function EditHeaderActions({
             modifiers={[
               buttonStyle("glass"),
               buttonBorderShape("circle"),
-              controlSize("regular"),
+              controlSize("large"),
               disabledModifier(!isSelected),
-              background(currentDeleteBg),
               foregroundStyle(currentDeleteIcon),
               tint(currentDeleteIcon),
             ]}
           >
-            <Icon name={TRASH_ICON} color={currentDeleteIcon} size={16} />
+            <Icon name={TRASH_ICON} color={currentDeleteIcon} size={18} />
           </Button>
+        </Host>
 
-          {/* Done Button */}
+        {/* Done Button */}
+        <Host matchContents ignoreSafeArea="all">
           <Button
             variant="filled"
             label="Done"
@@ -85,19 +85,19 @@ export function EditHeaderActions({
             modifiers={[
               buttonStyle("glass"),
               buttonBorderShape("capsule"),
-              controlSize("regular"),
-              background(currentDoneBg),
+              controlSize("large"),
+              tint(currentDoneText),
               foregroundStyle(currentDoneText),
             ]}
           />
-        </View>
-      </Host>
+        </Host>
+      </View>
     )
   }
 
   // Android Fallback
   return (
-    <View className="flex-row items-center gap-2">
+    <View className="flex-row items-center gap-2.5">
       <Pressable
         onPress={() => {
           if (isSelected) onDelete()
@@ -107,9 +107,9 @@ export function EditHeaderActions({
         style={{
           backgroundColor: currentDeleteBg,
         }}
-        className="size-9 items-center justify-center rounded-full active:opacity-60"
+        className="size-11 items-center justify-center rounded-full active:opacity-60"
       >
-        <Trash2 size={18} color={currentDeleteIcon} />
+        <Trash2 size={20} color={currentDeleteIcon} />
       </Pressable>
       <Pressable
         onPress={onDone}
@@ -117,7 +117,7 @@ export function EditHeaderActions({
         style={{
           backgroundColor: currentDoneBg,
         }}
-        className="h-9 items-center justify-center rounded-full px-4 active:opacity-60"
+        className="h-11 items-center justify-center rounded-full px-4 active:opacity-60"
       >
         <Text style={{ color: currentDoneText }} className="text-[15px] font-semibold">
           Done
