@@ -177,8 +177,11 @@ export async function executeSyncAsync(): Promise<SyncResult> {
       setSyncMeta("last_sync_at", String(data.server_time))
       setSyncMeta("last_synced_at", String(Date.now()))
 
-      // If we finished all pending items or started with empty list, finish
-      if (pendingRows.length <= SYNC_BATCH_SIZE) {
+      const hasMoreRemote = Boolean(data.has_more)
+      const hasMoreLocal = pendingRows.length > SYNC_BATCH_SIZE
+
+      // If no more remote pages and no more local changes to upload, complete sync
+      if (!hasMoreRemote && !hasMoreLocal) {
         break
       }
     }
