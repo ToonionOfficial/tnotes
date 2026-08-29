@@ -1,7 +1,7 @@
 import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft, Trash2 } from "lucide-react-native"
+import { ChevronLeft } from "lucide-react-native"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
@@ -17,12 +17,14 @@ import { MoveNoteSheet, type MoveNoteSheetRef } from "@/components/MoveNoteSheet
 import { NoteActionSheet, type NoteActionSheetRef } from "@/components/NoteActionSheet"
 import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
+import { NotesEditBottomBar } from "@/components/NotesEditBottomBar"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import { useFolder } from "@/hooks/useFolders"
 import {
   useBatchDeleteNotesPermanently,
+  useBatchMoveNotes,
   useBatchTrashNotes,
   useDeleteNotePermanently,
   useNotes,
@@ -86,6 +88,7 @@ export default function FolderNotesScreen() {
   const notesList = useMemo(() => notePages?.pages.flatMap((page) => page.notes) ?? [], [notePages])
   const togglePinNote = useTogglePinNote()
   const updateNoteMutation = useUpdateNote()
+  const batchMoveNotes = useBatchMoveNotes()
   const trashNote = useTrashNote()
   const restoreNote = useRestoreNote()
   const deleteNotePermanently = useDeleteNotePermanently()
@@ -103,6 +106,14 @@ export default function FolderNotesScreen() {
       }
       return next
     })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedNoteIds(new Set(notesList.map((n) => n.id)))
+  }, [notesList])
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedNoteIds(new Set())
   }, [])
 
   const toggleEditMode = useCallback(() => {
@@ -203,14 +214,21 @@ export default function FolderNotesScreen() {
 
   const handleSelectTargetFolder = useCallback(
     (targetFolderId: string | null) => {
-      if (actionNote) {
+      if (isEditing && selectedNoteIds.size > 0) {
+        batchMoveNotes.mutate({
+          ids: Array.from(selectedNoteIds),
+          folderId: targetFolderId,
+        })
+        setSelectedNoteIds(new Set())
+        setIsEditing(false)
+      } else if (actionNote) {
         updateNoteMutation.mutate({
           id: actionNote.id,
           input: { folderId: targetFolderId },
         })
       }
     },
-    [actionNote, updateNoteMutation],
+    [actionNote, batchMoveNotes, isEditing, selectedNoteIds, updateNoteMutation],
   )
 
   const flatItems = useMemo(() => {
@@ -310,6 +328,15 @@ export default function FolderNotesScreen() {
 
   const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
 
+  const legendListExtraData = useMemo(
+    () => ({
+      isEditing,
+      selectedCount: selectedNoteIds.size,
+      selectedNoteIds,
+    }),
+    [isEditing, selectedNoteIds],
+  )
+
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen
@@ -343,17 +370,6 @@ export default function FolderNotesScreen() {
               ? [
                   {
                     type: "button" as const,
-                    label: "Delete",
-                    icon: {
-                      name: "trash",
-                      type: "sfSymbol" as const,
-                    },
-                    tintColor: "#FF3B30",
-                    sharesBackground: true,
-                    onPress: handleBatchDeleteNotes,
-                  },
-                  {
-                    type: "button" as const,
                     label: "Done",
                     tintColor: "#ffffff",
                     sharesBackground: true,
@@ -375,16 +391,9 @@ export default function FolderNotesScreen() {
             Platform.OS !== "ios"
               ? () =>
                   isEditing ? (
-                    <View className="flex-row items-center gap-2">
-                      {selectedNoteIds.size > 0 && (
-                        <Pressable onPress={handleBatchDeleteNotes} hitSlop={8} className="mr-2">
-                          <Trash2 size={20} color="#FF3B30" />
-                        </Pressable>
-                      )}
-                      <Pressable onPress={toggleEditMode} hitSlop={8}>
-                        <Text className="text-[16px] font-semibold text-white">Done</Text>
-                      </Pressable>
-                    </View>
+                    <Pressable onPress={toggleEditMode} hitSlop={8}>
+                      <Text className="text-[16px] font-semibold text-white">Done</Text>
+                    </Pressable>
                   ) : noteCount > 0 ? (
                     <Pressable onPress={toggleEditMode} hitSlop={8}>
                       <Text className="text-[16px] font-medium text-white">Edit</Text>
@@ -403,6 +412,7 @@ export default function FolderNotesScreen() {
           data={flatItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
+          extraData={legendListExtraData}
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             paddingHorizontal: 20,
@@ -453,11 +463,23 @@ export default function FolderNotesScreen() {
         />
       )}
 
-      <BottomBar
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        onPressNewNote={handlePressNewNote}
-      />
+      {isEditing ? (
+        <NotesEditBottomBar
+          selectedCount={selectedNoteIds.size}
+          totalCount={notesList.length}
+          isTrash={Boolean(isTrash)}
+          onMove={() => moveSheetRef.current?.open()}
+          onDelete={handleBatchDeleteNotes}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+        />
+      ) : (
+        <BottomBar
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onPressNewNote={handlePressNewNote}
+        />
+      )}
 
       <NoteActionSheet
         ref={actionSheetRef}

@@ -128,7 +128,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
                       <FolderIcon name={folder.icon} size={20} />
                       <Text
                         numberOfLines={1}
-                        className="text-[15px] font-medium text-white max-w-[220px]"
+                        className="text-[15px] font-medium text-white max-w-55"
                       >
                         {folder.name}
                       </Text>

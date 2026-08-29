@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   batchDeleteNotesPermanently,
+  batchMoveNotes,
   batchTrashNotes,
   createBenchmarkNotes,
   createNote,
@@ -242,6 +243,20 @@ export function useBatchDeleteNotesPermanently() {
   return useMutation({
     mutationFn: async (ids: string[]) => {
       batchDeleteNotesPermanently(ids)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      triggerBackgroundSyncIfConnected()
+    },
+  })
+}
+
+export function useBatchMoveNotes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, folderId }: { ids: string[]; folderId: string | null }) => {
+      batchMoveNotes(ids, folderId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
