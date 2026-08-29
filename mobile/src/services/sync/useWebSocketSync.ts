@@ -70,6 +70,9 @@ export function useWebSocketSync(): void {
     }
   }, [queryClient])
 
+  const triggerSyncRef = useRef(triggerSync)
+  triggerSyncRef.current = triggerSync
+
   useEffect(() => {
     if (!isConnected || !isAutoSyncOn) {
       if (wsRef.current) {
@@ -119,7 +122,7 @@ export function useWebSocketSync(): void {
             const msg = JSON.parse(rawData) as { type?: string }
             if (msg?.type === "sync_notification" || msg?.type === "sync_required") {
               console.log(`[MOBILE_WS] Triggering instant sync for event: ${msg.type}`)
-              void triggerSync()
+              void triggerSyncRef.current()
             }
           } catch {}
         }
@@ -185,5 +188,5 @@ export function useWebSocketSync(): void {
         wsRef.current = null
       }
     }
-  }, [isConnected, isAutoSyncOn, triggerSync])
+  }, [isConnected, isAutoSyncOn])
 }

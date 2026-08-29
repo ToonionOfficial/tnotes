@@ -23,13 +23,19 @@ export function useWebSocketSync({
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectDelayRef = useRef(1000)
 
+  const onSyncNotificationRef = useRef(onSyncNotification)
+  onSyncNotificationRef.current = onSyncNotification
+
+  const onStatusChangeRef = useRef(onStatusChange)
+  onStatusChangeRef.current = onStatusChange
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') {
       if (wsRef.current) {
         wsRef.current.close()
         wsRef.current = null
       }
-      onStatusChange?.('disconnected')
+      onStatusChangeRef.current?.('disconnected')
       return
     }
 
@@ -39,7 +45,7 @@ export function useWebSocketSync({
       if (isDisposed || wsRef.current) return
 
       try {
-        onStatusChange?.('connecting')
+        onStatusChangeRef.current?.('connecting')
 
         let ticket: string | null = null
         try {
@@ -66,7 +72,7 @@ export function useWebSocketSync({
         ws.onopen = () => {
           console.log('[WEB_WS] WebSocket connected successfully!')
           reconnectDelayRef.current = 1000
-          onStatusChange?.('connected')
+          onStatusChangeRef.current?.('connected')
           if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current)
           heartbeatIntervalRef.current = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -87,7 +93,7 @@ export function useWebSocketSync({
             }
             if (msg?.type === 'sync_notification' || msg?.type === 'sync_required') {
               console.log('[WEB_WS] Dispatching onSyncNotification event:', msg)
-              onSyncNotification?.(msg.data)
+              onSyncNotificationRef.current?.(msg.data)
             }
           } catch (parseErr) {
             console.warn('[WEB_WS] Failed to parse message JSON:', parseErr)
@@ -101,7 +107,7 @@ export function useWebSocketSync({
         ws.onclose = (event) => {
           console.log(`[WEB_WS] WebSocket closed: code=${event.code}, reason='${event.reason}'`)
           wsRef.current = null
-          onStatusChange?.('disconnected')
+          onStatusChangeRef.current?.('disconnected')
           if (heartbeatIntervalRef.current) {
             clearInterval(heartbeatIntervalRef.current)
             heartbeatIntervalRef.current = null
@@ -117,7 +123,7 @@ export function useWebSocketSync({
           }
         }
       } catch {
-        onStatusChange?.('disconnected')
+        onStatusChangeRef.current?.('disconnected')
         if (!isDisposed) {
           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -137,7 +143,7 @@ export function useWebSocketSync({
         wsRef.current.close()
         wsRef.current = null
       }
-      onStatusChange?.('disconnected')
+      onStatusChangeRef.current?.('disconnected')
     }
-  }, [enabled, onSyncNotification, onStatusChange])
+  }, [enabled])
 }
