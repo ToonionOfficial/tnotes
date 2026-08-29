@@ -4,7 +4,6 @@ import {
   buttonStyle,
   controlSize,
   foregroundStyle,
-  tint,
 } from "@expo/ui/swift-ui/modifiers"
 import * as Haptics from "expo-haptics"
 import { FolderPlus, Menu } from "lucide-react-native"
@@ -74,7 +73,6 @@ export const HomeHeader = memo(function HomeHeader({
               buttonStyle("glass"),
               buttonBorderShape("circle"),
               controlSize("large"),
-              tint("#ffffff"),
               foregroundStyle("#ffffff"),
             ]}
           >
@@ -117,7 +115,6 @@ export const HomeHeader = memo(function HomeHeader({
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
-                  tint("#ffffff"),
                   foregroundStyle("#ffffff"),
                 ]}
               >

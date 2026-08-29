@@ -7,7 +7,6 @@ import {
   controlSize,
   disabled as disabledModifier,
   foregroundStyle,
-  tint,
 } from "@expo/ui/swift-ui/modifiers"
 import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
@@ -115,7 +114,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                 buttonStyle("glass"),
                 buttonBorderShape("circle"),
                 controlSize("large"),
-                tint("#ffffff"),
                 foregroundStyle("#ffffff"),
               ]}
             >
@@ -132,7 +130,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
-                  tint("#ffffff"),
                   foregroundStyle("#ffffff"),
                   disabledModifier(!editorState.canUndo),
                 ]}
@@ -150,7 +147,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                     buttonStyle("glass"),
                     buttonBorderShape("circle"),
                     controlSize("large"),
-                    tint("#ffffff"),
                     foregroundStyle("#ffffff"),
                   ]}
                 >
@@ -168,7 +164,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                     buttonStyle("glass"),
                     buttonBorderShape("circle"),
                     controlSize("large"),
-                    tint("#ffffff"),
                     foregroundStyle("#ffffff"),
                   ]}
                 >
@@ -185,7 +180,6 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
-                  tint("#ffffff"),
                   foregroundStyle("#ffffff"),
                 ]}
               >
