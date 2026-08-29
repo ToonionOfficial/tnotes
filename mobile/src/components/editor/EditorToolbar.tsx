@@ -60,6 +60,7 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
   }
 
   const handleTablePress = () => {
+    dismissAllKeyboards()
     if (onInsertTable) {
       onInsertTable()
     }

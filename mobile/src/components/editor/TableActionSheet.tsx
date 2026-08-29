@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
-import { Platform, Pressable, Text, View } from "react-native"
+import { Keyboard, Platform, Pressable, Text, View } from "react-native"
 import {
   addTableColumnLeft,
   addTableColumnRight,
@@ -43,15 +43,42 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
     const snapPoints = useMemo(() => ["50%"], [])
 
     const open = useCallback(() => {
+      try {
+        editor.blur()
+        editor.injectJS(
+          "if (document.activeElement) { document.activeElement.blur(); } window.getSelection()?.removeAllRanges();",
+        )
+      } catch {}
+      Keyboard.dismiss()
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
       bottomSheetRef.current?.snapToIndex(0)
-    }, [])
+    }, [editor])
 
     const close = useCallback(() => {
       bottomSheetRef.current?.close()
     }, [])
 
     useImperativeHandle(ref, () => ({ open, close }), [open, close])
+
+    const handleManualClose = useCallback(() => {
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
+      onClose?.()
+    }, [editor, onClose])
+
+    const handleSheetChange = useCallback(
+      (index: number) => {
+        if (index === -1) {
+          try {
+            editor.focus()
+          } catch {}
+          onClose?.()
+        }
+      },
+      [onClose, editor],
+    )
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -68,7 +95,10 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
 
     const handleInsert = (rows: number, cols: number) => {
       insertTable(editor, rows, cols)
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
@@ -78,7 +108,10 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
       } else {
         addTableRowBelow(editor)
       }
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
@@ -88,25 +121,37 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
       } else {
         addTableColumnRight(editor)
       }
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
     const handleDeleteRow = () => {
       deleteTableRow(editor)
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
     const handleDeleteColumn = () => {
       deleteTableColumn(editor)
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
     const handleDeleteTable = () => {
       deleteTable(editor)
-      close()
+      bottomSheetRef.current?.close()
+      try {
+        editor.focus()
+      } catch {}
       onClose?.()
     }
 
@@ -117,6 +162,7 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
         snapPoints={snapPoints}
         enableDynamicSizing={false}
         enablePanDownToClose
+        onChange={handleSheetChange}
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
           backgroundColor: "rgba(255, 255, 255, 0.25)",
@@ -142,7 +188,7 @@ export const TableActionSheet = forwardRef<TableActionSheetRef, TableActionSheet
             </View>
 
             <Pressable
-              onPress={close}
+              onPress={handleManualClose}
               hitSlop={8}
               className="size-7 items-center justify-center rounded-full bg-white/10 active:opacity-60"
             >
