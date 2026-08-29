@@ -1,4 +1,4 @@
-import { Cloud, Globe, RefreshCw } from "lucide-react-native"
+import { Cloud, Globe, LogOut, RefreshCw } from "lucide-react-native"
 import { memo, useState } from "react"
 import { Text, View } from "react-native"
 import { SettingsRow } from "./SettingsRow"
@@ -6,14 +6,16 @@ import { SettingsSection } from "./SettingsSection"
 
 export interface SyncServerSectionProps {
   isConnected?: boolean
-  serverUrl?: string
+  serverUrl?: string | null
   onPressConnectServer?: () => void
+  onPressDisconnect?: () => void
 }
 
 export const SyncServerSection = memo(function SyncServerSection({
   isConnected = false,
   serverUrl,
   onPressConnectServer,
+  onPressDisconnect,
 }: SyncServerSectionProps) {
   const [autoSync, setAutoSync] = useState(true)
 
@@ -31,16 +33,28 @@ export const SyncServerSection = memo(function SyncServerSection({
       <SettingsRow
         icon={<Cloud size={20} color="#E6E1E9" />}
         title="Sync Status"
-        subtitle={isConnected ? serverUrl : undefined}
+        subtitle={isConnected && serverUrl ? serverUrl : undefined}
         badge={statusBadge}
         showDivider
       />
-      <SettingsRow
-        icon={<Globe size={20} color="#E6E1E9" />}
-        title="Connect Server"
-        onPress={onPressConnectServer}
-        showDivider
-      />
+
+      {!isConnected ? (
+        <SettingsRow
+          icon={<Globe size={20} color="#E6E1E9" />}
+          title="Connect Server"
+          onPress={onPressConnectServer}
+          showDivider
+        />
+      ) : (
+        <SettingsRow
+          icon={<LogOut size={20} color="#FF5A52" />}
+          title="Disconnect Server"
+          isDestructive
+          onPress={onPressDisconnect}
+          showDivider
+        />
+      )}
+
       <SettingsRow
         icon={<RefreshCw size={19} color="#E6E1E9" />}
         title="Auto-Sync"

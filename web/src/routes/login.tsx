@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { Loader2, NotebookPen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
@@ -54,20 +54,27 @@ function LoginPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [serverError, setServerError] = useState('')
 
-  // Client-side direct entry / refresh check: prevent authenticated access to /login
   useEffect(() => {
     let mounted = true
-    apiFetch<MeResponse>('/api/me')
-      .then(() => {
-        if (mounted) {
-          navigate({ to: '/', replace: true })
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setCheckingAuth(false)
-        }
-      })
+    Promise.allSettled([
+      apiFetch<SetupStatusResponse>('/api/setup/status'),
+      apiFetch<MeResponse>('/api/me'),
+    ]).then(([statusRes, meRes]) => {
+      if (!mounted) return
+
+      if (statusRes.status === 'fulfilled' && !statusRes.value.is_configured) {
+        navigate({ to: '/setup', replace: true })
+        return
+      }
+
+      if (meRes.status === 'fulfilled') {
+        navigate({ to: '/', replace: true })
+        return
+      }
+
+      setCheckingAuth(false)
+    })
+
     return () => {
       mounted = false
     }
@@ -92,33 +99,42 @@ function LoginPage() {
             platform: 'web',
           }),
         })
+
         navigate({ to: '/' })
       } catch (err) {
-        setServerError(err instanceof Error ? err.message : 'Invalid credentials')
+        const message = err instanceof Error ? err.message : 'Invalid username or password'
+        setServerError(message)
       }
     },
   })
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-5">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-5">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+      <Card className="w-full max-w-md border-border/80 shadow-lg">
+        <CardHeader className="space-y-2 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <NotebookPen className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl font-bold">Sign In to TNotes</CardTitle>
-          <CardDescription>Enter your credentials to access your notes</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight">Welcome Back</CardTitle>
+          <CardDescription>Sign in to access and sync your notes</CardDescription>
         </CardHeader>
+
         <CardContent>
           <Shake signal={serverError}>
+            {serverError && (
+              <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive font-medium border border-destructive/20">
+                {serverError}
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -127,12 +143,6 @@ function LoginPage() {
               }}
               className="space-y-4"
             >
-              {serverError && (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {serverError}
-                </div>
-              )}
-
               <form.Field
                 name="username"
                 validators={{
@@ -148,9 +158,9 @@ function LoginPage() {
                     <Input
                       id={field.name}
                       name={field.name}
-                      type="text"
                       placeholder="Username"
                       autoComplete="username"
+                      autoFocus
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -211,6 +221,15 @@ function LoginPage() {
               </form.Subscribe>
             </form>
           </Shake>
+
+          <div className="mt-4 text-center">
+            <Link
+              to="/setup"
+              className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              First time setup? Create admin account
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

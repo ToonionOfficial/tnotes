@@ -29,6 +29,7 @@ import {
   useReorderFolders,
 } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
+import { useSyncState } from "@/hooks/useSyncState"
 
 export default function FoldersScreen() {
   const router = useRouter()
@@ -41,6 +42,7 @@ export default function FoldersScreen() {
   const batchDeleteFolders = useBatchDeleteFolders()
   const reorderFolders = useReorderFolders()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
+  const { data: syncStatus } = useSyncState()
 
   const [folders, setFolders] = useState<Folder[]>(foldersList)
   useEffect(() => {
@@ -181,6 +183,8 @@ export default function FoldersScreen() {
       renderDrawerContent={() => (
         <SideDrawerContent
           trashCount={counts.trash}
+          username={syncStatus?.username}
+          isConnected={syncStatus?.isConnected}
           onPressTrash={() => {
             setIsDrawerOpen(false)
             router.push("/folders/trash" as const)
