@@ -152,7 +152,7 @@ export const SwipeableListItem = memo(function SwipeableListItem({
   const handleWillOpen = useCallback(
     (direction: "left" | "right") => {
       if (maxSwipeDistance.current >= SWIPE_TO_CONFIRM_DISTANCE) {
-        const action = direction === "left" ? leftAction : rightAction
+        const action = direction === "right" ? leftAction : rightAction
         swipeableRef.current?.close()
         maxSwipeDistance.current = 0
         action?.onPress()
