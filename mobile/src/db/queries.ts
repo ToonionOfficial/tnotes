@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { computeChecksum } from "@/utils/crypto"
 import { ulid } from "@/utils/id"
 import { db } from "./index"
@@ -31,6 +31,12 @@ export function ensureUser(userId = DEFAULT_USER_ID, username = DEFAULT_USERNAME
       })
       .run()
   }
+
+  // Ensure soft-deleted notes are properly flagged as trashed
+  db.update(notes)
+    .set({ trashed: true })
+    .where(and(isNotNull(notes.deletedAt), eq(notes.trashed, false)))
+    .run()
 
   return userId
 }
@@ -624,17 +630,18 @@ export function deleteFolder(id: string): void {
   db.update(folders).set(updatedFolder).where(eq(folders.id, id)).run()
   recordLocalChange("folder", id, nextVersion, now, true, updatedFolder)
 
-  // Soft-delete all active child notes in this folder
+  // Soft-delete and trash all active child notes in this folder
   const childNotes = db
     .select()
     .from(notes)
-    .where(and(eq(notes.folderId, id), isNull(notes.deletedAt)))
+    .where(and(eq(notes.folderId, id), eq(notes.trashed, false)))
     .all()
 
   for (const note of childNotes) {
     const nextNoteVersion = note.version + 1
     const updatedNote: Note = {
       ...note,
+      trashed: true,
       deletedAt: now,
       version: nextNoteVersion,
       updatedAt: now,
@@ -643,6 +650,12 @@ export function deleteFolder(id: string): void {
     db.update(notes).set(updatedNote).where(eq(notes.id, note.id)).run()
     recordLocalChange("note", note.id, nextNoteVersion, now, true, updatedNote)
   }
+
+  // Ensure any orphaned soft-deleted notes have trashed = true
+  db.update(notes)
+    .set({ trashed: true })
+    .where(and(isNotNull(notes.deletedAt), eq(notes.trashed, false)))
+    .run()
 }
 
 export function restoreFolder(id: string): void {
