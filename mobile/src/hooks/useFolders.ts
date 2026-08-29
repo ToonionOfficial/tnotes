@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  batchDeleteFolders,
   createFolder,
   deleteFolder,
   type FolderFilters,
@@ -78,6 +79,19 @@ export function useDeleteFolder() {
   return useMutation({
     mutationFn: async (id: string) => {
       deleteFolder(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.all })
+      queryClient.invalidateQueries({ queryKey: noteKeys.all })
+    },
+  })
+}
+
+export function useBatchDeleteFolders() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      batchDeleteFolders(ids)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })

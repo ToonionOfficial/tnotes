@@ -89,7 +89,7 @@ export function NoteEditor({
 
   return (
     <View className="flex-1 bg-background">
-      <EditorHeader editor={editor} title={headerTitle} onBack={handleBack} onDone={handleDone} />
+      <EditorHeader editor={editor} title={headerTitle} onBack={handleBack} />
       <View className="flex-1">
         <RichText editor={editor} />
       </View>

@@ -9,13 +9,19 @@ import { FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
-import { useDeleteFolder, useFolders, useReorderFolders } from "@/hooks/useFolders"
+import {
+  useBatchDeleteFolders,
+  useDeleteFolder,
+  useFolders,
+  useReorderFolders,
+} from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
 export default function FoldersScreen() {
   const router = useRouter()
   const { data: foldersList = [] } = useFolders()
   const deleteFolder = useDeleteFolder()
+  const batchDeleteFolders = useBatchDeleteFolders()
   const reorderFolders = useReorderFolders()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
 
@@ -51,6 +57,29 @@ export default function FoldersScreen() {
       return !prev
     })
   }, [])
+
+  const handleBatchDeleteFolders = useCallback(() => {
+    const ids = Array.from(selectedFolderIds)
+    if (ids.length === 0) return
+
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    const count = ids.length
+    Alert.alert(
+      `Delete ${count} ${count === 1 ? "Folder" : "Folders"}?`,
+      `Deleting ${count === 1 ? "this folder" : "these folders"} will also move all contained notes to the Trash.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Delete ${count === 1 ? "Folder" : "Folders"}`,
+          style: "destructive",
+          onPress: () => {
+            batchDeleteFolders.mutate(ids)
+            setSelectedFolderIds(new Set())
+          },
+        },
+      ],
+    )
+  }, [batchDeleteFolders, selectedFolderIds])
 
   const handleReorder = useCallback(
     (fromIndex: number, toIndex: number) => {
@@ -110,9 +139,26 @@ export default function FoldersScreen() {
             isEditing
               ? [
                   {
-                    type: "button",
+                    type: "button" as const,
+                    label: "Delete",
+                    icon: {
+                      name: "trash",
+                      type: "sfSymbol",
+                    },
+                    variant: "done",
+                    tintColor: "#FF5A52",
+                    sharesBackground: true,
+                    onPress: handleBatchDeleteFolders,
+                  },
+                  {
+                    type: "button" as const,
                     label: "Done",
-                    tintColor: "#ffffff",
+                    icon: {
+                      name: "checkmark",
+                      type: "sfSymbol",
+                    },
+                    variant: "done",
+                    tintColor: "#FFC107",
                     sharesBackground: true,
                     onPress: toggleEditMode,
                   },
@@ -148,9 +194,24 @@ export default function FoldersScreen() {
             Platform.OS !== "ios"
               ? () =>
                   isEditing ? (
-                    <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
-                      <Text className="text-[17px] font-semibold text-white">Done</Text>
-                    </Pressable>
+                    <View className="flex-row items-center">
+                      <Pressable
+                        onPress={handleBatchDeleteFolders}
+                        disabled={selectedFolderIds.size === 0}
+                        hitSlop={8}
+                        className="px-2 py-1 active:opacity-60"
+                      >
+                        <Trash2 size={20} color="#FF3B30" />
+                      </Pressable>
+                      <View className="mx-1 h-3.5 w-px bg-white/20" />
+                      <Pressable
+                        onPress={toggleEditMode}
+                        hitSlop={8}
+                        className="px-2 py-1 active:opacity-60"
+                      >
+                        <Text className="text-[17px] font-semibold text-white">Done</Text>
+                      </Pressable>
+                    </View>
                   ) : (
                     <View className="flex-row items-center">
                       {foldersList.length > 0 && (
