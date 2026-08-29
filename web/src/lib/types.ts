@@ -11,6 +11,15 @@ export interface SetupResponse {
   expires_at: number
 }
 
+export interface RegisterResponse {
+  ok: boolean
+  user_id: string
+  username: string
+  token: string
+  device_id: string
+  expires_at: number
+}
+
 export interface LoginResponse {
   token: string
   device_id: string

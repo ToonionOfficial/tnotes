@@ -78,6 +78,32 @@ pub struct SetupResponse {
 }
 
 #[derive(Debug, Deserialize, Validate)]
+pub struct RegisterRequest {
+    #[validate(length(
+        min = 1,
+        max = 64,
+        message = "Username must be between 1 and 64 characters"
+    ))]
+    pub username: String,
+    #[validate(length(
+        min = 8,
+        max = 128,
+        message = "Password must be at least 8 characters long"
+    ))]
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegisterResponse {
+    pub ok: bool,
+    pub user_id: String,
+    pub username: String,
+    pub token: String,
+    pub device_id: String,
+    pub expires_at: i64,
+}
+
+#[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 1, max = 64, message = "Invalid username"))]
     pub username: String,
@@ -175,6 +201,67 @@ pub async fn setup_handler(
         StatusCode::CREATED,
         jar.add(cookie),
         Json(SetupResponse {
+            ok: true,
+            user_id,
+            username: saved_username,
+            token: session.token,
+            device_id: session.device_id,
+            expires_at: session.expires_at,
+        }),
+    ))
+}
+
+pub async fn register_handler(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(req): Json<RegisterRequest>,
+) -> Result<(StatusCode, CookieJar, Json<RegisterResponse>), (StatusCode, String)> {
+    req.validate()
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+
+    let trimmed_username = req.username.trim();
+    if trimmed_username.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Username cannot be empty".into()));
+    }
+
+    let conn = state.db.lock().await;
+
+    let existing_user = get_user_by_username(&conn, trimmed_username)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if existing_user.is_some() {
+        return Err((
+            StatusCode::CONFLICT,
+            "Username is already taken. Please choose another username.".into(),
+        ));
+    }
+
+    let password_hash = hash_password(&req.password)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let user = User::new(trimmed_username, password_hash);
+    let user_id = user.id.clone();
+    let saved_username = user.username.clone();
+
+    create_user(&conn, &user).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let device_id = Ulid::generate().to_string();
+    let device = Device::new(&device_id, "Web Browser", "web", &user_id);
+    upsert_device(&conn, &device)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let session = create_session_for_device(&device_id, None);
+    create_session(&conn, &session)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    tracing::info!("New user registered: {}", saved_username);
+
+    let cookie = build_session_cookie(&session.token, session.expires_at);
+
+    Ok((
+        StatusCode::CREATED,
+        jar.add(cookie),
+        Json(RegisterResponse {
             ok: true,
             user_id,
             username: saved_username,
