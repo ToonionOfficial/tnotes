@@ -189,6 +189,14 @@ export default function FoldersScreen() {
             setIsDrawerOpen(false)
             router.push("/folders/all" as const)
           }}
+          onPressProfile={() => {
+            setIsDrawerOpen(false)
+            router.push("/settings" as const)
+          }}
+          onPressSettings={() => {
+            setIsDrawerOpen(false)
+            router.push("/settings" as const)
+          }}
         />
       )}
     >
