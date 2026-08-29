@@ -1,4 +1,5 @@
 export * from "./benchmark"
 export * from "./folders"
 export * from "./notes"
+export * from "./stats"
 export * from "./sync"

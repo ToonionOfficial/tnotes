@@ -83,6 +83,14 @@ export default function RootLayout() {
                   headerShown: false,
                 }}
               />
+              <Stack.Screen
+                name="settings"
+                options={{
+                  presentation: "modal",
+                  title: "Settings",
+                  headerShown: true,
+                }}
+              />
             </Stack>
           </BottomSheetModalProvider>
         </KeyboardProvider>
