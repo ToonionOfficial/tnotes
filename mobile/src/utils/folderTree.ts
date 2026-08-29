@@ -3,16 +3,22 @@ import type { Folder } from "@/db/schema"
 export interface TreeFolderItem {
   folder: Folder
   depth: number
+  hasChildren: boolean
+  isCollapsed: boolean
 }
 
 /**
- * Builds a depth-first pre-order flattened folder tree with depth levels for hierarchy views.
+ * Builds a depth-first pre-order flattened folder tree with depth levels and collapsible subtree support.
  */
-export function buildFolderTree(folders: Folder[]): TreeFolderItem[] {
+export function buildFolderTree(
+  folders: Folder[],
+  collapsedFolderIds?: Set<string>,
+): TreeFolderItem[] {
   const childrenMap = new Map<string | null, Folder[]>()
+  const folderIdSet = new Set(folders.map((f) => f.id))
 
   for (const f of folders) {
-    const parentKey = f.parentId ?? null
+    const parentKey = f.parentId && folderIdSet.has(f.parentId) ? f.parentId : null
     const list = childrenMap.get(parentKey) || []
     list.push(f)
     childrenMap.set(parentKey, list)
@@ -26,19 +32,25 @@ export function buildFolderTree(folders: Folder[]): TreeFolderItem[] {
     for (const child of children) {
       if (visited.has(child.id)) continue
       visited.add(child.id)
-      result.push({ folder: child, depth })
-      traverse(child.id, depth + 1)
+
+      const directChildren = childrenMap.get(child.id) || []
+      const hasChildren = directChildren.length > 0
+      const isCollapsed = Boolean(collapsedFolderIds?.has(child.id))
+
+      result.push({
+        folder: child,
+        depth,
+        hasChildren,
+        isCollapsed,
+      })
+
+      // Only traverse children if this folder is not collapsed
+      if (!isCollapsed) {
+        traverse(child.id, depth + 1)
+      }
     }
   }
 
   traverse(null, 0)
-
-  // Append any disconnected / orphaned folders at depth 0
-  for (const f of folders) {
-    if (!visited.has(f.id)) {
-      result.push({ folder: f, depth: 0 })
-    }
-  }
-
   return result
 }

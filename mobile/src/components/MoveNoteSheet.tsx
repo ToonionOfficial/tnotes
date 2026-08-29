@@ -5,7 +5,13 @@ import {
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
-import { Check, CornerDownRight, Folder as FolderOutline } from "lucide-react-native"
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight,
+  Folder as FolderOutline,
+} from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 import type { SearchResult } from "@/db/queries"
@@ -28,6 +34,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
   function MoveNoteSheet({ note: propNote, onSelectFolder }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
+    const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(new Set())
 
     const activeNote = propNote ?? internalNote
 
@@ -37,8 +44,24 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
       [folderPages],
     )
 
-    const treeFolders = useMemo(() => buildFolderTree(allFolders), [allFolders])
+    const treeFolders = useMemo(
+      () => buildFolderTree(allFolders, collapsedFolderIds),
+      [allFolders, collapsedFolderIds],
+    )
     const snapPoints = useMemo(() => ["65%"], [])
+
+    const toggleCollapse = useCallback((folderId: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setCollapsedFolderIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(folderId)) {
+          next.delete(folderId)
+        } else {
+          next.add(folderId)
+        }
+        return next
+      })
+    }, [])
 
     const open = useCallback((noteToOpen?: Note | SearchResult) => {
       if (noteToOpen) {
@@ -129,9 +152,9 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
               {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
             </Pressable>
 
-            {treeFolders.map(({ folder, depth }) => {
+            {treeFolders.map(({ folder, depth, hasChildren, isCollapsed }) => {
               const isSelected = currentFolderId === folder.id
-              const indentPadding = depth * 22
+              const indentPadding = depth * 20
 
               return (
                 <View key={folder.id}>
@@ -142,10 +165,33 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
                   <Pressable
                     onPress={() => handleSelect(folder.id)}
                     style={{ paddingLeft: indentPadding }}
-                    className="flex-row items-center justify-between py-3.5 active:opacity-60"
+                    className="flex-row items-center justify-between py-3 active:opacity-60"
                   >
-                    <View className="flex-1 flex-row items-center gap-2.5">
-                      {depth > 0 && <CornerDownRight size={14} color="#8E8C99" strokeWidth={2} />}
+                    <View className="flex-1 flex-row items-center gap-2">
+                      {/* Interactive Collapse/Expand Chevron or Branch guide */}
+                      {hasChildren ? (
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation?.()
+                            toggleCollapse(folder.id)
+                          }}
+                          hitSlop={10}
+                          className="size-6 items-center justify-center rounded active:bg-white/10"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={16} color="#8E8C99" />
+                          ) : (
+                            <ChevronDown size={16} color="#8E8C99" />
+                          )}
+                        </Pressable>
+                      ) : depth > 0 ? (
+                        <View className="size-6 items-center justify-center">
+                          <CornerDownRight size={14} color="#6E6B77" strokeWidth={2} />
+                        </View>
+                      ) : (
+                        <View className="w-1" />
+                      )}
+
                       <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
                         <FolderIcon
                           name={folder.icon || DEFAULT_FOLDER_ICON}

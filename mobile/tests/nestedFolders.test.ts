@@ -47,6 +47,15 @@ describe("Nested Folders & Hierarchical Actions", () => {
         { id: "sub_2_1", depth: 1 },
       ])
     })
+
+    it("collapses subtrees when parent folder ID is in collapsedFolderIds", () => {
+      // Collapsing 'root_1' (Work) should hide all its subfolders ('sub_1_1', 'sub_1_1_1', 'sub_1_2')
+      const collapsedTree = buildFolderTree(sampleFolders, new Set(["root_1"]))
+
+      expect(collapsedTree.map((t) => t.folder.id)).toEqual(["root_1", "root_2", "sub_2_1"])
+      expect(collapsedTree.find((t) => t.folder.id === "root_1")?.isCollapsed).toBe(true)
+      expect(collapsedTree.find((t) => t.folder.id === "root_1")?.hasChildren).toBe(true)
+    })
   })
 
   describe("Recursive Note Count Aggregation", () => {
