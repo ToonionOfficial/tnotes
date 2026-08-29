@@ -5,9 +5,11 @@ import {
   type FolderFilters,
   getFolderById,
   getFolders,
+  reorderFolders,
   restoreFolder,
   updateFolder,
 } from "@/db/queries"
+import type { Folder } from "@/db/schema"
 import { noteKeys } from "./useNotes"
 
 export const folderKeys = {
@@ -93,6 +95,39 @@ export function useRestoreFolder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+    },
+  })
+}
+
+export function useReorderFolders() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (folderIds: string[]) => {
+      reorderFolders(folderIds)
+    },
+    onMutate: async (folderIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: folderKeys.lists() })
+      const prevFolders = queryClient.getQueryData<Folder[]>(folderKeys.list())
+      if (prevFolders) {
+        const folderMap = new Map(prevFolders.map((f) => [f.id, f]))
+        const reordered: Folder[] = []
+        folderIds.forEach((id, index) => {
+          const f = folderMap.get(id)
+          if (f) {
+            reordered.push({ ...f, sortOrder: index })
+          }
+        })
+        queryClient.setQueryData(folderKeys.list(), reordered)
+      }
+      return { prevFolders }
+    },
+    onError: (_err, _folderIds, context) => {
+      if (context?.prevFolders) {
+        queryClient.setQueryData(folderKeys.list(), context.prevFolders)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() })
     },
   })
 }

@@ -133,6 +133,8 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
           { translateY: originalIndex * ROW_HEIGHT + dragTranslateY.value },
           { scale: withTiming(1.02, { duration: 100 }) },
         ],
+        backgroundColor: "rgba(255, 255, 255, 0.12)",
+        borderRadius: 16,
         zIndex: 999,
         elevation: 8,
         shadowColor: "#000",
@@ -157,6 +159,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
         },
         { scale: 1 },
       ],
+      backgroundColor: "transparent",
       zIndex: 1,
     }
   })
@@ -181,7 +184,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   }))
 
   return (
-    <Animated.View style={rowAnimatedStyle} className="overflow-hidden bg-white/7">
+    <Animated.View style={rowAnimatedStyle} className="overflow-hidden">
       <View className="ml-15 h-[0.5px] bg-white/8" />
       <SwipeableListItem
         enabled={!isEditing}

@@ -9,13 +9,14 @@ import { FolderIcon } from "@/components/FolderIcon"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
-import { useDeleteFolder, useFolders } from "@/hooks/useFolders"
+import { useDeleteFolder, useFolders, useReorderFolders } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 
 export default function FoldersScreen() {
   const router = useRouter()
   const { data: foldersList = [] } = useFolders()
   const deleteFolder = useDeleteFolder()
+  const reorderFolders = useReorderFolders()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
 
   const [folders, setFolders] = useState<Folder[]>(foldersList)
@@ -51,14 +52,18 @@ export default function FoldersScreen() {
     })
   }, [])
 
-  const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
-    setFolders((prev) => {
-      const next = [...prev]
-      const [moved] = next.splice(fromIndex, 1)
-      next.splice(toIndex, 0, moved)
-      return next
-    })
-  }, [])
+  const handleReorder = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      setFolders((prev) => {
+        const next = [...prev]
+        const [moved] = next.splice(fromIndex, 1)
+        next.splice(toIndex, 0, moved)
+        reorderFolders.mutate(next.map((f) => f.id))
+        return next
+      })
+    },
+    [reorderFolders],
+  )
 
   const getFolderCount = useCallback(
     (folderId: string | null) => {
