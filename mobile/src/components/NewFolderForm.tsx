@@ -7,26 +7,32 @@ import {
 } from "@gorhom/bottom-sheet"
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
 import { Keyboard, Platform, Pressable, ScrollView, Text, View } from "react-native"
-import { useCreateFolder } from "@/hooks/useFolders"
+import type { Folder } from "@/db/schema"
+import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
 import { DEFAULT_FOLDER_ICON, FOLDER_ICON_OPTIONS, FolderIcon } from "./FolderIcon"
 
 interface NewFolderSheetProps {
-  onCreated: (folderId: string) => void
+  onCreated?: (folderId: string) => void
+  onUpdated?: (folder: Folder) => void
 }
 
 export interface NewFolderSheetRef {
-  open: () => void
+  open: (folderToEdit?: Folder | null) => void
   close: () => void
 }
 
 export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>(
-  function NewFolderSheet({ onCreated }, ref) {
+  function NewFolderSheet({ onCreated, onUpdated }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
+    const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
     const [folderName, setFolderName] = useState("")
     const [selectedIcon, setSelectedIcon] = useState(DEFAULT_FOLDER_ICON)
+
     const createFolderMutation = useCreateFolder()
+    const updateFolderMutation = useUpdateFolder()
 
     const resetForm = useCallback(() => {
+      setEditingFolder(null)
       setFolderName("")
       setSelectedIcon(DEFAULT_FOLDER_ICON)
     }, [])
@@ -37,24 +43,44 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       resetForm()
     }, [resetForm])
 
-    const open = useCallback(() => {
-      resetForm()
-      bottomSheetModalRef.current?.present()
-    }, [resetForm])
+    const open = useCallback(
+      (folderToEdit?: Folder | null) => {
+        if (folderToEdit) {
+          setEditingFolder(folderToEdit)
+          setFolderName(folderToEdit.name)
+          setSelectedIcon(folderToEdit.icon || DEFAULT_FOLDER_ICON)
+        } else {
+          resetForm()
+        }
+        bottomSheetModalRef.current?.present()
+      },
+      [resetForm],
+    )
 
     useImperativeHandle(ref, () => ({ open, close }), [open, close])
 
-    const handleCreate = async () => {
+    const handleSubmit = async () => {
       const trimmed = folderName.trim()
       if (!trimmed) return
 
-      const created = await createFolderMutation.mutateAsync({
-        name: trimmed,
-        icon: selectedIcon,
-      })
-
-      close()
-      onCreated(created.id)
+      if (editingFolder) {
+        const updated = await updateFolderMutation.mutateAsync({
+          id: editingFolder.id,
+          input: {
+            name: trimmed,
+            icon: selectedIcon,
+          },
+        })
+        close()
+        onUpdated?.(updated)
+      } else {
+        const created = await createFolderMutation.mutateAsync({
+          name: trimmed,
+          icon: selectedIcon,
+        })
+        close()
+        onCreated?.(created.id)
+      }
     }
 
     const renderBackdrop = useCallback(
@@ -74,6 +100,8 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       Keyboard.dismiss()
       resetForm()
     }, [resetForm])
+
+    const isEditing = Boolean(editingFolder)
 
     return (
       <BottomSheetModal
@@ -103,7 +131,9 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       >
         <BottomSheetView className="px-5 pt-1 pb-6">
           <Pressable onPress={Keyboard.dismiss} accessible={false}>
-            <Text className="mb-4 text-[19px] font-bold text-foreground">New Folder</Text>
+            <Text className="mb-4 text-[19px] font-bold text-foreground">
+              {isEditing ? "Edit Folder" : "New Folder"}
+            </Text>
 
             <View className="mb-4 flex-row items-center overflow-hidden rounded-3xl bg-white/[0.07] px-4 py-3">
               <View className="mr-3 items-center justify-center">
@@ -117,7 +147,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                 cursorColor="#CABEFF"
                 autoFocus
                 returnKeyType="done"
-                onSubmitEditing={handleCreate}
+                onSubmitEditing={handleSubmit}
                 style={{
                   flex: 1,
                   fontSize: 17,
@@ -161,13 +191,15 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               <Text className="text-[15px] font-medium text-muted-foreground">Cancel</Text>
             </Pressable>
             <Pressable
-              onPress={handleCreate}
+              onPress={handleSubmit}
               disabled={!folderName.trim()}
               className={`rounded-xl bg-primary px-5 py-2.5 active:opacity-80 ${
                 !folderName.trim() ? "opacity-30" : ""
               }`}
             >
-              <Text className="text-[15px] font-semibold text-[#141318]">Create</Text>
+              <Text className="text-[15px] font-semibold text-[#141318]">
+                {isEditing ? "Save" : "Create"}
+              </Text>
             </Pressable>
           </View>
         </BottomSheetView>

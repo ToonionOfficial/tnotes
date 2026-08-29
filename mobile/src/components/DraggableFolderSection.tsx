@@ -30,6 +30,7 @@ interface DraggableFolderItemProps {
   activeDragIndex: SharedValue<number>
   dragTranslateY: SharedValue<number>
   onPress: () => void
+  onLongPress?: (folder: Folder) => void
   onDelete: () => void
   onReorder: (fromIndex: number, toIndex: number) => void
 }
@@ -45,6 +46,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   activeDragIndex,
   dragTranslateY,
   onPress,
+  onLongPress,
   onDelete,
   onReorder,
 }: DraggableFolderItemProps) {
@@ -196,6 +198,12 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       >
         <Pressable
           onPress={onPress}
+          onLongPress={() => {
+            if (!isEditing && onLongPress) {
+              onLongPress(folder)
+            }
+          }}
+          delayLongPress={260}
           className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
           style={{ height: ROW_HEIGHT }}
         >
@@ -251,6 +259,7 @@ interface DraggableFolderSectionProps {
   getFolderCount: (folderId: string | null) => number
   onToggleSelect: (folderId: string) => void
   onPressFolder: (folderId: string) => void
+  onLongPressFolder?: (folder: Folder) => void
   onDeleteFolder: (folder: Folder) => void
   onReorder: (fromIndex: number, toIndex: number) => void
 }
@@ -262,6 +271,7 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
   getFolderCount,
   onToggleSelect,
   onPressFolder,
+  onLongPressFolder,
   onDeleteFolder,
   onReorder,
 }: DraggableFolderSectionProps) {
@@ -299,6 +309,7 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
               onPressFolder(folder.id)
             }
           }}
+          onLongPress={onLongPressFolder}
           onDelete={() => onDeleteFolder(folder)}
           onReorder={onReorder}
         />
