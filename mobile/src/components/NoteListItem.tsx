@@ -22,6 +22,7 @@ interface NoteListItemProps {
   isEditing?: boolean
   isSelected?: boolean
   onPress: (noteId: string) => void
+  onLongPress?: (item: Note | SearchResult) => void
   onTogglePin?: (noteId: string) => void
   onRestore?: (noteId: string) => void
   onDelete?: (noteId: string) => void
@@ -35,6 +36,7 @@ export const NoteListItem = memo(function NoteListItem({
   isEditing = false,
   isSelected = false,
   onPress,
+  onLongPress,
   onTogglePin,
   onRestore,
   onDelete,
@@ -73,6 +75,12 @@ export const NoteListItem = memo(function NoteListItem({
   const noteRow = (
     <Pressable
       onPress={() => onPress(item.id)}
+      onLongPress={() => {
+        if (!isEditing && onLongPress) {
+          onLongPress(item)
+        }
+      }}
+      delayLongPress={260}
       className={`${roundingClass} flex-row items-center bg-white/[0.07] px-4 py-3 active:bg-white/12`}
     >
       <Animated.View style={selectCircleStyle} className="justify-center overflow-hidden">
