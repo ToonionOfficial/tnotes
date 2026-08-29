@@ -1,7 +1,15 @@
 import type { EditorBridge } from "@10play/tentap-editor"
 import { useBridgeState } from "@10play/tentap-editor"
+import { Button, Host, Icon } from "@expo/ui"
+import {
+  buttonBorderShape,
+  buttonStyle,
+  controlSize,
+  disabled as disabledModifier,
+  foregroundStyle,
+} from "@expo/ui/swift-ui/modifiers"
+import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
-import { SymbolView } from "expo-symbols"
 import { Check, ChevronLeft, Ellipsis, Share2, Undo2 } from "lucide-react-native"
 import { Keyboard, Platform, Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -14,6 +22,31 @@ interface EditorHeaderProps {
   onMore?: () => void
   onDone?: () => void
 }
+
+const BACK_ICON = Icon.select({
+  ios: "chevron.left",
+  android: import("@expo/material-symbols/arrow_back.xml"),
+})
+
+const UNDO_ICON = Icon.select({
+  ios: "arrow.uturn.backward",
+  android: import("@expo/material-symbols/undo.xml"),
+})
+
+const SHARE_ICON = Icon.select({
+  ios: "square.and.arrow.up",
+  android: import("@expo/material-symbols/share.xml"),
+})
+
+const MORE_ICON = Icon.select({
+  ios: "ellipsis",
+  android: import("@expo/material-symbols/more_horiz.xml"),
+})
+
+const CHECK_ICON = Icon.select({
+  ios: "checkmark",
+  android: import("@expo/material-symbols/check.xml"),
+})
 
 export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: EditorHeaderProps) {
   const router = useRouter()
@@ -29,6 +62,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
   }
 
   const handleBack = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     dismissEditorKeyboard()
     if (onBack) {
       onBack()
@@ -38,95 +72,174 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
   }
 
   const handleDone = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     dismissEditorKeyboard()
     if (onDone) {
       onDone()
     }
   }
 
+  const handleUndo = () => {
+    if (!editorState.canUndo) return
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    editor.undo()
+  }
+
+  const handleShare = () => {
+    if (!onShare) return
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    onShare()
+  }
+
+  const handleMore = () => {
+    if (!onMore) return
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    onMore()
+  }
+
   return (
     <View
       style={{
-        paddingTop: Math.max(insets.top, 8),
+        paddingTop: insets.top + 8,
       }}
-      className="z-10 flex-row items-center justify-between px-4 py-2"
+      className="z-10 px-5 pb-2"
     >
-      <Pressable
-        onPress={handleBack}
-        hitSlop={8}
-        className="size-10 items-center justify-center rounded-full bg-white/10 active:opacity-60"
-      >
-        {Platform.OS === "ios" ? (
-          <SymbolView name="chevron.left" size={18} tintColor="#E6E1E9" type="monochrome" />
-        ) : (
-          <ChevronLeft size={20} color="#E6E1E9" />
-        )}
-      </Pressable>
+      {Platform.OS === "ios" ? (
+        <View className="h-11 min-h-11 flex-row items-center justify-between">
+          <Host matchContents ignoreSafeArea="all">
+            <Button
+              variant="filled"
+              onPress={handleBack}
+              modifiers={[
+                buttonStyle("glass"),
+                buttonBorderShape("circle"),
+                controlSize("large"),
+                foregroundStyle("#ffffff"),
+              ]}
+            >
+              <Icon name={BACK_ICON} color="#ffffff" size={20} />
+            </Button>
+          </Host>
 
-      <View className="flex-row items-center gap-3">
-        <View className="h-10 flex-row items-center rounded-full bg-white/10 px-1.5">
-          <Pressable
-            onPress={() => editor.undo()}
-            disabled={!editorState.canUndo}
-            hitSlop={6}
-            className={`size-8 items-center justify-center rounded-full active:bg-white/10 ${
-              editorState.canUndo ? "opacity-100" : "opacity-35"
-            }`}
-          >
-            {Platform.OS === "ios" ? (
-              <SymbolView
-                name="arrow.uturn.backward"
-                size={16}
-                tintColor="#E6E1E9"
-                type="monochrome"
-              />
-            ) : (
-              <Undo2 size={17} color="#E6E1E9" />
-            )}
-          </Pressable>
+          <View className="flex-row items-center gap-2.5">
+            <Host matchContents ignoreSafeArea="all">
+              <Button
+                variant="filled"
+                onPress={handleUndo}
+                modifiers={[
+                  buttonStyle("glass"),
+                  buttonBorderShape("circle"),
+                  controlSize("large"),
+                  foregroundStyle("#ffffff"),
+                  disabledModifier(!editorState.canUndo),
+                ]}
+              >
+                <Icon name={UNDO_ICON} color="#ffffff" size={18} />
+              </Button>
+            </Host>
 
-          <Pressable
-            onPress={onShare}
-            hitSlop={6}
-            className="size-8 items-center justify-center rounded-full active:bg-white/10"
-          >
-            {Platform.OS === "ios" ? (
-              <SymbolView
-                name="square.and.arrow.up"
-                size={16}
-                tintColor="#E6E1E9"
-                type="monochrome"
-              />
-            ) : (
-              <Share2 size={17} color="#E6E1E9" />
+            {onShare && (
+              <Host matchContents ignoreSafeArea="all">
+                <Button
+                  variant="filled"
+                  onPress={handleShare}
+                  modifiers={[
+                    buttonStyle("glass"),
+                    buttonBorderShape("circle"),
+                    controlSize("large"),
+                    foregroundStyle("#ffffff"),
+                  ]}
+                >
+                  <Icon name={SHARE_ICON} color="#ffffff" size={18} />
+                </Button>
+              </Host>
             )}
-          </Pressable>
 
-          <Pressable
-            onPress={onMore}
-            hitSlop={6}
-            className="size-8 items-center justify-center rounded-full active:bg-white/10"
-          >
-            {Platform.OS === "ios" ? (
-              <SymbolView name="ellipsis" size={16} tintColor="#E6E1E9" type="monochrome" />
-            ) : (
-              <Ellipsis size={17} color="#E6E1E9" />
+            {onMore && (
+              <Host matchContents ignoreSafeArea="all">
+                <Button
+                  variant="filled"
+                  onPress={handleMore}
+                  modifiers={[
+                    buttonStyle("glass"),
+                    buttonBorderShape("circle"),
+                    controlSize("large"),
+                    foregroundStyle("#ffffff"),
+                  ]}
+                >
+                  <Icon name={MORE_ICON} color="#ffffff" size={18} />
+                </Button>
+              </Host>
             )}
-          </Pressable>
+
+            <Host matchContents ignoreSafeArea="all">
+              <Button
+                variant="filled"
+                onPress={handleDone}
+                modifiers={[
+                  buttonStyle("glass"),
+                  buttonBorderShape("circle"),
+                  controlSize("large"),
+                  foregroundStyle("#ffffff"),
+                ]}
+              >
+                <Icon name={CHECK_ICON} color="#ffffff" size={18} />
+              </Button>
+            </Host>
+          </View>
         </View>
+      ) : (
+        <View className="h-11 min-h-11 flex-row items-center justify-between">
+          <Pressable
+            onPress={handleBack}
+            hitSlop={8}
+            className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+          >
+            <ChevronLeft size={22} color="#ffffff" />
+          </Pressable>
 
-        <Pressable
-          onPress={handleDone}
-          hitSlop={8}
-          className="size-10 items-center justify-center rounded-full bg-primary active:opacity-75"
-        >
-          {Platform.OS === "ios" ? (
-            <SymbolView name="checkmark" size={16} tintColor="#32285F" type="monochrome" />
-          ) : (
-            <Check size={18} color="#32285F" strokeWidth={2.5} />
-          )}
-        </Pressable>
-      </View>
+          <View className="flex-row items-center gap-2.5">
+            <Pressable
+              onPress={handleUndo}
+              disabled={!editorState.canUndo}
+              hitSlop={8}
+              className={`size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60 ${
+                editorState.canUndo ? "opacity-100" : "opacity-35"
+              }`}
+            >
+              <Undo2 size={20} color="#ffffff" />
+            </Pressable>
+
+            {onShare && (
+              <Pressable
+                onPress={handleShare}
+                hitSlop={8}
+                className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+              >
+                <Share2 size={20} color="#ffffff" />
+              </Pressable>
+            )}
+
+            {onMore && (
+              <Pressable
+                onPress={handleMore}
+                hitSlop={8}
+                className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+              >
+                <Ellipsis size={20} color="#ffffff" />
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={handleDone}
+              hitSlop={8}
+              className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+            >
+              <Check size={20} color="#ffffff" strokeWidth={2.5} />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   )
 }

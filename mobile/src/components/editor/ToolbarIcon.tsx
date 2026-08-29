@@ -16,7 +16,6 @@ import {
   Quote,
   Redo2,
   Strikethrough,
-  Table,
   Type,
   Underline,
   Undo2,
@@ -29,7 +28,6 @@ export type ToolbarIconName =
   | "checklist"
   | "bulletList"
   | "orderedList"
-  | "table"
   | "bold"
   | "italic"
   | "underline"
@@ -58,7 +56,6 @@ const IOS_SYMBOLS: Record<ToolbarIconName, SymbolViewProps["name"]> = {
   checklist: "checklist",
   bulletList: "list.bullet",
   orderedList: "list.number",
-  table: "tablecells",
   bold: "bold",
   italic: "italic",
   underline: "underline",
@@ -95,10 +92,8 @@ export function ToolbarIcon({ name, size = 21, color = "#E6E1E9" }: ToolbarIconP
       return <List size={size} color={color} strokeWidth={2.2} />
     case "orderedList":
       return <ListOrdered size={size} color={color} strokeWidth={2.2} />
-    case "table":
-      return <Table size={size} color={color} strokeWidth={2.2} />
     case "bold":
-      return <Bold size={size} color={color} strokeWidth={2.5} />
+      return <Bold size={size} color={color} strokeWidth={2.2} />
     case "italic":
       return <Italic size={size} color={color} strokeWidth={2.2} />
     case "underline":

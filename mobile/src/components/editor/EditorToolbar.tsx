@@ -10,10 +10,9 @@ import { ToolbarButton } from "./ToolbarButton"
 interface EditorToolbarProps {
   editor: EditorBridge
   onOpenFormat?: () => void
-  onInsertTable?: () => void
 }
 
-export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
   const insets = useSafeAreaInsets()
   const editorState = useBridgeState(editor)
 
@@ -26,6 +25,15 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
 
     return {
       transform: [{ translateY }],
+    }
+  })
+
+  const dismissContainerStyle = useAnimatedStyle(() => {
+    return {
+      opacity: progress.value,
+      width: interpolate(progress.value, [0, 1], [0, 48]),
+      transform: [{ scale: interpolate(progress.value, [0, 1], [0.6, 1]) }],
+      overflow: "hidden" as const,
     }
   })
 
@@ -48,12 +56,6 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
 
   const handleDismissKeyboard = () => {
     dismissAllKeyboards()
-  }
-
-  const handleTablePress = () => {
-    if (onInsertTable) {
-      onInsertTable()
-    }
   }
 
   const isHeadingOrStyleActive =
@@ -123,8 +125,6 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
               onPress={() => editor.toggleBulletList()}
             />
 
-            <ToolbarButton icon="table" size={21} onPress={handleTablePress} />
-
             <ToolbarButton
               icon="bold"
               size={21}
@@ -158,23 +158,27 @@ export function EditorToolbar({ editor, onOpenFormat, onInsertTable }: EditorToo
             />
 
             <ToolbarButton
-              icon="undo"
+              icon="code"
               size={21}
-              isDisabled={!editorState.canUndo}
-              onPress={() => editor.undo()}
+              isActive={editorState.isCodeActive}
+              isDisabled={!editorState.canToggleCode}
+              onPress={() => editor.toggleCode()}
             />
 
             <ToolbarButton
-              icon="redo"
+              icon="quote"
               size={21}
-              isDisabled={!editorState.canRedo}
-              onPress={() => editor.redo()}
+              isActive={editorState.isBlockquoteActive}
+              isDisabled={!editorState.canToggleBlockquote}
+              onPress={() => editor.toggleBlockquote()}
             />
           </ScrollView>
 
-          <View className="border-l border-white/15 pl-2">
-            <ToolbarButton icon="dismiss" size={21} onPress={handleDismissKeyboard} />
-          </View>
+          <View className="h-6 w-px bg-white/10" />
+
+          <Animated.View style={dismissContainerStyle}>
+            <ToolbarButton icon="dismiss" size={22} onPress={handleDismissKeyboard} />
+          </Animated.View>
         </View>
       </GlassView>
     </Animated.View>

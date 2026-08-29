@@ -41,7 +41,7 @@ export function ToolbarButton({
       onPress={onPress}
       disabled={isDisabled}
       hitSlop={6}
-      className={`items-center justify-center rounded-xl transition-colors active:opacity-60 ${buttonDimensions} ${
+      className={`items-center justify-center rounded-3xl transition-colors active:opacity-60 ${buttonDimensions} ${
         isActive ? "" : "bg-transparent"
       } ${isDisabled ? "opacity-35" : "opacity-100"}`}
       style={
