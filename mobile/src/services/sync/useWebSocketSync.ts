@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
 import { AppState, type AppStateStatus } from "react-native"
-import { getSyncMeta } from "@/db/queries"
+import { getOrCreateDeviceId, getSyncMeta } from "@/db/queries"
 import { statsKeys } from "@/hooks/useDatabaseStats"
 import { deviceKeys } from "@/hooks/useDevices"
 import { folderKeys } from "@/hooks/useFolders"
@@ -9,11 +9,33 @@ import { noteKeys } from "@/hooks/useNotes"
 import { syncKeys, useAutoSyncQuery, useSyncState } from "@/hooks/useSyncState"
 import { executeSyncAsync } from "./syncEngine"
 
-export function buildWebSocketUrl(rawServerUrl: string, authToken: string): string {
+export async function fetchWsTicketAsync(
+  serverUrl: string,
+  authToken: string,
+  deviceId: string,
+): Promise<string> {
+  const cleanUrl = serverUrl.trim().replace(/\/+$/, "")
+  const res = await fetch(`${cleanUrl}/api/ws/ticket`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${authToken.trim()}`,
+      "X-Device-ID": deviceId,
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to obtain WebSocket ticket: ${res.statusText}`)
+  }
+
+  const data = (await res.json()) as { ticket: string }
+  return data.ticket
+}
+
+export function buildWebSocketUrl(rawServerUrl: string, ticket: string): string {
   const cleanUrl = rawServerUrl.trim().replace(/\/+$/, "")
   const wsProtocol = cleanUrl.startsWith("https://") ? "wss://" : "ws://"
   const hostPath = cleanUrl.replace(/^https?:\/\//i, "")
-  return `${wsProtocol}${hostPath}/ws/sync?token=${encodeURIComponent(authToken.trim())}`
+  return `${wsProtocol}${hostPath}/ws/sync?ticket=${encodeURIComponent(ticket.trim())}`
 }
 
 export function useWebSocketSync(): void {
@@ -59,15 +81,19 @@ export function useWebSocketSync(): void {
 
     const serverUrl = getSyncMeta("server_url")
     const authToken = getSyncMeta("auth_token")
+    const deviceId = getOrCreateDeviceId()
     if (!serverUrl || !authToken) return
 
     let isDisposed = false
 
-    const connect = () => {
+    const connect = async () => {
       if (isDisposed || wsRef.current) return
 
       try {
-        const wsUrl = buildWebSocketUrl(serverUrl, authToken)
+        const ticket = await fetchWsTicketAsync(serverUrl, authToken, deviceId)
+        if (isDisposed || wsRef.current) return
+
+        const wsUrl = buildWebSocketUrl(serverUrl, ticket)
         const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
@@ -108,13 +134,17 @@ export function useWebSocketSync(): void {
             const delay = reconnectDelayRef.current
             reconnectDelayRef.current = Math.min(delay * 1.5, 30000)
             if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-            reconnectTimeoutRef.current = setTimeout(connect, delay)
+            reconnectTimeoutRef.current = setTimeout(() => {
+              void connect()
+            }, delay)
           }
         }
       } catch {
         if (!isDisposed) {
           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-          reconnectTimeoutRef.current = setTimeout(connect, 5000)
+          reconnectTimeoutRef.current = setTimeout(() => {
+            void connect()
+          }, 5000)
         }
       }
     }
@@ -123,7 +153,7 @@ export function useWebSocketSync(): void {
       if (nextAppState === "active") {
         if (!wsRef.current) {
           reconnectDelayRef.current = 1000
-          connect()
+          void connect()
         }
       } else if (nextAppState === "background") {
         if (wsRef.current) {
@@ -134,7 +164,7 @@ export function useWebSocketSync(): void {
     }
 
     const subscription = AppState.addEventListener("change", handleAppStateChange)
-    connect()
+    void connect()
 
     return () => {
       isDisposed = true

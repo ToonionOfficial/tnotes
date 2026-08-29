@@ -23,6 +23,13 @@ pub struct PendingPairing {
 }
 
 #[derive(Debug, Clone)]
+pub struct WsTicket {
+    pub user_id: String,
+    pub device_id: String,
+    pub expires_at: i64,
+}
+
+#[derive(Debug, Clone)]
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
@@ -65,6 +72,7 @@ pub struct AppState {
     pub ws_sender: broadcast::Sender<WsBroadcastMessage>,
     pub config: Arc<ServerConfig>,
     pub pending_pairings: Arc<Mutex<HashMap<String, PendingPairing>>>,
+    pub pending_ws_tickets: Arc<Mutex<HashMap<String, WsTicket>>>,
 }
 
 impl AppState {
@@ -76,6 +84,7 @@ impl AppState {
             ws_sender,
             config: Arc::new(config),
             pending_pairings: Arc::new(Mutex::new(HashMap::new())),
+            pending_ws_tickets: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

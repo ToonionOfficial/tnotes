@@ -24,6 +24,7 @@ pub fn build_router(state: AppState) -> Router {
             "/api/devices/{id}",
             delete(routes::devices::delete_device_handler),
         )
+        .route("/api/ws/ticket", post(ws::issue_ws_ticket_handler))
         .route("/api/logout", post(routes::auth::logout_handler))
         .layer(from_fn_with_state(state.clone(), middleware::require_auth));
 
