@@ -476,9 +476,14 @@ export default function FolderNotesScreen() {
             <View className="mb-2">
               {subfoldersList.length > 0 && (
                 <View className="mb-4">
-                  <Text className="mb-1 text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
-                    Folders
-                  </Text>
+                  <View className="mb-1 flex-row items-center justify-between px-1">
+                    <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                      Folders
+                    </Text>
+                    <Text className="text-[13px] text-muted-foreground/60">
+                      {subfoldersList.length} {subfoldersList.length === 1 ? "folder" : "folders"}
+                    </Text>
+                  </View>
                   <DraggableFolderSection
                     folders={subfoldersList}
                     isEditing={isEditing}
@@ -512,12 +517,10 @@ export default function FolderNotesScreen() {
               )}
 
               {noteCount > 0 && (
-                <View className="px-1">
-                  {subfoldersList.length > 0 && (
-                    <Text className="mb-1 text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
-                      Notes
-                    </Text>
-                  )}
+                <View className="mb-1 flex-row items-center justify-between px-1">
+                  <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                    Notes
+                  </Text>
                   <Text className="text-[13px] text-muted-foreground/60">
                     {noteCount}
                     {hasNextPage ? "+" : ""} {noteCount === 1 ? "note" : "notes"}
