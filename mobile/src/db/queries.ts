@@ -621,6 +621,37 @@ export function updateFolder(
   return updatedFolder
 }
 
+export function reorderFolders(folderIds: string[]): void {
+  const deviceId = getOrCreateDeviceId()
+  const now = Date.now()
+
+  folderIds.forEach((id, index) => {
+    const existing = getFolderById(id)
+    if (!existing || existing.sortOrder === index) return
+
+    const nextVersion = existing.version + 1
+    const updatedFolder: Folder = {
+      ...existing,
+      sortOrder: index,
+      version: nextVersion,
+      updatedAt: now,
+      deviceId,
+    }
+
+    db.update(folders)
+      .set({
+        sortOrder: index,
+        version: nextVersion,
+        updatedAt: now,
+        deviceId,
+      })
+      .where(eq(folders.id, id))
+      .run()
+
+    recordLocalChange("folder", id, nextVersion, now, false, updatedFolder)
+  })
+}
+
 export function deleteFolder(id: string): void {
   const existing = getFolderById(id)
   if (!existing) throw new Error(`Folder not found: ${id}`)
