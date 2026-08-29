@@ -225,6 +225,50 @@ export const noteEditorCss = `
     border-top: 1px solid ${EDITOR_BORDER};
     margin: 20px 0;
   }
+
+  /* Tables */
+  table, .tnotes-table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 16px 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid ${EDITOR_BORDER};
+    background-color: ${EDITOR_CARD};
+  }
+
+  table td, table th,
+  .tnotes-table td, .tnotes-table th {
+    min-width: 60px;
+    padding: 10px 12px;
+    border: 1px solid ${EDITOR_BORDER};
+    vertical-align: top;
+    position: relative;
+    box-sizing: border-box;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  table th, .tnotes-table th {
+    font-weight: 600;
+    text-align: left;
+    background-color: rgba(202, 190, 255, 0.12);
+    color: #FFFFFF !important;
+  }
+
+  table td, .tnotes-table td {
+    color: ${EDITOR_FOREGROUND} !important;
+  }
+
+  table tr:nth-child(even) td {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  table td:focus, table th:focus {
+    outline: 2px solid ${EDITOR_ACCENT};
+    outline-offset: -2px;
+  }
 `
 
 export const ThemeBridge = new BridgeExtension({

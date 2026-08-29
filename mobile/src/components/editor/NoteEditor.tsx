@@ -4,6 +4,7 @@ import { View } from "react-native"
 import { EditorHeader } from "./EditorHeader"
 import { EditorToolbar } from "./EditorToolbar"
 import { FormatSheet, type FormatSheetRef } from "./FormatSheet"
+import { TableActionSheet, type TableActionSheetRef } from "./TableActionSheet"
 import { useNoteEditor } from "./useNoteEditorBridge"
 
 interface NoteEditorProps {
@@ -24,6 +25,7 @@ export function NoteEditor({
   onSave,
 }: NoteEditorProps) {
   const formatSheetRef = useRef<FormatSheetRef>(null)
+  const tableSheetRef = useRef<TableActionSheetRef>(null)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleFlushSave = async () => {
@@ -76,8 +78,13 @@ export function NoteEditor({
       <View className="flex-1">
         <RichText editor={editor} />
       </View>
-      <EditorToolbar editor={editor} onOpenFormat={() => formatSheetRef.current?.open()} />
+      <EditorToolbar
+        editor={editor}
+        onOpenFormat={() => formatSheetRef.current?.open()}
+        onInsertTable={() => tableSheetRef.current?.open()}
+      />
       <FormatSheet ref={formatSheetRef} editor={editor} />
+      <TableActionSheet ref={tableSheetRef} editor={editor} />
     </View>
   )
 }
