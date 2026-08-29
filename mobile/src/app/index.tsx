@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
-import { ChevronRight, Plus, Trash2 } from "lucide-react-native"
+import { ChevronRight, Circle, CircleCheck, GripVertical, Plus, Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { Alert, FlatList, Pressable, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
@@ -24,6 +24,31 @@ export default function FoldersScreen() {
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const [searchValue, setSearchValue] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set())
+
+  const toggleSelectFolder = useCallback((folderId: string) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setSelectedFolderIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(folderId)) {
+        next.delete(folderId)
+      } else {
+        next.add(folderId)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleEditMode = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    setIsEditing((prev) => {
+      if (prev) {
+        setSelectedFolderIds(new Set())
+      }
+      return !prev
+    })
+  }, [])
 
   const getFolderCount = useCallback(
     (folderId: string | null) => {
@@ -78,8 +103,11 @@ export default function FoldersScreen() {
     ({ item }: { item: FolderItem }) => {
       if (item.type === "all") {
         return (
-          <View className="overflow-hidden rounded-3xl bg-white/7">
+          <View
+            className={`overflow-hidden rounded-3xl bg-white/7 ${isEditing ? "opacity-40" : ""}`}
+          >
             <Pressable
+              disabled={isEditing}
               onPress={() => router.push("/folders/all" as const)}
               className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
             >
@@ -100,6 +128,7 @@ export default function FoldersScreen() {
 
       if (item.type === "folder") {
         const isOnly = item.isFirst && item.isLast
+        const isSelected = selectedFolderIds.has(item.folder.id)
         const roundingClass = isOnly
           ? "rounded-3xl"
           : item.isFirst
@@ -114,6 +143,7 @@ export default function FoldersScreen() {
           >
             {!item.isFirst && <View className="ml-15 h-[0.5px] bg-white/8" />}
             <SwipeableListItem
+              enabled={!isEditing}
               rounded={isOnly ? "only" : item.isFirst ? "first" : item.isLast ? "last" : "middle"}
               rightAction={{
                 label: "Delete",
@@ -123,10 +153,25 @@ export default function FoldersScreen() {
               }}
             >
               <Pressable
-                onPress={() => router.push(`/folders/${item.folder.id}` as const)}
+                onPress={() => {
+                  if (isEditing) {
+                    toggleSelectFolder(item.folder.id)
+                  } else {
+                    router.push(`/folders/${item.folder.id}` as const)
+                  }
+                }}
                 className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${roundingClass}`}
               >
                 <View className="flex-row items-center gap-3">
+                  {isEditing && (
+                    <View className="mr-0.5">
+                      {isSelected ? (
+                        <CircleCheck size={22} color="#CABEFF" fill="#CABEFF" />
+                      ) : (
+                        <Circle size={22} color="#8E8C99" />
+                      )}
+                    </View>
+                  )}
                   <View className="size-8 items-center justify-center rounded-lg">
                     <FolderIcon
                       name={item.folder.icon || DEFAULT_FOLDER_ICON}
@@ -137,12 +182,16 @@ export default function FoldersScreen() {
                   </View>
                   <Text className="text-[17px] text-foreground">{item.folder.name}</Text>
                 </View>
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-[15px] text-muted-foreground">
-                    {getFolderCount(item.folder.id)}
-                  </Text>
-                  <ChevronRight size={16} color="#8E8C99" />
-                </View>
+                {isEditing ? (
+                  <GripVertical size={20} color="#8E8C99" />
+                ) : (
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-[15px] text-muted-foreground">
+                      {getFolderCount(item.folder.id)}
+                    </Text>
+                    <ChevronRight size={16} color="#8E8C99" />
+                  </View>
+                )}
               </Pressable>
             </SwipeableListItem>
           </View>
@@ -151,8 +200,11 @@ export default function FoldersScreen() {
 
       if (item.type === "trash") {
         return (
-          <View className="mt-5 overflow-hidden rounded-3xl bg-white/7">
+          <View
+            className={`mt-5 overflow-hidden rounded-3xl bg-white/7 ${isEditing ? "opacity-40" : ""}`}
+          >
             <Pressable
+              disabled={isEditing}
               onPress={() => router.push("/folders/trash" as const)}
               className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
             >
@@ -173,7 +225,15 @@ export default function FoldersScreen() {
 
       return null
     },
-    [counts.trash, getFolderCount, handleDeleteFolder, router],
+    [
+      counts.trash,
+      getFolderCount,
+      handleDeleteFolder,
+      isEditing,
+      router,
+      selectedFolderIds,
+      toggleSelectFolder,
+    ],
   )
 
   return (
@@ -183,18 +243,30 @@ export default function FoldersScreen() {
           title: "Folders",
           headerLargeTitle: true,
           headerShown: true,
-          headerRight: () => (
-            <Pressable
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                sheetRef.current?.open()
-              }}
-              hitSlop={8}
-              className="active:opacity-60"
-            >
-              <Plus size={22} color="#ffffff" />
-            </Pressable>
-          ),
+          headerRight: () =>
+            isEditing ? (
+              <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
+                <Text className="text-[17px] font-semibold text-primary">Done</Text>
+              </Pressable>
+            ) : (
+              <View className="flex-row items-center gap-4">
+                {foldersList.length > 0 && (
+                  <Pressable onPress={toggleEditMode} hitSlop={8} className="active:opacity-60">
+                    <Text className="text-[17px] text-primary">Edit</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                    sheetRef.current?.open()
+                  }}
+                  hitSlop={8}
+                  className="active:opacity-60"
+                >
+                  <Plus size={22} color="#ffffff" />
+                </Pressable>
+              </View>
+            ),
         }}
       />
 

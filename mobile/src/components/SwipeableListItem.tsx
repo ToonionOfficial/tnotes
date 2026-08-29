@@ -25,6 +25,7 @@ interface SwipeableListItemProps {
   leftAction?: SwipeAction
   rightAction?: SwipeAction
   rounded?: "only" | "first" | "middle" | "last"
+  enabled?: boolean
 }
 
 const SWIPE_TO_CONFIRM_DISTANCE = 150
@@ -112,6 +113,7 @@ export const SwipeableListItem = memo(function SwipeableListItem({
   leftAction,
   rightAction,
   rounded = "middle",
+  enabled = true,
 }: SwipeableListItemProps) {
   const swipeableRef = useRef<SwipeableMethods>(null)
   const maxSwipeDistance = useRef(0)
@@ -168,6 +170,7 @@ export const SwipeableListItem = memo(function SwipeableListItem({
   return (
     <ReanimatedSwipeable
       ref={swipeableRef}
+      enabled={enabled}
       renderLeftActions={
         leftAction
           ? (progress, translation, methods) =>
