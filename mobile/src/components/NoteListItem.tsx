@@ -1,4 +1,4 @@
-import { Pin, Trash2 } from "lucide-react-native"
+import { ArchiveRestore, Pin, Trash2 } from "lucide-react-native"
 import { memo } from "react"
 import { Pressable, Text, View } from "react-native"
 import { SwipeableListItem } from "@/components/SwipeableListItem"
@@ -14,6 +14,7 @@ interface NoteListItemProps {
   isTrash?: boolean
   onPress: (noteId: string) => void
   onTogglePin?: (noteId: string) => void
+  onRestore?: (noteId: string) => void
   onDelete?: (noteId: string) => void
 }
 
@@ -24,6 +25,7 @@ export const NoteListItem = memo(function NoteListItem({
   isTrash = false,
   onPress,
   onTogglePin,
+  onRestore,
   onDelete,
 }: NoteListItemProps) {
   const isOnly = isFirst && isLast
@@ -66,18 +68,27 @@ export const NoteListItem = memo(function NoteListItem({
     </Pressable>
   )
 
+  const leftAction = isTrash
+    ? onRestore
+      ? {
+          label: "Restore",
+          color: "#3F8CFF",
+          icon: <ArchiveRestore size={20} color="#FFFFFF" />,
+          onPress: () => onRestore(item.id),
+        }
+      : undefined
+    : onTogglePin
+      ? {
+          label: item.pinned ? "Unpin" : "Pin",
+          color: "#6C5DD3",
+          icon: <Pin size={20} color="#FFFFFF" fill={item.pinned ? "#FFFFFF" : "none"} />,
+          onPress: () => onTogglePin(item.id),
+        }
+      : undefined
+
   return (
     <SwipeableListItem
-      leftAction={
-        !isTrash && onTogglePin
-          ? {
-              label: item.pinned ? "Unpin" : "Pin",
-              color: "#6C5DD3",
-              icon: <Pin size={20} color="#FFFFFF" fill={item.pinned ? "#FFFFFF" : "none"} />,
-              onPress: () => onTogglePin(item.id),
-            }
-          : undefined
-      }
+      leftAction={leftAction}
       rightAction={
         onDelete
           ? {

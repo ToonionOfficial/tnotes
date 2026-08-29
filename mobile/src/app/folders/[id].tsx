@@ -12,6 +12,7 @@ import { useFolder } from "@/hooks/useFolders"
 import {
   useDeleteNotePermanently,
   useNotes,
+  useRestoreNote,
   useTogglePinNote,
   useTrashNote,
 } from "@/hooks/useNotes"
@@ -48,6 +49,7 @@ export default function FolderNotesScreen() {
   })
   const togglePinNote = useTogglePinNote()
   const trashNote = useTrashNote()
+  const restoreNote = useRestoreNote()
   const deleteNotePermanently = useDeleteNotePermanently()
 
   const handleTogglePin = useCallback(
@@ -55,6 +57,13 @@ export default function FolderNotesScreen() {
       togglePinNote.mutate(noteId)
     },
     [togglePinNote],
+  )
+
+  const handleRestore = useCallback(
+    (noteId: string) => {
+      restoreNote.mutate(noteId)
+    },
+    [restoreNote],
   )
 
   const handleDelete = useCallback(
@@ -130,11 +139,12 @@ export default function FolderNotesScreen() {
           isTrash={Boolean(isTrash)}
           onPress={handlePressNote}
           onTogglePin={isTrash ? undefined : handleTogglePin}
+          onRestore={isTrash ? handleRestore : undefined}
           onDelete={handleDelete}
         />
       )
     },
-    [handleDelete, handlePressNote, handleTogglePin, isTrash],
+    [handleDelete, handlePressNote, handleRestore, handleTogglePin, isTrash],
   )
 
   const keyExtractor = useCallback((item: FlatNoteItem) => item.id, [])
