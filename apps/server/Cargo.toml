@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tnotes-core = { path = "../crates/tnotes-core" }
+tnotes-core = { path = "../../crates/tnotes-core" }
 
 axum = { version = "0.8.1", features = ["ws"] }
 tokio = { version = "1.43.0", features = ["full"] }

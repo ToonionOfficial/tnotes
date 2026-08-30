@@ -53,22 +53,22 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm --dir web install --frozen-lockfile
+        run: pnpm --dir apps/web install --frozen-lockfile
 
       - name: Check Formatting
-        run: pnpm --dir web format:check
+        run: pnpm --dir apps/web format:check
 
       - name: Biome Linter Check
-        run: pnpm --dir web lint
+        run: pnpm --dir apps/web lint
 
       - name: Typecheck TypeScript
-        run: pnpm --dir web typecheck
+        run: pnpm --dir apps/web typecheck
 
       - name: Build Web SPA
-        run: pnpm --dir web build
+        run: pnpm --dir apps/web build
 
   mobile-checks:
     name: Mobile App Checks
@@ -87,25 +87,25 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: mobile/pnpm-lock.yaml
+          cache-dependency-path: apps/mobile/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm --dir mobile install --frozen-lockfile
+        run: pnpm --dir apps/mobile install --frozen-lockfile
 
       - name: Check Formatting
-        run: pnpm --dir mobile format:check
+        run: pnpm --dir apps/mobile format:check
 
       - name: Biome Linter Check
-        run: pnpm --dir mobile lint
+        run: pnpm --dir apps/mobile lint
 
       - name: Typecheck TypeScript
-        run: pnpm --dir mobile typecheck
+        run: pnpm --dir apps/mobile typecheck
 
       - name: Run Unit Tests
-        run: pnpm --dir mobile test
+        run: pnpm --dir apps/mobile test
 
       - name: Expo Doctor Check
-        run: pnpm --dir mobile run doctor
+        run: pnpm --dir apps/mobile run doctor
 
   docker-build:
     name: Docker Build Validation
@@ -122,7 +122,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: server/Dockerfile
+          file: apps/server/Dockerfile
           push: false
           tags: tnotes-server:ci
           cache-from: type=gha

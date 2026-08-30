@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        working-directory: mobile
+        working-directory: apps/mobile
 
     steps:
       - name: Checkout
@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: mobile/pnpm-lock.yaml
+          cache-dependency-path: apps/mobile/pnpm-lock.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -73,7 +73,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle-wrapper.properties') }}
+          key: gradle-${{ hashFiles('apps/mobile/android/**/*.gradle*', 'apps/mobile/android/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
       - name: Restore Android credentials
@@ -109,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ inputs.profile }}-build
-          path: mobile/build-output/tnotes.apk
+          path: apps/mobile/build-output/tnotes.apk
           retention-days: 14
 
       - name: Upload to Firebase App Distribution
@@ -134,7 +134,7 @@ jobs:
     timeout-minutes: 90
     defaults:
       run:
-        working-directory: mobile
+        working-directory: apps/mobile
 
     steps:
       - name: Checkout
@@ -150,7 +150,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: mobile/pnpm-lock.yaml
+          cache-dependency-path: apps/mobile/pnpm-lock.yaml
 
       - name: Setup EAS
         uses: expo/expo-github-action@v8
@@ -164,8 +164,8 @@ jobs:
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
-          path: mobile/ios/Pods
-          key: pods-${{ hashFiles('mobile/ios/Podfile.lock') }}
+          path: apps/mobile/ios/Pods
+          key: pods-${{ hashFiles('apps/mobile/ios/Podfile.lock') }}
           restore-keys: pods-
 
       - name: Restore iOS credentials
@@ -201,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-${{ inputs.profile }}-build
-          path: mobile/build-output/tnotes.ipa
+          path: apps/mobile/build-output/tnotes.ipa
           retention-days: 14
 
       - name: Upload to Firebase App Distribution

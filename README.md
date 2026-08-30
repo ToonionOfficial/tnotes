@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/public/logo-transparent.png" alt="TNotes logo" width="112" />
+  <img src="apps/web/public/logo-transparent.png" alt="TNotes logo" width="112" />
 </p>
 
 <h1 align="center">TNotes</h1>
@@ -22,10 +22,10 @@
 Build the web frontend first, then start the server from the repository root:
 
 ```bash
-cd web
+cd apps/web
 pnpm install
 pnpm run build
-cd ..
+cd ../..
 cargo run -p tnotes-server
 ```
 
@@ -42,7 +42,7 @@ The server stores its SQLite data in `./data` locally or in the `tnotes-data` Do
 ### Mobile
 
 ```bash
-cd mobile
+cd apps/mobile
 pnpm install
 pnpm start
 ```
@@ -53,7 +53,7 @@ Use the Expo CLI to open the app on a simulator or device. The mobile client is 
 
 ```bash
 cargo test --workspace
-cd web && pnpm run typecheck && pnpm run lint
+cd apps/web && pnpm run typecheck && pnpm run lint
 ```
 
 The release build script builds the frontend and server together:
@@ -65,17 +65,18 @@ The release build script builds the frontend and server together:
 ## Project layout
 
 ```text
-crates/tnotes-core/  Shared models, database, auth, and sync logic
-server/              Axum API, WebSocket sync, and embedded web app
-web/                 Browser client
-mobile/              Expo client
-desktop/             GPUI desktop client
-docs/                Design and deployment notes
+apps/
+  mobile/              Expo client
+  server/              Axum API, WebSocket sync, and embedded web app
+  web/                 Browser client
+  desktop/             GPUI desktop client
+crates/tnotes-core/    Shared models, database, auth, and sync logic
+docs/                  Design and deployment notes
 ```
 
 ## Documentation
 
-- [Web app development](web/README.md)
+- [Web app development](apps/web/README.md)
 - [Self-hosting](docs/SELF_HOSTING.md)
 - [Sync protocol](docs/SYNC_PROTOCOL.md)
 - [Theming](docs/THEMING.md)
