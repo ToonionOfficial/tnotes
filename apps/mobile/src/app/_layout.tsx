@@ -53,17 +53,13 @@ function RootNavigation() {
         <Stack.Screen
           name="index"
           options={{
-            title: "Folders",
-            headerLargeTitle: true,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Stack.Screen
           name="folders/[id]"
           options={{
-            headerLargeTitle: true,
-            headerShown: true,
-            headerBackButtonDisplayMode: "minimal",
+            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -76,17 +72,14 @@ function RootNavigation() {
           name="settings"
           options={{
             presentation: "modal",
-            title: "Settings",
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Stack.Screen
           name="account"
           options={{
             presentation: "modal",
-            title: "Account",
-            headerLargeTitle: true,
-            headerShown: true,
+            headerShown: false,
           }}
         />
       </Stack>
