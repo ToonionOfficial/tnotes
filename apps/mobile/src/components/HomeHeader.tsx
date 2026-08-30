@@ -64,7 +64,7 @@ export const HomeHeader = memo(function HomeHeader({
       <View className="h-11 min-h-11 flex-row items-center justify-between">
         <Host matchContents ignoreSafeArea="all">
           <Button
-            variant="filled"
+            variant="text"
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
               onPressMenu()
@@ -89,7 +89,7 @@ export const HomeHeader = memo(function HomeHeader({
             {hasFolders && (
               <Host matchContents ignoreSafeArea="all">
                 <Button
-                  variant="filled"
+                  variant="text"
                   label="Edit"
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -106,7 +106,7 @@ export const HomeHeader = memo(function HomeHeader({
             )}
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 onPress={() => {
                   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
                   onPressNewFolder()
@@ -129,7 +129,7 @@ export const HomeHeader = memo(function HomeHeader({
           >
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 label="Done"
                 onPress={() => {
                   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)

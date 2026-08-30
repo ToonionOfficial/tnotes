@@ -9,16 +9,16 @@ import {
   foregroundStyle,
 } from "@expo/ui/swift-ui/modifiers"
 import * as Haptics from "expo-haptics"
-import { useRouter } from "expo-router"
-import { Check, ChevronLeft, Ellipsis, Share2, Undo2 } from "lucide-react-native"
-import { Keyboard, Platform, Pressable, View } from "react-native"
+import { Check, ChevronLeft, MoreHorizontal, Share, Undo } from "lucide-react-native"
+import { memo } from "react"
+import { Platform, Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAppTheme } from "@/hooks/useAppTheme"
 
 interface EditorHeaderProps {
   editor: EditorBridge
   title?: string
-  onBack?: () => void
+  onBack: () => void
   onShare?: () => void
   onMore?: () => void
   onDone?: () => void
@@ -49,54 +49,49 @@ const CHECK_ICON = Icon.select({
   android: import("@expo/material-symbols/check.xml"),
 })
 
-export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: EditorHeaderProps) {
-  const router = useRouter()
+export const EditorHeader = memo(function EditorHeader({
+  editor,
+  onBack,
+  onShare,
+  onMore,
+  onDone,
+}: EditorHeaderProps) {
   const insets = useSafeAreaInsets()
   const editorState = useBridgeState(editor)
   const { colors } = useAppTheme()
 
-  const dismissEditorKeyboard = () => {
-    try {
-      editor.blur()
-      editor.injectJS("if (document.activeElement) { document.activeElement.blur(); }")
-    } catch {}
-    Keyboard.dismiss()
-  }
-
   const handleBack = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    dismissEditorKeyboard()
-    if (onBack) {
-      onBack()
-    } else {
-      router.back()
-    }
+    onBack()
   }
 
   const handleUndo = () => {
-    if (!editorState.canUndo) return
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    editor.undo()
+    if (editorState.canUndo) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      editor.undo()
+    }
   }
 
   const handleShare = () => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    onShare?.()
+    if (onShare) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      onShare()
+    }
   }
 
   const handleMore = () => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    dismissEditorKeyboard()
-    onMore?.()
+    if (onMore) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      onMore()
+    }
   }
 
   const handleDone = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    dismissEditorKeyboard()
     if (onDone) {
       onDone()
     } else {
-      router.back()
+      onBack()
     }
   }
 
@@ -112,7 +107,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
         <View className="h-11 min-h-11 flex-row items-center justify-between">
           <Host matchContents ignoreSafeArea="all">
             <Button
-              variant="filled"
+              variant="text"
               onPress={handleBack}
               modifiers={[
                 buttonStyle("glass"),
@@ -128,7 +123,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
           <View className="flex-row items-center gap-2.5">
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 onPress={handleUndo}
                 modifiers={[
                   buttonStyle("glass"),
@@ -145,7 +140,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             {onShare && (
               <Host matchContents ignoreSafeArea="all">
                 <Button
-                  variant="filled"
+                  variant="text"
                   onPress={handleShare}
                   modifiers={[
                     buttonStyle("glass"),
@@ -162,7 +157,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
             {onMore && (
               <Host matchContents ignoreSafeArea="all">
                 <Button
-                  variant="filled"
+                  variant="text"
                   onPress={handleMore}
                   modifiers={[
                     buttonStyle("glass"),
@@ -178,7 +173,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
 
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 onPress={handleDone}
                 modifiers={[
                   buttonStyle("glass"),
@@ -208,10 +203,10 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
               disabled={!editorState.canUndo}
               hitSlop={8}
               className={`size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent ${
-                editorState.canUndo ? "opacity-100" : "opacity-35"
+                !editorState.canUndo ? "opacity-35" : ""
               }`}
             >
-              <Undo2 size={20} color={colors.foreground} />
+              <Undo size={19} color={colors.foreground} />
             </Pressable>
 
             {onShare && (
@@ -220,7 +215,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                 hitSlop={8}
                 className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
               >
-                <Share2 size={20} color={colors.foreground} />
+                <Share size={19} color={colors.foreground} />
               </Pressable>
             )}
 
@@ -230,7 +225,7 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
                 hitSlop={8}
                 className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
               >
-                <Ellipsis size={20} color={colors.foreground} />
+                <MoreHorizontal size={20} color={colors.foreground} />
               </Pressable>
             )}
 
@@ -239,11 +234,11 @@ export function EditorHeader({ editor, onBack, onShare, onMore, onDone }: Editor
               hitSlop={8}
               className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
             >
-              <Check size={20} color={colors.foreground} strokeWidth={2.5} />
+              <Check size={20} color={colors.foreground} />
             </Pressable>
           </View>
         </View>
       )}
     </View>
   )
-}
+})
