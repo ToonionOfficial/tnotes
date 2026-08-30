@@ -16,7 +16,6 @@ import Animated, {
   useDerivedValue,
   withTiming,
 } from "react-native-reanimated"
-import { useAppTheme } from "@/hooks/useAppTheme"
 
 interface HomeHeaderProps {
   isEditing: boolean
@@ -43,10 +42,9 @@ export const HomeHeader = memo(function HomeHeader({
   onToggleEdit,
   onPressNewFolder,
 }: HomeHeaderProps) {
-  const { colors } = useAppTheme()
   const editProgress = useDerivedValue(() => {
     return withTiming(isEditing ? 1 : 0, {
-      duration: 220,
+      duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     })
   }, [isEditing])
@@ -75,10 +73,10 @@ export const HomeHeader = memo(function HomeHeader({
               buttonStyle("glass"),
               buttonBorderShape("circle"),
               controlSize("large"),
-              foregroundStyle(colors.foreground),
+              foregroundStyle("#FFFFFF"),
             ]}
           >
-            <Icon name={MENU_ICON} color={colors.foreground} size={20} />
+            <Icon name={MENU_ICON} color="#FFFFFF" size={20} />
           </Button>
         </Host>
 
@@ -101,7 +99,7 @@ export const HomeHeader = memo(function HomeHeader({
                     buttonStyle("glass"),
                     buttonBorderShape("capsule"),
                     controlSize("large"),
-                    foregroundStyle(colors.foreground),
+                    foregroundStyle("#FFFFFF"),
                   ]}
                 />
               </Host>
@@ -117,10 +115,10 @@ export const HomeHeader = memo(function HomeHeader({
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
-                  foregroundStyle(colors.foreground),
+                  foregroundStyle("#FFFFFF"),
                 ]}
               >
-                <Icon name={NEW_FOLDER_ICON} color={colors.foreground} size={20} />
+                <Icon name={NEW_FOLDER_ICON} color="#FFFFFF" size={20} />
               </Button>
             </Host>
           </Animated.View>
@@ -141,7 +139,7 @@ export const HomeHeader = memo(function HomeHeader({
                   buttonStyle("glass"),
                   buttonBorderShape("capsule"),
                   controlSize("large"),
-                  foregroundStyle(colors.foreground),
+                  foregroundStyle("#FFFFFF"),
                 ]}
               />
             </Host>
@@ -159,9 +157,9 @@ export const HomeHeader = memo(function HomeHeader({
           onPressMenu()
         }}
         hitSlop={8}
-        className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
+        className="size-11 items-center justify-center rounded-full bg-white/10 active:bg-white/20"
       >
-        <Menu size={22} color={colors.foreground} />
+        <Menu size={22} color="#FFFFFF" />
       </Pressable>
 
       <View className="relative h-11 items-center justify-center">
@@ -177,9 +175,9 @@ export const HomeHeader = memo(function HomeHeader({
                 onToggleEdit()
               }}
               hitSlop={8}
-              className="h-11 items-center justify-center rounded-full bg-card border border-border/40 px-4 active:bg-accent"
+              className="h-11 items-center justify-center rounded-full bg-white/10 px-4 active:bg-white/20"
             >
-              <Text className="text-[15px] font-medium text-foreground">Edit</Text>
+              <Text className="text-[15px] font-medium text-white">Edit</Text>
             </Pressable>
           )}
           <Pressable
@@ -188,9 +186,9 @@ export const HomeHeader = memo(function HomeHeader({
               onPressNewFolder()
             }}
             hitSlop={8}
-            className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
+            className="size-11 items-center justify-center rounded-full bg-white/10 active:bg-white/20"
           >
-            <FolderPlus size={22} color={colors.foreground} />
+            <FolderPlus size={22} color="#FFFFFF" />
           </Pressable>
         </Animated.View>
 
@@ -204,9 +202,9 @@ export const HomeHeader = memo(function HomeHeader({
               onToggleEdit()
             }}
             hitSlop={8}
-            className="h-11 items-center justify-center rounded-full bg-card border border-border/40 px-4 active:bg-accent"
+            className="h-11 items-center justify-center rounded-full bg-white/10 px-4 active:bg-white/20"
           >
-            <Text className="text-[15px] font-semibold text-foreground">Done</Text>
+            <Text className="text-[15px] font-semibold text-white">Done</Text>
           </Pressable>
         </Animated.View>
       </View>

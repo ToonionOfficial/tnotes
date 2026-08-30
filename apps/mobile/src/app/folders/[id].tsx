@@ -448,7 +448,7 @@ export default function FolderNotesScreen() {
                 name: "chevron.left",
                 type: "sfSymbol",
               },
-              tintColor: "#ffffff",
+              tintColor: "#FFFFFF",
               onPress: () => router.back(),
             },
           ],
@@ -466,8 +466,7 @@ export default function FolderNotesScreen() {
                 {
                   type: "button" as const,
                   label: "Done",
-                  tintColor: "#ffffff",
-                  sharesBackground: true,
+                  tintColor: "#FFFFFF",
                   onPress: toggleEditMode,
                 },
               ]
@@ -481,8 +480,7 @@ export default function FolderNotesScreen() {
                   name: "folder.badge.plus" as const,
                   type: "sfSymbol" as const,
                 },
-                tintColor: colors.foreground,
-                sharesBackground: true,
+                tintColor: "#FFFFFF",
                 onPress: () => newFolderSheetRef.current?.open(null, folderId),
               })
             }
@@ -490,8 +488,7 @@ export default function FolderNotesScreen() {
               items.push({
                 type: "button" as const,
                 label: "Edit",
-                tintColor: colors.foreground,
-                sharesBackground: true,
+                tintColor: "#FFFFFF",
                 onPress: toggleEditMode,
               })
             }
@@ -502,7 +499,7 @@ export default function FolderNotesScreen() {
               ? () =>
                   isEditing ? (
                     <Pressable onPress={toggleEditMode} hitSlop={8}>
-                      <Text className="text-[16px] font-semibold text-foreground">Done</Text>
+                      <Text className="text-[16px] font-semibold text-white">Done</Text>
                     </Pressable>
                   ) : (
                     <View className="flex-row items-center gap-2">
@@ -512,12 +509,12 @@ export default function FolderNotesScreen() {
                           hitSlop={8}
                           className="mr-1"
                         >
-                          <FolderPlus size={22} color={colors.foreground} />
+                          <FolderPlus size={22} color="#FFFFFF" />
                         </Pressable>
                       )}
                       {(noteCount > 0 || subfoldersList.length > 0) && (
                         <Pressable onPress={toggleEditMode} hitSlop={8}>
-                          <Text className="text-[16px] font-medium text-foreground">Edit</Text>
+                          <Text className="text-[16px] font-medium text-white">Edit</Text>
                         </Pressable>
                       )}
                     </View>
