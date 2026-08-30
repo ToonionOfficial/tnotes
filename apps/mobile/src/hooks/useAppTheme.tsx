@@ -1,8 +1,18 @@
 import * as SecureStore from "expo-secure-store"
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react"
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+import { useColorScheme } from "react-native"
 import { Uniwind } from "uniwind"
 
-export type AppTheme = "dark" | "light"
+export type ThemePreference = "system" | "dark" | "light"
+export type ResolvedTheme = "dark" | "light"
 
 const THEME_STORAGE_KEY = "tnotes_theme_preference"
 
@@ -37,65 +47,77 @@ export const LIGHT_COLORS: ThemeColors = {
 }
 
 interface AppThemeContextValue {
-  theme: AppTheme
+  preference: ThemePreference
+  theme: ResolvedTheme
   isDarkMode: boolean
   colors: ThemeColors
-  setTheme: (theme: AppTheme) => void
+  setPreference: (pref: ThemePreference) => void
   toggleTheme: (isDark: boolean) => void
 }
 
 const AppThemeContext = createContext<AppThemeContextValue>({
+  preference: "system",
   theme: "dark",
   isDarkMode: true,
   colors: DARK_COLORS,
-  setTheme: () => {},
+  setPreference: () => {},
   toggleTheme: () => {},
 })
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<AppTheme>("dark")
+  const systemColorScheme = useColorScheme()
+  const [preference, setPreferenceState] = useState<ThemePreference>("system")
 
   useEffect(() => {
-    async function loadTheme() {
+    async function loadSavedTheme() {
       try {
         const saved = await SecureStore.getItemAsync(THEME_STORAGE_KEY)
-        if (saved === "light" || saved === "dark") {
-          setThemeState(saved)
+        if (saved === "light" || saved === "dark" || saved === "system") {
+          setPreferenceState(saved)
           Uniwind.setTheme(saved)
         } else {
-          Uniwind.setTheme("dark")
+          setPreferenceState("system")
+          Uniwind.setTheme("system")
         }
       } catch {
-        Uniwind.setTheme("dark")
+        setPreferenceState("system")
+        Uniwind.setTheme("system")
       }
     }
-    void loadTheme()
+    void loadSavedTheme()
   }, [])
 
-  const setTheme = useCallback((newTheme: AppTheme) => {
-    setThemeState(newTheme)
-    Uniwind.setTheme(newTheme)
-    void SecureStore.setItemAsync(THEME_STORAGE_KEY, newTheme).catch(() => {})
+  const setPreference = useCallback((newPref: ThemePreference) => {
+    setPreferenceState(newPref)
+    Uniwind.setTheme(newPref)
+    void SecureStore.setItemAsync(THEME_STORAGE_KEY, newPref).catch(() => {})
   }, [])
 
   const toggleTheme = useCallback(
     (isDark: boolean) => {
-      const nextTheme: AppTheme = isDark ? "dark" : "light"
-      setTheme(nextTheme)
+      const nextPref: ThemePreference = isDark ? "dark" : "light"
+      setPreference(nextPref)
     },
-    [setTheme],
+    [setPreference],
   )
 
-  const isDarkMode = theme === "dark"
+  const resolvedTheme: ResolvedTheme = useMemo(() => {
+    if (preference === "dark") return "dark"
+    if (preference === "light") return "light"
+    return systemColorScheme === "dark" ? "dark" : "light"
+  }, [preference, systemColorScheme])
+
+  const isDarkMode = resolvedTheme === "dark"
   const colors = isDarkMode ? DARK_COLORS : LIGHT_COLORS
 
   return (
     <AppThemeContext.Provider
       value={{
-        theme,
+        preference,
+        theme: resolvedTheme,
         isDarkMode,
         colors,
-        setTheme,
+        setPreference,
         toggleTheme,
       }}
     >

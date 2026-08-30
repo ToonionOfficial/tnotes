@@ -18,8 +18,15 @@ export const AppearanceSection = memo(function AppearanceSection({
   onPressAccent,
   onPressFont,
 }: AppearanceSectionProps) {
-  const { colors } = useAppTheme()
+  const { colors, preference } = useAppTheme()
   const accentColorBadge = <View className="size-3.5 rounded-full bg-primary" />
+
+  const subtitle =
+    preference === "system"
+      ? `System (${isDarkMode ? "Dark" : "Light"})`
+      : isDarkMode
+        ? "Dark theme enabled"
+        : "Light theme enabled"
 
   return (
     <SettingsSection title="Appearance">
@@ -32,7 +39,7 @@ export const AppearanceSection = memo(function AppearanceSection({
           )
         }
         title="Dark Mode"
-        subtitle={isDarkMode ? "Dark theme enabled" : "Light theme enabled"}
+        subtitle={subtitle}
         isSwitch
         switchValue={isDarkMode}
         onSwitchChange={onToggleTheme}
