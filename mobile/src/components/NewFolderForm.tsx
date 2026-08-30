@@ -5,11 +5,22 @@ import {
   BottomSheetTextInput,
   BottomSheetView,
 } from "@gorhom/bottom-sheet"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
+import { Controller, useForm } from "react-hook-form"
 import { Keyboard, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import { z } from "zod"
 import type { Folder } from "@/db/schema"
 import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
 import { DEFAULT_FOLDER_ICON, FOLDER_ICON_OPTIONS, FolderIcon } from "./FolderIcon"
+
+const folderSchema = z.object({
+  name: z.string().trim().min(1, "Folder name is required").max(60, "Folder name is too long"),
+  icon: z.string(),
+  parentId: z.string().nullable(),
+})
+
+export type FolderFormData = z.infer<typeof folderSchema>
 
 interface NewFolderSheetProps {
   parentId?: string | null
@@ -26,48 +37,67 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
   function NewFolderSheet({ parentId: defaultParentId = null, onCreated, onUpdated }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
-    const [targetParentId, setTargetParentId] = useState<string | null>(defaultParentId ?? null)
-    const [folderName, setFolderName] = useState("")
-    const [selectedIcon, setSelectedIcon] = useState(DEFAULT_FOLDER_ICON)
 
     const createFolderMutation = useCreateFolder()
     const updateFolderMutation = useUpdateFolder()
 
-    const resetForm = useCallback(() => {
-      setEditingFolder(null)
-      setTargetParentId(defaultParentId ?? null)
-      setFolderName("")
-      setSelectedIcon(DEFAULT_FOLDER_ICON)
-    }, [defaultParentId])
+    const {
+      control,
+      handleSubmit,
+      reset,
+      setValue,
+      watch,
+      formState: { isValid, isSubmitting },
+    } = useForm<FolderFormData>({
+      resolver: zodResolver(folderSchema),
+      mode: "onChange",
+      defaultValues: {
+        name: "",
+        icon: DEFAULT_FOLDER_ICON,
+        parentId: defaultParentId ?? null,
+      },
+    })
+
+    const selectedIcon = watch("icon")
+    const folderName = watch("name")
 
     const close = useCallback(() => {
       Keyboard.dismiss()
       bottomSheetModalRef.current?.dismiss()
-      resetForm()
-    }, [resetForm])
+      setEditingFolder(null)
+      reset({
+        name: "",
+        icon: DEFAULT_FOLDER_ICON,
+        parentId: defaultParentId ?? null,
+      })
+    }, [defaultParentId, reset])
 
     const open = useCallback(
       (folderToEdit?: Folder | null, parentIdOverride?: string | null) => {
         if (folderToEdit) {
           setEditingFolder(folderToEdit)
-          setTargetParentId(folderToEdit.parentId ?? null)
-          setFolderName(folderToEdit.name)
-          setSelectedIcon(folderToEdit.icon || DEFAULT_FOLDER_ICON)
+          reset({
+            name: folderToEdit.name,
+            icon: folderToEdit.icon || DEFAULT_FOLDER_ICON,
+            parentId: folderToEdit.parentId ?? null,
+          })
         } else {
-          resetForm()
-          if (parentIdOverride !== undefined) {
-            setTargetParentId(parentIdOverride)
-          }
+          setEditingFolder(null)
+          reset({
+            name: "",
+            icon: DEFAULT_FOLDER_ICON,
+            parentId: parentIdOverride !== undefined ? parentIdOverride : (defaultParentId ?? null),
+          })
         }
         bottomSheetModalRef.current?.present()
       },
-      [resetForm],
+      [defaultParentId, reset],
     )
 
     useImperativeHandle(ref, () => ({ open, close }), [open, close])
 
-    const handleSubmit = async () => {
-      const trimmed = folderName.trim()
+    const onSubmit = async (data: FolderFormData) => {
+      const trimmed = data.name.trim()
       if (!trimmed) return
 
       if (editingFolder) {
@@ -75,7 +105,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
           id: editingFolder.id,
           input: {
             name: trimmed,
-            icon: selectedIcon,
+            icon: data.icon,
           },
         })
         close()
@@ -83,8 +113,8 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       } else {
         const created = await createFolderMutation.mutateAsync({
           name: trimmed,
-          icon: selectedIcon,
-          parentId: targetParentId,
+          icon: data.icon,
+          parentId: data.parentId,
         })
         close()
         onCreated?.(created.id)
@@ -106,8 +136,13 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
 
     const handleDismiss = useCallback(() => {
       Keyboard.dismiss()
-      resetForm()
-    }, [resetForm])
+      setEditingFolder(null)
+      reset({
+        name: "",
+        icon: DEFAULT_FOLDER_ICON,
+        parentId: defaultParentId ?? null,
+      })
+    }, [defaultParentId, reset])
 
     const isEditing = Boolean(editingFolder)
 
@@ -147,21 +182,28 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               <View className="mr-3 items-center justify-center">
                 <FolderIcon name={selectedIcon} size={22} color="#CABEFF" fill="#CABEFF" />
               </View>
-              <BottomSheetTextInput
-                value={folderName}
-                onChangeText={setFolderName}
-                placeholder="Folder name"
-                placeholderTextColor="#6E6B77"
-                cursorColor="#CABEFF"
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-                style={{
-                  flex: 1,
-                  fontSize: 17,
-                  fontWeight: "500",
-                  color: "#FFFFFF",
-                }}
+              <Controller
+                control={control}
+                name="name"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <BottomSheetTextInput
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder="Folder name"
+                    placeholderTextColor="#6E6B77"
+                    cursorColor="#CABEFF"
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit(onSubmit)}
+                    style={{
+                      flex: 1,
+                      fontSize: 17,
+                      fontWeight: "500",
+                      color: "#FFFFFF",
+                    }}
+                  />
+                )}
               />
             </View>
           </Pressable>
@@ -178,7 +220,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               return (
                 <Pressable
                   key={iconName}
-                  onPress={() => setSelectedIcon(iconName)}
+                  onPress={() => setValue("icon", iconName)}
                   className={`size-11 items-center justify-center rounded-2xl ${
                     isSelected ? "bg-primary/20" : "active:bg-white/10"
                   }`}
@@ -199,10 +241,10 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               <Text className="text-[15px] font-medium text-muted-foreground">Cancel</Text>
             </Pressable>
             <Pressable
-              onPress={handleSubmit}
-              disabled={!folderName.trim()}
+              onPress={handleSubmit(onSubmit)}
+              disabled={!folderName?.trim() || !isValid || isSubmitting}
               className={`rounded-xl bg-primary px-5 py-2.5 active:opacity-80 ${
-                !folderName.trim() ? "opacity-30" : ""
+                !folderName?.trim() || !isValid || isSubmitting ? "opacity-30" : ""
               }`}
             >
               <Text className="text-[15px] font-semibold text-[#141318]">

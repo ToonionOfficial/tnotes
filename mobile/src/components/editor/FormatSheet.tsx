@@ -236,7 +236,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
                 key={style.id}
                 onPress={() => handleSelectStyle(style.id)}
                 className={`h-9 items-center justify-center rounded-full px-4 active:opacity-75 ${
-                  isSelected ? "bg-primary" : "bg-white/[0.08]"
+                  isSelected ? "bg-primary" : "bg-white/8"
                 }`}
               >
                 <Text

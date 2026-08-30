@@ -297,7 +297,7 @@ export default function FoldersScreen() {
               <Pressable
                 onPress={isAllSelected ? handleDeselectAllFolders : handleSelectAllFolders}
                 hitSlop={8}
-                className="rounded-full bg-white/[0.08] px-3.5 py-1.5 active:opacity-60"
+                className="rounded-full bg-white/8 px-3.5 py-1.5 active:opacity-60"
               >
                 <Text className="text-[13px] font-medium text-white/80">
                   {isAllSelected ? "Deselect All" : "Select All"}
