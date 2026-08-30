@@ -20,7 +20,7 @@ import {
 } from "lucide-react-native"
 import { type ComponentType, memo } from "react"
 
-const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
+export const ICON_MAP = {
   folder: Folder,
   briefcase: Briefcase,
   lightbulb: Lightbulb,
@@ -38,14 +38,20 @@ const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
   music: Music,
   zap: Zap,
   "shopping-cart": ShoppingCart,
+} as const satisfies Record<string, ComponentType<LucideProps>>
+
+export type FolderIconName = keyof typeof ICON_MAP
+
+export const FOLDER_ICON_OPTIONS = Object.keys(ICON_MAP) as readonly FolderIconName[]
+
+export const DEFAULT_FOLDER_ICON: FolderIconName = "folder"
+
+export function isFolderIconName(name: string): name is FolderIconName {
+  return name in ICON_MAP
 }
 
-export const FOLDER_ICON_OPTIONS = Object.keys(ICON_MAP)
-
-export const DEFAULT_FOLDER_ICON = "folder"
-
 interface FolderIconProps {
-  name: string
+  name?: FolderIconName | string | null
   size?: number
   color?: string
   fill?: string
@@ -57,6 +63,7 @@ export const FolderIcon = memo(function FolderIcon({
   color = "#CABEFF",
   fill,
 }: FolderIconProps) {
-  const IconComponent = ICON_MAP[name] || ICON_MAP[DEFAULT_FOLDER_ICON]
+  const safeName = name && isFolderIconName(name) ? name : DEFAULT_FOLDER_ICON
+  const IconComponent = ICON_MAP[safeName]
   return <IconComponent size={size} color={color} fill={fill} />
 })

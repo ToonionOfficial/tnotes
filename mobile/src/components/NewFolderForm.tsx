@@ -12,11 +12,19 @@ import { Keyboard, Platform, Pressable, ScrollView, Text, View } from "react-nat
 import { z } from "zod"
 import type { Folder } from "@/db/schema"
 import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
-import { DEFAULT_FOLDER_ICON, FOLDER_ICON_OPTIONS, FolderIcon } from "./FolderIcon"
+import {
+  DEFAULT_FOLDER_ICON,
+  FOLDER_ICON_OPTIONS,
+  FolderIcon,
+  type FolderIconName,
+  isFolderIconName,
+} from "./FolderIcon"
 
 const folderSchema = z.object({
   name: z.string().trim().min(1, "Folder name is required").max(60, "Folder name is too long"),
-  icon: z.string(),
+  icon: z.custom<FolderIconName>((val) => typeof val === "string" && isFolderIconName(val), {
+    message: "Invalid icon",
+  }),
   parentId: z.string().nullable(),
 })
 
@@ -76,9 +84,13 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       (folderToEdit?: Folder | null, parentIdOverride?: string | null) => {
         if (folderToEdit) {
           setEditingFolder(folderToEdit)
+          const validIcon: FolderIconName =
+            folderToEdit.icon && isFolderIconName(folderToEdit.icon)
+              ? folderToEdit.icon
+              : DEFAULT_FOLDER_ICON
           reset({
             name: folderToEdit.name,
-            icon: folderToEdit.icon || DEFAULT_FOLDER_ICON,
+            icon: validIcon,
             parentId: folderToEdit.parentId ?? null,
           })
         } else {
@@ -220,7 +232,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               return (
                 <Pressable
                   key={iconName}
-                  onPress={() => setValue("icon", iconName)}
+                  onPress={() => setValue("icon", iconName, { shouldValidate: true })}
                   className={`size-11 items-center justify-center rounded-2xl ${
                     isSelected ? "bg-primary/20" : "active:bg-white/10"
                   }`}
