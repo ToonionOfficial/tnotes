@@ -1,9 +1,8 @@
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
-import { X } from "lucide-react-native"
 import { useMemo, useState } from "react"
-import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import { Alert, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
   AboutSection,
@@ -12,6 +11,7 @@ import {
   ENABLE_BENCHMARK,
   FlagsSection,
   ProfileSection,
+  SettingsHeader,
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
@@ -30,7 +30,7 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
-  const { isDarkMode, toggleTheme, colors } = useAppTheme()
+  const { isDarkMode, toggleTheme } = useAppTheme()
 
   const { data: syncStatus } = useSyncState()
   const { data: autoSyncEnabled } = useAutoSyncQuery()
@@ -119,42 +119,9 @@ export default function SettingsScreen() {
   return (
     <BottomSheetModalProvider>
       <View className="flex-1 bg-background">
-        <Stack.Screen
-          options={{
-            title: "Settings",
-            headerLargeTitle: true,
-            unstable_headerRightItems: () => [
-              {
-                type: "button",
-                label: "Close",
-                icon: {
-                  name: "xmark",
-                  type: "sfSymbol",
-                },
-                tintColor: colors.foreground,
-                onPress: () => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                  router.back()
-                },
-              },
-            ],
-            headerRight:
-              Platform.OS !== "ios"
-                ? () => (
-                    <Pressable
-                      onPress={() => {
-                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                        router.back()
-                      }}
-                      hitSlop={8}
-                      className="p-1 active:opacity-60"
-                    >
-                      <X size={20} color={colors.foreground} strokeWidth={2} />
-                    </Pressable>
-                  )
-                : undefined,
-          }}
-        />
+        <Stack.Screen options={{ headerShown: false }} />
+
+        <SettingsHeader onClose={() => router.back()} />
 
         <ScrollView
           className="flex-1"
@@ -162,7 +129,7 @@ export default function SettingsScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: 12,
+            paddingTop: 8,
             paddingBottom: 60,
           }}
         >

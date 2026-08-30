@@ -1,20 +1,12 @@
 import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft, FolderPlus } from "lucide-react-native"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  InteractionManager,
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from "react-native"
+import { ActivityIndicator, Alert, InteractionManager, Text, View } from "react-native"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderActionSheet, type FolderActionSheetRef } from "@/components/FolderActionSheet"
+import { FolderHeader } from "@/components/FolderHeader"
 import { MoveNoteSheet, type MoveNoteSheetRef } from "@/components/MoveNoteSheet"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { NoteActionSheet, type NoteActionSheetRef } from "@/components/NoteActionSheet"
@@ -434,93 +426,18 @@ export default function FolderNotesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          title,
-          headerLargeTitle: true,
-          headerShown: true,
-          headerBackVisible: false,
-          unstable_headerLeftItems: () => [
-            {
-              type: "button",
-              label: "Back",
-              icon: {
-                name: "chevron.left",
-                type: "sfSymbol",
-              },
-              tintColor: "#FFFFFF",
-              onPress: () => router.back(),
-            },
-          ],
-          headerLeft:
-            Platform.OS !== "ios"
-              ? () => (
-                  <Pressable onPress={() => router.back()} hitSlop={8} className="mr-2">
-                    <ChevronLeft size={24} color="#FFFFFF" />
-                  </Pressable>
-                )
-              : undefined,
-          unstable_headerRightItems: () => {
-            if (isEditing) {
-              return [
-                {
-                  type: "button" as const,
-                  label: "Done",
-                  tintColor: "#FFFFFF",
-                  onPress: toggleEditMode,
-                },
-              ]
-            }
-            const items = []
-            if (folderId) {
-              items.push({
-                type: "button" as const,
-                label: "New Folder",
-                icon: {
-                  name: "folder.badge.plus" as const,
-                  type: "sfSymbol" as const,
-                },
-                tintColor: "#FFFFFF",
-                onPress: () => newFolderSheetRef.current?.open(null, folderId),
-              })
-            }
-            if (noteCount > 0 || subfoldersList.length > 0) {
-              items.push({
-                type: "button" as const,
-                label: "Edit",
-                tintColor: "#FFFFFF",
-                onPress: toggleEditMode,
-              })
-            }
-            return items
-          },
-          headerRight:
-            Platform.OS !== "ios"
-              ? () =>
-                  isEditing ? (
-                    <Pressable onPress={toggleEditMode} hitSlop={8}>
-                      <Text className="text-[16px] font-semibold text-white">Done</Text>
-                    </Pressable>
-                  ) : (
-                    <View className="flex-row items-center gap-2">
-                      {folderId && (
-                        <Pressable
-                          onPress={() => newFolderSheetRef.current?.open(null, folderId)}
-                          hitSlop={8}
-                          className="mr-1"
-                        >
-                          <FolderPlus size={22} color="#FFFFFF" />
-                        </Pressable>
-                      )}
-                      {(noteCount > 0 || subfoldersList.length > 0) && (
-                        <Pressable onPress={toggleEditMode} hitSlop={8}>
-                          <Text className="text-[16px] font-medium text-white">Edit</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  )
-              : undefined,
-        }}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <FolderHeader
+        title={title}
+        folderId={folderId}
+        hasItems={noteCount > 0 || subfoldersList.length > 0}
+        isEditing={isEditing}
+        onBack={() => router.back()}
+        onToggleEdit={toggleEditMode}
+        onPressNewFolder={
+          folderId ? () => newFolderSheetRef.current?.open(null, folderId) : undefined
+        }
       />
 
       {isLoading && !isReadyToLoad ? (
