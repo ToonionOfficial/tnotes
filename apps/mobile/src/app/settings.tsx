@@ -14,6 +14,7 @@ import {
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 import {
   useAutoSyncQuery,
@@ -28,7 +29,7 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
-  const [isDarkMode, setIsDarkMode] = useState(true)
+  const { isDarkMode, toggleTheme } = useAppTheme()
 
   const { data: syncStatus } = useSyncState()
   const { data: autoSyncEnabled } = useAutoSyncQuery()
@@ -174,7 +175,7 @@ export default function SettingsScreen() {
         )}
 
         {matches.appearance && (
-          <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={setIsDarkMode} />
+          <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
         )}
         {matches.data && <DataStorageSection stats={stats} />}
         {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}

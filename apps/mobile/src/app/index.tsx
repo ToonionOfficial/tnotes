@@ -24,6 +24,7 @@ import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderFo
 import { SideDrawerContent } from "@/components/SideDrawerContent"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
 import type { Folder } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import {
   useBatchDeleteFolders,
   useDeleteFolder,
@@ -37,6 +38,7 @@ export default function FoldersScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
+  const { colors } = useAppTheme()
   const {
     data: folderPages,
     fetchNextPage,
@@ -198,7 +200,7 @@ export default function FoldersScreen() {
       drawerStyle={{
         width: "80%",
         maxWidth: 320,
-        backgroundColor: "#141318",
+        backgroundColor: colors.background,
       }}
       swipeEdgeWidth={width}
       swipeMinDistance={30}
@@ -243,7 +245,9 @@ export default function FoldersScreen() {
           />
 
           {/* Large Screen Title */}
-          <Text className="mb-1 mt-2 text-[34px] font-bold tracking-tight text-white">Folders</Text>
+          <Text className="mb-1 mt-2 text-[34px] font-bold tracking-tight text-foreground">
+            Folders
+          </Text>
         </View>
 
         <ScrollView
@@ -260,7 +264,9 @@ export default function FoldersScreen() {
         >
           <VirtualFolderCard
             title="All Notes"
-            icon={<FolderIcon name="folder" size={20} color="#CABEFF" fill="#CABEFF" />}
+            icon={
+              <FolderIcon name="folder" size={20} color={colors.primary} fill={colors.primary} />
+            }
             count={getFolderCount(null)}
             isEditing={isEditing}
             onPress={() => router.push("/folders/all" as const)}

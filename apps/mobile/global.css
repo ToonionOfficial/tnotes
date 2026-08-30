@@ -38,36 +38,36 @@
 }
 
 :root {
-  --background: #141318; /* window bg */
-  --foreground: #e6e1e9; /* window fg */
+  --background: #f8f7fa;
+  --foreground: #1d1b20;
 
-  --card: #201f24; /* surface */
-  --card-foreground: #e6e1e9;
+  --card: #ffffff;
+  --card-foreground: #1d1b20;
 
-  --popover: #201f24;
-  --popover-foreground: #e6e1e9;
+  --popover: #ffffff;
+  --popover-foreground: #1d1b20;
 
-  --primary: #cabeff; /* accent bg */
-  --primary-foreground: #32285f; /* accent fg */
+  --primary: #65558f;
+  --primary-foreground: #ffffff;
 
-  --secondary: #2a2930; /* elevated surface */
-  --secondary-foreground: #e6e1e9;
+  --secondary: #ece6f0;
+  --secondary-foreground: #1d1b20;
 
-  --muted: #201f24;
-  --muted-foreground: #c6c2cd; /* on-surface variant */
+  --muted: #f3eef8;
+  --muted-foreground: #79747e;
 
-  --accent: #2a2930; /* hover surfaces */
-  --accent-foreground: #e6e1e9;
+  --accent: #e8def8;
+  --accent-foreground: #1d1b20;
 
-  --destructive: #ffb4ab;
-  --destructive-foreground: #690005;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
 
-  --border: #302e36;
-  --input: #302e36;
-  --ring: #cabeff;
+  --border: #e6e0e9;
+  --input: #e6e0e9;
+  --ring: #65558f;
 
   --radius: 0.75rem;
-  --success: #a6e3a1; /* #a6e3a1 green */
+  --success: #2e7d32;
 
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 5.3% 26.1%);
@@ -80,6 +80,37 @@
 }
 
 .dark {
+  --background: #141318;
+  --foreground: #e6e1e9;
+
+  --card: #201f24;
+  --card-foreground: #e6e1e9;
+
+  --popover: #201f24;
+  --popover-foreground: #e6e1e9;
+
+  --primary: #cabeff;
+  --primary-foreground: #32285f;
+
+  --secondary: #2a2930;
+  --secondary-foreground: #e6e1e9;
+
+  --muted: #201f24;
+  --muted-foreground: #c6c2cd;
+
+  --accent: #2a2930;
+  --accent-foreground: #e6e1e9;
+
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
+
+  --border: #302e36;
+  --input: #302e36;
+  --ring: #cabeff;
+
+  --radius: 0.75rem;
+  --success: #a6e3a1;
+
   --sidebar: hsl(240 5.9% 10%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
   --sidebar-primary: hsl(224.3 76.3% 48%);

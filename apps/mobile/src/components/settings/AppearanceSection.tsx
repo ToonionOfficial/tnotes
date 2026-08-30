@@ -1,6 +1,7 @@
 import { Moon, Sparkles, Sun, Type } from "lucide-react-native"
 import { memo } from "react"
 import { View } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
@@ -17,12 +18,19 @@ export const AppearanceSection = memo(function AppearanceSection({
   onPressAccent,
   onPressFont,
 }: AppearanceSectionProps) {
-  const accentColorBadge = <View className="size-3.5 rounded-full bg-[#CABEFF]" />
+  const { colors } = useAppTheme()
+  const accentColorBadge = <View className="size-3.5 rounded-full bg-primary" />
 
   return (
     <SettingsSection title="Appearance">
       <SettingsRow
-        icon={isDarkMode ? <Moon size={20} color="#E6E1E9" /> : <Sun size={20} color="#E6E1E9" />}
+        icon={
+          isDarkMode ? (
+            <Moon size={20} color={colors.foreground} />
+          ) : (
+            <Sun size={20} color={colors.foreground} />
+          )
+        }
         title="Dark Mode"
         subtitle={isDarkMode ? "Dark theme enabled" : "Light theme enabled"}
         isSwitch
@@ -31,7 +39,7 @@ export const AppearanceSection = memo(function AppearanceSection({
         showDivider
       />
       <SettingsRow
-        icon={<Sparkles size={20} color="#E6E1E9" />}
+        icon={<Sparkles size={20} color={colors.foreground} />}
         title="Accent Color"
         value="Lavender"
         badge={accentColorBadge}
@@ -39,7 +47,7 @@ export const AppearanceSection = memo(function AppearanceSection({
         showDivider
       />
       <SettingsRow
-        icon={<Type size={20} color="#E6E1E9" />}
+        icon={<Type size={20} color={colors.foreground} />}
         title="Typography"
         value="System"
         onPress={onPressFont}

@@ -23,6 +23,7 @@ import NoteSectionHeader from "@/components/NoteSectionHeader"
 import { NotesEditBottomBar } from "@/components/NotesEditBottomBar"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import {
   useBatchDeleteFolders,
@@ -59,6 +60,7 @@ type FlatNoteItem =
 
 export default function FolderNotesScreen() {
   const router = useRouter()
+  const { colors } = useAppTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
 
   const isAll = id === "all" || !id
@@ -479,7 +481,7 @@ export default function FolderNotesScreen() {
                   name: "folder.badge.plus" as const,
                   type: "sfSymbol" as const,
                 },
-                tintColor: "#ffffff",
+                tintColor: colors.foreground,
                 sharesBackground: true,
                 onPress: () => newFolderSheetRef.current?.open(null, folderId),
               })
@@ -488,7 +490,7 @@ export default function FolderNotesScreen() {
               items.push({
                 type: "button" as const,
                 label: "Edit",
-                tintColor: "#ffffff",
+                tintColor: colors.foreground,
                 sharesBackground: true,
                 onPress: toggleEditMode,
               })
@@ -500,7 +502,7 @@ export default function FolderNotesScreen() {
               ? () =>
                   isEditing ? (
                     <Pressable onPress={toggleEditMode} hitSlop={8}>
-                      <Text className="text-[16px] font-semibold text-white">Done</Text>
+                      <Text className="text-[16px] font-semibold text-foreground">Done</Text>
                     </Pressable>
                   ) : (
                     <View className="flex-row items-center gap-2">
@@ -510,12 +512,12 @@ export default function FolderNotesScreen() {
                           hitSlop={8}
                           className="mr-1"
                         >
-                          <FolderPlus size={22} color="#FFFFFF" />
+                          <FolderPlus size={22} color={colors.foreground} />
                         </Pressable>
                       )}
                       {(noteCount > 0 || subfoldersList.length > 0) && (
                         <Pressable onPress={toggleEditMode} hitSlop={8}>
-                          <Text className="text-[16px] font-medium text-white">Edit</Text>
+                          <Text className="text-[16px] font-medium text-foreground">Edit</Text>
                         </Pressable>
                       )}
                     </View>
@@ -526,7 +528,7 @@ export default function FolderNotesScreen() {
 
       {isLoading && !isReadyToLoad ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#CABEFF" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
         <LegendList

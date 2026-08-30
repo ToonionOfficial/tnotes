@@ -4,6 +4,7 @@ import { ChevronRight, Settings, Smartphone, Star, Trash2, User } from "lucide-r
 import { memo } from "react"
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useIsSyncing } from "@/hooks/useSyncState"
 
 const APP_ICON = require("../../assets/images/icon.png")
@@ -32,10 +33,11 @@ export const SideDrawerContent = memo(function SideDrawerContent({
   const insets = useSafeAreaInsets()
   const globalIsSyncing = useIsSyncing()
   const isSyncing = isSyncingProp ?? globalIsSyncing
+  const { colors } = useAppTheme()
 
   return (
     <View
-      className="flex-1 bg-[#141318] px-4"
+      className="flex-1 bg-background px-4"
       style={{
         paddingTop: insets.top + 16,
         paddingBottom: insets.bottom + 16,
@@ -48,7 +50,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
           style={{ width: 36, height: 36, borderRadius: 10 }}
           contentFit="cover"
         />
-        <Text className="text-[20px] font-bold tracking-tight text-white">TNotes</Text>
+        <Text className="text-[20px] font-bold tracking-tight text-foreground">TNotes</Text>
       </View>
 
       {/* Scrollable Middle Items */}
@@ -68,15 +70,15 @@ export const SideDrawerContent = memo(function SideDrawerContent({
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 onPressFavorites?.()
               }}
-              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-white/[0.08]"
+              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-accent"
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-6 items-center justify-center">
                   <Star size={20} color="#FFC107" />
                 </View>
-                <Text className="text-[15px] font-medium text-white">Favorites</Text>
+                <Text className="text-[15px] font-medium text-foreground">Favorites</Text>
               </View>
-              <ChevronRight size={16} color="#6E6D77" />
+              <ChevronRight size={16} color={colors.mutedForeground} />
             </Pressable>
 
             {/* Trash */}
@@ -85,7 +87,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 onPressTrash()
               }}
-              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-white/[0.08]"
+              className="flex-row items-center justify-between rounded-3xl px-3.5 py-3 active:bg-accent"
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-6 items-center justify-center">
@@ -101,9 +103,9 @@ export const SideDrawerContent = memo(function SideDrawerContent({
 
       {/* Syncing Indicator above profile/settings */}
       {isSyncing && (
-        <View className="mb-2 flex-row items-center justify-center gap-2 rounded-2xl bg-[#CABEFF]/10 py-2 px-3">
-          <ActivityIndicator size="small" color="#CABEFF" />
-          <Text className="text-[12px] font-medium text-[#CABEFF]">Syncing vault...</Text>
+        <View className="mb-2 flex-row items-center justify-center gap-2 rounded-2xl bg-primary/10 py-2 px-3">
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text className="text-[12px] font-medium text-primary">Syncing vault...</Text>
         </View>
       )}
 
@@ -118,19 +120,19 @@ export const SideDrawerContent = memo(function SideDrawerContent({
               onPressProfile?.()
             }
           }}
-          className="flex-row items-center justify-between rounded-3xl px-3.5 py-2.5 active:bg-white/[0.08]"
+          className="flex-row items-center justify-between rounded-3xl px-3.5 py-2.5 active:bg-accent"
         >
           {/* Left: User info */}
           <View className="flex-1 flex-row items-center gap-3">
             <View className="w-6 items-center justify-center">
-              <User size={22} color="#CABEFF" />
+              <User size={22} color={colors.primary} />
             </View>
             <View className="flex-1">
-              <Text className="text-[15px] font-semibold text-white" numberOfLines={1}>
+              <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
                 {username}
               </Text>
               <View className="flex-row items-center gap-1.5 pt-0.5">
-                <Smartphone size={12} color="#8E8D94" />
+                <Smartphone size={12} color={colors.mutedForeground} />
                 <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
                   {isConnected ? "Synced with server" : "On-device storage"}
                 </Text>
@@ -140,7 +142,7 @@ export const SideDrawerContent = memo(function SideDrawerContent({
 
           {/* Right: Settings Icon */}
           <View className="w-6 items-center justify-center">
-            <Settings size={20} color="#E6E1E9" />
+            <Settings size={20} color={colors.foreground} />
           </View>
         </Pressable>
       </View>

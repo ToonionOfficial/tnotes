@@ -20,7 +20,9 @@ export const SettingsSection = memo(function SettingsSection({
           {title}
         </Text>
       )}
-      <View className="overflow-hidden rounded-3xl bg-white/7">{children}</View>
+      <View className="overflow-hidden rounded-3xl bg-card border border-border/40">
+        {children}
+      </View>
     </View>
   )
 })

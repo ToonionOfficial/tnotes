@@ -30,12 +30,12 @@ export const VirtualFolderCard = memo(function VirtualFolderCard({
   return (
     <Animated.View
       style={animatedStyle}
-      className={`overflow-hidden rounded-3xl bg-white/7 ${className}`}
+      className={`overflow-hidden rounded-3xl bg-card border border-border/40 ${className}`}
     >
       <Pressable
         disabled={isEditing}
         onPress={onPress}
-        className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
+        className="flex-row items-center justify-between px-4 py-3.5 active:bg-accent"
       >
         <View className="flex-row items-center gap-3">
           <View className="size-8 items-center justify-center rounded-lg">{icon}</View>

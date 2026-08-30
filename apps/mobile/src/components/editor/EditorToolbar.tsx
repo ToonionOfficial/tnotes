@@ -5,6 +5,7 @@ import { Keyboard, Platform, ScrollView, View } from "react-native"
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { ToolbarButton } from "./ToolbarButton"
 
 interface EditorToolbarProps {
@@ -15,6 +16,7 @@ interface EditorToolbarProps {
 export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
   const insets = useSafeAreaInsets()
   const editorState = useBridgeState(editor)
+  const { isDarkMode } = useAppTheme()
 
   const { height, progress } = useReanimatedKeyboardAnimation()
 
@@ -75,7 +77,7 @@ export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
       <GlassView
         isInteractive
         glassEffectStyle="regular"
-        colorScheme="dark"
+        colorScheme={isDarkMode ? "dark" : "light"}
         style={{
           width: "100%",
           maxWidth: 540,
@@ -83,10 +85,10 @@ export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
           borderRadius: 26,
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.15)",
+          borderColor: isDarkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.08)",
           backgroundColor: Platform.select({
-            ios: "rgba(32, 31, 36, 0.65)",
-            default: "rgba(32, 31, 36, 0.94)",
+            ios: isDarkMode ? "rgba(32, 31, 36, 0.65)" : "rgba(255, 255, 255, 0.75)",
+            default: isDarkMode ? "rgba(32, 31, 36, 0.94)" : "#FFFFFF",
           }),
         }}
       >
