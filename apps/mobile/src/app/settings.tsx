@@ -28,6 +28,7 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(true)
 
   const { data: syncStatus } = useSyncState()
   const { data: autoSyncEnabled } = useAutoSyncQuery()
@@ -172,7 +173,9 @@ export default function SettingsScreen() {
           />
         )}
 
-        {matches.appearance && <AppearanceSection />}
+        {matches.appearance && (
+          <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={setIsDarkMode} />
+        )}
         {matches.data && <DataStorageSection stats={stats} />}
         {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
         {matches.about && <AboutSection />}

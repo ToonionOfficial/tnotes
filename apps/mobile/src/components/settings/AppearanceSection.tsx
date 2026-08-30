@@ -1,17 +1,19 @@
-import { Moon, Sparkles, Type } from "lucide-react-native"
+import { Moon, Sparkles, Sun, Type } from "lucide-react-native"
 import { memo } from "react"
 import { View } from "react-native"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
 export interface AppearanceSectionProps {
-  onPressTheme?: () => void
+  isDarkMode?: boolean
+  onToggleTheme?: (isDark: boolean) => void
   onPressAccent?: () => void
   onPressFont?: () => void
 }
 
 export const AppearanceSection = memo(function AppearanceSection({
-  onPressTheme,
+  isDarkMode = true,
+  onToggleTheme,
   onPressAccent,
   onPressFont,
 }: AppearanceSectionProps) {
@@ -20,10 +22,12 @@ export const AppearanceSection = memo(function AppearanceSection({
   return (
     <SettingsSection title="Appearance">
       <SettingsRow
-        icon={<Moon size={20} color="#E6E1E9" />}
-        title="Theme"
-        value="Dark"
-        onPress={onPressTheme}
+        icon={isDarkMode ? <Moon size={20} color="#E6E1E9" /> : <Sun size={20} color="#E6E1E9" />}
+        title="Dark Mode"
+        subtitle={isDarkMode ? "Dark theme enabled" : "Light theme enabled"}
+        isSwitch
+        switchValue={isDarkMode}
+        onSwitchChange={onToggleTheme}
         showDivider
       />
       <SettingsRow
