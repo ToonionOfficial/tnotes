@@ -3,6 +3,7 @@ import * as Linking from "expo-linking"
 import { Code2 } from "lucide-react-native"
 import { memo } from "react"
 import { Text, View } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
@@ -13,6 +14,8 @@ export interface AboutSectionProps {
 }
 
 export const AboutSection = memo(function AboutSection({ onPressGithub }: AboutSectionProps) {
+  const { colors } = useAppTheme()
+
   const handlePressGithub = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (onPressGithub) {
@@ -26,7 +29,7 @@ export const AboutSection = memo(function AboutSection({ onPressGithub }: AboutS
     <View>
       <SettingsSection title="About">
         <SettingsRow
-          icon={<Code2 size={20} color="#E6E1E9" />}
+          icon={<Code2 size={20} color={colors.foreground} />}
           title="Source Code"
           subtitle="github.com/ToonionOfficial/tnotes"
           onPress={handlePressGithub}

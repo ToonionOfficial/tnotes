@@ -16,6 +16,7 @@ import { scheduleOnRN } from "react-native-worklets"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { SwipeableListItem } from "@/components/SwipeableListItem"
 import type { Folder } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 
 const ROW_HEIGHT = 58
 
@@ -50,6 +51,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   onDelete,
   onReorder,
 }: DraggableFolderItemProps) {
+  const { colors } = useAppTheme()
   const editProgress = useDerivedValue(() => {
     return withTiming(isEditing ? 1 : 0, {
       duration: 250,
@@ -108,22 +110,35 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       }
     })
     .onEnd(() => {
-      const fromIdx = originalIndex
-      const toIdx = positions.value[originalIndex]
+      const finalSlot = positions.value[originalIndex]
+      const targetY = (finalSlot - originalIndex) * ROW_HEIGHT
 
-      if (fromIdx !== toIdx) {
-        scheduleOnRN(onReorder, fromIdx, toIdx)
-      }
-      activeDragIndex.value = -1
-      dragTranslateY.value = 0
+      dragTranslateY.value = withTiming(
+        targetY,
+        {
+          duration: 200,
+          easing: Easing.bezier(0.2, 0, 0, 1),
+        },
+        (finished) => {
+          if (finished) {
+            activeDragIndex.value = -1
+            dragTranslateY.value = 0
+            if (finalSlot !== originalIndex) {
+              scheduleOnRN(() => {
+                onReorder(originalIndex, finalSlot)
+              })
+            }
+          }
+        },
+      )
       scheduleOnRN(triggerDropHaptic)
     })
 
   const rowAnimatedStyle = useAnimatedStyle(() => {
-    const isDraggingThis = activeDragIndex.value === originalIndex
+    const isDragging = activeDragIndex.value === originalIndex
     const currentSlot = positions.value[originalIndex] ?? originalIndex
 
-    if (isDraggingThis) {
+    if (isDragging) {
       return {
         position: "absolute",
         top: 0,
@@ -132,16 +147,15 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
         height: ROW_HEIGHT,
         transform: [
           { translateY: originalIndex * ROW_HEIGHT + dragTranslateY.value },
-          { scale: withTiming(1.02, { duration: 100 }) },
+          { scale: 1.03 },
         ],
-        backgroundColor: "rgba(255, 255, 255, 0.12)",
-        borderRadius: 16,
+        backgroundColor: colors.card,
         zIndex: 999,
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
         elevation: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
       }
     }
 
@@ -186,7 +200,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
 
   return (
     <Animated.View style={rowAnimatedStyle} className="overflow-hidden">
-      <View className="ml-15 h-[0.5px] bg-white/8" />
+      {originalIndex > 0 && <View className="ml-15 h-[0.5px] bg-border" />}
       <SwipeableListItem
         enabled={!isEditing}
         rightAction={{
@@ -204,23 +218,23 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
             }
           }}
           delayLongPress={260}
-          className="flex-row items-center justify-between px-4 py-3.5 active:bg-white/12"
+          className="flex-row items-center justify-between px-4 py-3.5 active:bg-accent"
           style={{ height: ROW_HEIGHT }}
         >
           <View className="flex-1 flex-row items-center">
             <Animated.View style={selectCircleStyle} className="justify-center overflow-hidden">
               {isSelected ? (
-                <CircleCheck size={22} color="#CABEFF" fill="#CABEFF" />
+                <CircleCheck size={22} color={colors.primary} fill={colors.primary} />
               ) : (
-                <Circle size={22} color="#8E8C99" />
+                <Circle size={22} color={colors.mutedForeground} />
               )}
             </Animated.View>
             <View className="size-8 items-center justify-center rounded-lg">
               <FolderIcon
                 name={folder.icon || DEFAULT_FOLDER_ICON}
                 size={20}
-                color="#CABEFF"
-                fill="#CABEFF"
+                color={colors.primary}
+                fill={colors.primary}
               />
             </View>
             <Text className="ml-3 flex-1 text-[17px] text-foreground" numberOfLines={1}>
@@ -235,14 +249,14 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
             >
               <GestureDetector gesture={panGesture}>
                 <View className="p-2 -mr-2">
-                  <GripVertical size={20} color="#8E8C99" />
+                  <GripVertical size={20} color={colors.mutedForeground} />
                 </View>
               </GestureDetector>
             </Animated.View>
             <Animated.View style={countStyle} pointerEvents={isEditing ? "none" : "auto"}>
               <View className="flex-row items-center gap-1.5">
                 <Text className="text-[15px] text-muted-foreground">{noteCount}</Text>
-                <ChevronRight size={16} color="#8E8C99" />
+                <ChevronRight size={16} color={colors.mutedForeground} />
               </View>
             </Animated.View>
           </View>
@@ -287,7 +301,7 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
 
   return (
     <View
-      className="mt-5 overflow-hidden rounded-3xl bg-white/7"
+      className="mt-5 overflow-hidden rounded-3xl bg-card border border-border/40"
       style={{ height: folders.length * ROW_HEIGHT }}
     >
       {folders.map((folder, index) => (

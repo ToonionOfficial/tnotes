@@ -16,6 +16,7 @@ import Animated, {
   useDerivedValue,
   withTiming,
 } from "react-native-reanimated"
+import { useAppTheme } from "@/hooks/useAppTheme"
 
 interface HomeHeaderProps {
   isEditing: boolean
@@ -42,9 +43,11 @@ export const HomeHeader = memo(function HomeHeader({
   onToggleEdit,
   onPressNewFolder,
 }: HomeHeaderProps) {
+  const { colors } = useAppTheme()
+
   const editProgress = useDerivedValue(() => {
     return withTiming(isEditing ? 1 : 0, {
-      duration: 220,
+      duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     })
   }, [isEditing])
@@ -64,7 +67,7 @@ export const HomeHeader = memo(function HomeHeader({
       <View className="h-11 min-h-11 flex-row items-center justify-between">
         <Host matchContents ignoreSafeArea="all">
           <Button
-            variant="filled"
+            variant="text"
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
               onPressMenu()
@@ -73,10 +76,10 @@ export const HomeHeader = memo(function HomeHeader({
               buttonStyle("glass"),
               buttonBorderShape("circle"),
               controlSize("large"),
-              foregroundStyle("#ffffff"),
+              foregroundStyle(colors.foreground),
             ]}
           >
-            <Icon name={MENU_ICON} color="#ffffff" size={20} />
+            <Icon name={MENU_ICON} color={colors.foreground} size={20} />
           </Button>
         </Host>
 
@@ -89,7 +92,7 @@ export const HomeHeader = memo(function HomeHeader({
             {hasFolders && (
               <Host matchContents ignoreSafeArea="all">
                 <Button
-                  variant="filled"
+                  variant="text"
                   label="Edit"
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -99,14 +102,14 @@ export const HomeHeader = memo(function HomeHeader({
                     buttonStyle("glass"),
                     buttonBorderShape("capsule"),
                     controlSize("large"),
-                    foregroundStyle("#ffffff"),
+                    foregroundStyle(colors.foreground),
                   ]}
                 />
               </Host>
             )}
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 onPress={() => {
                   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
                   onPressNewFolder()
@@ -115,10 +118,10 @@ export const HomeHeader = memo(function HomeHeader({
                   buttonStyle("glass"),
                   buttonBorderShape("circle"),
                   controlSize("large"),
-                  foregroundStyle("#ffffff"),
+                  foregroundStyle(colors.foreground),
                 ]}
               >
-                <Icon name={NEW_FOLDER_ICON} color="#ffffff" size={20} />
+                <Icon name={NEW_FOLDER_ICON} color={colors.foreground} size={20} />
               </Button>
             </Host>
           </Animated.View>
@@ -129,7 +132,7 @@ export const HomeHeader = memo(function HomeHeader({
           >
             <Host matchContents ignoreSafeArea="all">
               <Button
-                variant="filled"
+                variant="text"
                 label="Done"
                 onPress={() => {
                   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -139,7 +142,7 @@ export const HomeHeader = memo(function HomeHeader({
                   buttonStyle("glass"),
                   buttonBorderShape("capsule"),
                   controlSize("large"),
-                  foregroundStyle("#ffffff"),
+                  foregroundStyle(colors.foreground),
                 ]}
               />
             </Host>
@@ -157,9 +160,9 @@ export const HomeHeader = memo(function HomeHeader({
           onPressMenu()
         }}
         hitSlop={8}
-        className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+        className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
       >
-        <Menu size={22} color="#ffffff" />
+        <Menu size={22} color={colors.foreground} />
       </Pressable>
 
       <View className="relative h-11 items-center justify-center">
@@ -175,9 +178,9 @@ export const HomeHeader = memo(function HomeHeader({
                 onToggleEdit()
               }}
               hitSlop={8}
-              className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
+              className="h-11 items-center justify-center rounded-full bg-card border border-border/40 px-4 active:bg-accent"
             >
-              <Text className="text-[15px] font-medium text-white">Edit</Text>
+              <Text className="text-[15px] font-medium text-foreground">Edit</Text>
             </Pressable>
           )}
           <Pressable
@@ -186,9 +189,9 @@ export const HomeHeader = memo(function HomeHeader({
               onPressNewFolder()
             }}
             hitSlop={8}
-            className="size-11 items-center justify-center rounded-full bg-white/[0.07] active:opacity-60"
+            className="size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent"
           >
-            <FolderPlus size={22} color="#ffffff" />
+            <FolderPlus size={22} color={colors.foreground} />
           </Pressable>
         </Animated.View>
 
@@ -202,9 +205,9 @@ export const HomeHeader = memo(function HomeHeader({
               onToggleEdit()
             }}
             hitSlop={8}
-            className="h-11 items-center justify-center rounded-full bg-white/[0.07] px-4 active:opacity-60"
+            className="h-11 items-center justify-center rounded-full bg-card border border-border/40 px-4 active:bg-accent"
           >
-            <Text className="text-[15px] font-semibold text-white">Done</Text>
+            <Text className="text-[15px] font-semibold text-foreground">Done</Text>
           </Pressable>
         </Animated.View>
       </View>

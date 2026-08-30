@@ -1,12 +1,14 @@
 import { BarChart3, Trash2 } from "lucide-react-native"
 import { useState } from "react"
 import { Alert, Pressable, Text, View } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useCreateBenchmarkNotes, useDeleteBenchmarkNotes } from "@/hooks/useNotes"
 import { SettingsSection } from "./SettingsSection"
 
 export const ENABLE_BENCHMARK = process.env.EXPO_PUBLIC_ENABLE_BENCHMARK === "true" || __DEV__
 
 export function FlagsSection() {
+  const { colors } = useAppTheme()
   const createBenchmark = useCreateBenchmarkNotes()
   const deleteBenchmark = useDeleteBenchmarkNotes()
   const [status, setStatus] = useState<string | null>(null)
@@ -68,7 +70,7 @@ export function FlagsSection() {
     <SettingsSection title="Flags & Developer Tools">
       <View className="p-4">
         <View className="flex-row items-center gap-2">
-          <BarChart3 size={18} color="#CABEFF" />
+          <BarChart3 size={18} color={colors.primary} />
           <Text className="text-[16px] font-semibold text-foreground">Performance Benchmark</Text>
         </View>
         <Text className="mt-1 text-[13px] leading-5 text-muted-foreground">
@@ -82,9 +84,9 @@ export function FlagsSection() {
               key={count}
               disabled={isRunning}
               onPress={() => addNotes(count)}
-              className="flex-1 items-center rounded-xl bg-[#6C5DD3] px-2 py-2.5 active:opacity-70 disabled:opacity-40"
+              className="flex-1 items-center rounded-xl bg-primary px-2 py-2.5 active:opacity-70 disabled:opacity-40"
             >
-              <Text className="text-[12px] font-semibold text-white">
+              <Text className="text-[12px] font-semibold text-primary-foreground">
                 +{count >= 1000 ? `${count / 1000}k` : count}
               </Text>
             </Pressable>

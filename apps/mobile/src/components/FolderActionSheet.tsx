@@ -7,8 +7,9 @@ import {
 import * as Haptics from "expo-haptics"
 import { Pencil, Trash2 } from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
-import { Platform, Pressable, Text, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
 import type { Folder } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "./FolderIcon"
 
 interface FolderActionSheetProps {
@@ -26,6 +27,7 @@ export const FolderActionSheet = forwardRef<FolderActionSheetRef, FolderActionSh
   function FolderActionSheet({ onEdit, onDelete, getFolderCount }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [activeFolder, setActiveFolder] = useState<Folder | null>(null)
+    const { colors, isDarkMode } = useAppTheme()
 
     const open = useCallback((folder: Folder) => {
       setActiveFolder(folder)
@@ -61,19 +63,16 @@ export const FolderActionSheet = forwardRef<FolderActionSheetRef, FolderActionSh
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255, 255, 255, 0.25)",
+          backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.2)",
           width: 36,
           height: 4,
         }}
         backgroundStyle={{
-          backgroundColor: Platform.select({
-            ios: "#1C1B20",
-            default: "#1C1B20",
-          }),
+          backgroundColor: colors.card,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: colors.border,
         }}
       >
         {activeFolder ? (
@@ -81,12 +80,12 @@ export const FolderActionSheet = forwardRef<FolderActionSheetRef, FolderActionSh
             {/* Folder Preview Header */}
             <View className="mb-3 px-1">
               <View className="flex-row items-center gap-2.5">
-                <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
+                <View className="size-8 items-center justify-center">
                   <FolderIcon
                     name={activeFolder.icon || DEFAULT_FOLDER_ICON}
-                    size={18}
-                    color="#CABEFF"
-                    fill="#CABEFF"
+                    size={20}
+                    color={colors.primary}
+                    fill={colors.primary}
                   />
                 </View>
                 <View className="flex-1">
@@ -112,13 +111,13 @@ export const FolderActionSheet = forwardRef<FolderActionSheetRef, FolderActionSh
                   className="flex-row items-center justify-between py-3.5 active:opacity-60"
                 >
                   <View className="flex-row items-center gap-3">
-                    <Pencil size={19} color="#E6E1E9" />
-                    <Text className="text-[15px] font-medium text-white">Edit Folder</Text>
+                    <Pencil size={19} color={colors.foreground} />
+                    <Text className="text-[15px] font-medium text-foreground">Edit Folder</Text>
                   </View>
                 </Pressable>
               )}
 
-              {onEdit && <View className="ml-8 h-[0.5px] bg-white/10" />}
+              {onEdit && <View className="ml-8 h-[0.5px] bg-border" />}
 
               {onDelete && (
                 <Pressable

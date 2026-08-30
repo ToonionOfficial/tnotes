@@ -11,6 +11,7 @@ import Animated, {
 import { SwipeableListItem } from "@/components/SwipeableListItem"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { formatNoteTime } from "@/utils/date"
 import { stripHtml } from "@/utils/text"
 
@@ -41,6 +42,7 @@ export const NoteListItem = memo(function NoteListItem({
   onRestore,
   onDelete,
 }: NoteListItemProps) {
+  const { colors } = useAppTheme()
   const editProgress = useSharedValue(isEditing ? 1 : 0)
 
   useEffect(() => {
@@ -81,19 +83,23 @@ export const NoteListItem = memo(function NoteListItem({
         }
       }}
       delayLongPress={260}
-      className={`${roundingClass} flex-row items-center bg-white/[0.07] px-4 py-3 active:bg-white/12`}
+      className={`${roundingClass} flex-row items-center bg-card px-4 py-3 active:bg-accent border-x border-t border-border/40 ${
+        isLast || isOnly ? "border-b" : ""
+      }`}
     >
       <Animated.View style={selectCircleStyle} className="justify-center overflow-hidden">
         {isSelected ? (
-          <CircleCheck size={22} color="#CABEFF" fill="#CABEFF" />
+          <CircleCheck size={22} color={colors.primary} fill={colors.primary} />
         ) : (
-          <Circle size={22} color="#8E8C99" />
+          <Circle size={22} color={colors.mutedForeground} />
         )}
       </Animated.View>
 
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          {!isTrash && item.pinned && <Pin size={12} color="#CABEFF" fill="#CABEFF" />}
+          {!isTrash && item.pinned && (
+            <Pin size={12} color={colors.primary} fill={colors.primary} />
+          )}
           <Text numberOfLines={1} className="flex-1 text-[16px] font-semibold text-foreground">
             {item.title || "Untitled Note"}
           </Text>
@@ -151,7 +157,7 @@ export const NoteListItem = memo(function NoteListItem({
     >
       <View>
         {noteRow}
-        {!isLast && <View className="ml-4 h-[0.5px] bg-white/8" />}
+        {!isLast && <View className="ml-4 h-[0.5px] bg-border" />}
       </View>
     </SwipeableListItem>
   )

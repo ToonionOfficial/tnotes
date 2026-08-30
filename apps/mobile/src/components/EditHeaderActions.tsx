@@ -8,16 +8,15 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers"
 import { Trash2 } from "lucide-react-native"
+import { memo } from "react"
 import { Platform, Pressable, Text, View } from "react-native"
 
-export interface EditHeaderActionsProps {
-  selectedCount: number
+interface EditHeaderActionsProps {
+  isSelected: boolean
   onDelete: () => void
   onDone: () => void
-  deleteBgColor?: string
-  deleteMutedBgColor?: string
-  deleteIconColor?: string
-  deleteMutedIconColor?: string
+  deleteColor?: string
+  deleteDisabledColor?: string
   doneBgColor?: string
   doneTextColor?: string
 }
@@ -27,26 +26,18 @@ const TRASH_ICON = Icon.select({
   android: import("@expo/material-symbols/delete.xml"),
 })
 
-export function EditHeaderActions({
-  selectedCount,
+export const EditHeaderActions = memo(function EditHeaderActions({
+  isSelected,
   onDelete,
   onDone,
-  deleteBgColor,
-  deleteMutedBgColor,
-  deleteIconColor,
-  deleteMutedIconColor,
+  deleteColor,
+  deleteDisabledColor,
   doneBgColor,
   doneTextColor,
 }: EditHeaderActionsProps) {
-  const isSelected = selectedCount > 0
-
-  const activeDeleteBg = deleteBgColor ?? "rgba(255, 59, 48, 0.22)"
-  const mutedDeleteBg = deleteMutedBgColor ?? "rgba(255, 59, 48, 0.08)"
-  const currentDeleteBg = isSelected ? activeDeleteBg : mutedDeleteBg
-
-  const activeDeleteIcon = deleteIconColor ?? "#FF3B30"
-  const mutedDeleteIcon = deleteMutedIconColor ?? "rgba(255, 59, 48, 0.4)"
-  const currentDeleteIcon = isSelected ? activeDeleteIcon : mutedDeleteIcon
+  const currentDeleteIcon = isSelected
+    ? (deleteColor ?? "#FF453A")
+    : (deleteDisabledColor ?? "rgba(255, 255, 255, 0.3)")
 
   const currentDoneBg = doneBgColor ?? "rgba(255, 255, 255, 0.12)"
   const currentDoneText = doneTextColor ?? "#FFFFFF"
@@ -57,7 +48,7 @@ export function EditHeaderActions({
         {/* Delete Button */}
         <Host matchContents ignoreSafeArea="all">
           <Button
-            variant="filled"
+            variant="text"
             onPress={() => {
               if (isSelected) {
                 onDelete()
@@ -79,7 +70,7 @@ export function EditHeaderActions({
         {/* Done Button */}
         <Host matchContents ignoreSafeArea="all">
           <Button
-            variant="filled"
+            variant="text"
             label="Done"
             onPress={onDone}
             modifiers={[
@@ -99,25 +90,21 @@ export function EditHeaderActions({
   return (
     <View className="flex-row items-center gap-2.5">
       <Pressable
-        onPress={() => {
-          if (isSelected) onDelete()
-        }}
+        onPress={onDelete}
         disabled={!isSelected}
         hitSlop={8}
-        style={{
-          backgroundColor: currentDeleteBg,
-        }}
-        className="size-11 items-center justify-center rounded-full active:opacity-60"
+        className={`size-11 items-center justify-center rounded-full active:opacity-60 ${
+          isSelected ? "bg-[#FF453A]/15" : "bg-white/5 opacity-40"
+        }`}
       >
         <Trash2 size={20} color={currentDeleteIcon} />
       </Pressable>
+
       <Pressable
         onPress={onDone}
         hitSlop={8}
-        style={{
-          backgroundColor: currentDoneBg,
-        }}
         className="h-11 items-center justify-center rounded-full px-4 active:opacity-60"
+        style={{ backgroundColor: currentDoneBg }}
       >
         <Text style={{ color: currentDoneText }} className="text-[15px] font-semibold">
           Done
@@ -125,4 +112,4 @@ export function EditHeaderActions({
       </Pressable>
     </View>
   )
-}
+})

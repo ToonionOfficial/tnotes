@@ -1,8 +1,8 @@
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
-import { X } from "lucide-react-native"
 import { useMemo, useState } from "react"
-import { Alert, Pressable, ScrollView, Text, View } from "react-native"
+import { Alert, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
   AboutSection,
@@ -11,9 +11,11 @@ import {
   ENABLE_BENCHMARK,
   FlagsSection,
   ProfileSection,
+  SettingsHeader,
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 import {
   useAutoSyncQuery,
@@ -28,6 +30,7 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
+  const { isDarkMode, toggleTheme } = useAppTheme()
 
   const { data: syncStatus } = useSyncState()
   const { data: autoSyncEnabled } = useAutoSyncQuery()
@@ -46,8 +49,7 @@ export default function SettingsScreen() {
         !normalizedQuery ||
         "sync server connect websocket cloud backend url disconnect".includes(normalizedQuery),
       appearance:
-        !normalizedQuery ||
-        "theme appearance dark oled accent color font typography".includes(normalizedQuery),
+        !normalizedQuery || "theme appearance dark oled font typography".includes(normalizedQuery),
       data:
         !normalizedQuery ||
         "data storage database sqlite export backup markdown json".includes(normalizedQuery),
@@ -115,83 +117,72 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          title: "Settings",
-          headerLargeTitle: true,
-          headerRight: () => (
-            <Pressable
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                router.back()
-              }}
-              hitSlop={8}
-              className="p-1 active:opacity-60"
-            >
-              <X size={20} color="#E6E1E9" strokeWidth={2} />
-            </Pressable>
-          ),
-        }}
-      />
+    <BottomSheetModalProvider>
+      <View className="flex-1 bg-background">
+        <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView
-        className="flex-1"
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 60,
-        }}
-      >
-        <SettingsSearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search settings"
+        <SettingsHeader onClose={() => router.back()} />
+
+        <ScrollView
+          className="flex-1"
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: 60,
+          }}
+        >
+          <SettingsSearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search settings"
+          />
+
+          {matches.profile && (
+            <ProfileSection
+              username={syncStatus?.username}
+              isConnected={syncStatus?.isConnected}
+              onPressProfile={() => router.push("/account")}
+            />
+          )}
+
+          {matches.sync && (
+            <SyncServerSection
+              isConnected={syncStatus?.isConnected}
+              serverUrl={syncStatus?.serverUrl}
+              isSyncing={syncNowMutation.isPending}
+              autoSync={autoSyncEnabled !== false}
+              onToggleAutoSync={handleToggleAutoSync}
+              onPressConnectServer={() => setIsPairModalOpen(true)}
+              onPressSyncNow={handleSyncNow}
+              onPressDisconnect={handleDisconnect}
+            />
+          )}
+
+          {matches.appearance && (
+            <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+          )}
+          {matches.data && <DataStorageSection stats={stats} />}
+          {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
+          {matches.about && <AboutSection />}
+
+          {!hasAnyMatch && (
+            <View className="items-center justify-center py-16">
+              <Text className="text-[17px] font-semibold text-foreground">No Results</Text>
+              <Text className="pt-1 text-[14px] text-muted-foreground">
+                No settings match &ldquo;{searchQuery}&rdquo;
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <PairServerModal
+          visible={isPairModalOpen}
+          onClose={() => setIsPairModalOpen(false)}
+          onPairSuccess={handlePairSuccess}
         />
-
-        {matches.profile && (
-          <ProfileSection
-            username={syncStatus?.username}
-            isConnected={syncStatus?.isConnected}
-            onPressProfile={() => router.push("/account")}
-          />
-        )}
-
-        {matches.sync && (
-          <SyncServerSection
-            isConnected={syncStatus?.isConnected}
-            serverUrl={syncStatus?.serverUrl}
-            isSyncing={syncNowMutation.isPending}
-            autoSync={autoSyncEnabled !== false}
-            onToggleAutoSync={handleToggleAutoSync}
-            onPressConnectServer={() => setIsPairModalOpen(true)}
-            onPressSyncNow={handleSyncNow}
-            onPressDisconnect={handleDisconnect}
-          />
-        )}
-
-        {matches.appearance && <AppearanceSection />}
-        {matches.data && <DataStorageSection stats={stats} />}
-        {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
-        {matches.about && <AboutSection />}
-
-        {!hasAnyMatch && (
-          <View className="items-center justify-center py-16">
-            <Text className="text-[17px] font-semibold text-white">No Results</Text>
-            <Text className="pt-1 text-[14px] text-muted-foreground">
-              No settings match &ldquo;{searchQuery}&rdquo;
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-
-      <PairServerModal
-        visible={isPairModalOpen}
-        onClose={() => setIsPairModalOpen(false)}
-        onPairSuccess={handlePairSuccess}
-      />
-    </View>
+      </View>
+    </BottomSheetModalProvider>
   )
 }

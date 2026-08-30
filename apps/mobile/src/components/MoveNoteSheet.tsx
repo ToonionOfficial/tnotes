@@ -13,42 +13,48 @@ import {
   Folder as FolderOutline,
 } from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { Platform, Pressable, Text, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
+import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import type { SearchResult } from "@/db/queries"
-import type { Note } from "@/db/schema"
+import type { Folder, Note } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { useInfiniteFolders } from "@/hooks/useFolders"
 import { buildFolderTree } from "@/utils/folderTree"
-import { DEFAULT_FOLDER_ICON, FolderIcon } from "./FolderIcon"
 
 interface MoveNoteSheetProps {
   note?: Note | SearchResult | null
-  onSelectFolder: (targetFolderId: string | null) => void
+  onSelectFolder: (folderId: string | null) => void
 }
 
 export interface MoveNoteSheetRef {
-  open: (note?: Note | SearchResult) => void
+  open: (noteToMove?: Note | SearchResult) => void
   close: () => void
 }
 
 export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
   function MoveNoteSheet({ note: propNote, onSelectFolder }, ref) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
-    const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
-    const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
-
-    const activeNote = propNote ?? internalNote
+    const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(null)
+    const activeNote = internalNote || propNote
+    const { colors, isDarkMode } = useAppTheme()
 
     const { data: folderPages } = useInfiniteFolders()
     const allFolders = useMemo(
       () => folderPages?.pages.flatMap((page) => page.folders) ?? [],
       [folderPages],
     )
+    const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
+
+    const snapPoints = useMemo(() => ["60%"], [])
+
+    const folderMap = useMemo(() => {
+      return new Map<string, Folder>(allFolders.map((f) => [f.id, f]))
+    }, [allFolders])
 
     const treeFolders = useMemo(
       () => buildFolderTree(allFolders, expandedFolderIds),
       [allFolders, expandedFolderIds],
     )
-    const snapPoints = useMemo(() => ["65%"], [])
 
     const toggleExpand = useCallback((folderId: string) => {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -64,17 +70,15 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
     }, [])
 
     const open = useCallback(
-      (noteToOpen?: Note | SearchResult) => {
-        const targetNote = noteToOpen ?? propNote
-        if (noteToOpen) {
-          setInternalNote(noteToOpen)
+      (noteToMove?: Note | SearchResult) => {
+        const targetNote = noteToMove || propNote
+        if (targetNote) {
+          setInternalNote(targetNote)
         }
 
-        const targetFolderId = targetNote?.folderId ?? null
-        if (targetFolderId) {
+        if (targetNote?.folderId) {
           const set = new Set<string>()
-          const folderMap = new Map(allFolders.map((f) => [f.id, f]))
-          let current = folderMap.get(targetFolderId)
+          let current = folderMap.get(targetNote.folderId)
           while (current?.parentId) {
             set.add(current.parentId)
             current = folderMap.get(current.parentId)
@@ -87,7 +91,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         bottomSheetModalRef.current?.present()
       },
-      [allFolders, propNote],
+      [folderMap, propNote],
     )
 
     const close = useCallback(() => {
@@ -124,19 +128,16 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255, 255, 255, 0.25)",
+          backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.2)",
           width: 36,
           height: 4,
         }}
         backgroundStyle={{
-          backgroundColor: Platform.select({
-            ios: "#1C1B20",
-            default: "#1C1B20",
-          }),
+          backgroundColor: colors.card,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: colors.border,
         }}
       >
         <BottomSheetScrollView
@@ -156,19 +157,21 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
               className="flex-row items-center justify-between py-3.5 active:opacity-60"
             >
               <View className="flex-1 flex-row items-center gap-3">
-                <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
-                  <FolderOutline size={18} color="#CABEFF" />
+                <View className="size-8 items-center justify-center rounded-lg bg-accent">
+                  <FolderOutline size={18} color={colors.primary} />
                 </View>
                 <Text
                   numberOfLines={1}
                   className={`text-[15px] font-medium ${
-                    currentFolderId === null ? "font-semibold text-[#CABEFF]" : "text-white"
+                    currentFolderId === null ? "font-semibold text-primary" : "text-foreground"
                   }`}
                 >
                   All Notes (No folder)
                 </Text>
               </View>
-              {currentFolderId === null && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
+              {currentFolderId === null && (
+                <Check size={18} color={colors.primary} strokeWidth={2.5} />
+              )}
             </Pressable>
 
             {treeFolders.map(({ folder, depth, hasChildren, isCollapsed }) => {
@@ -179,7 +182,7 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
                 <View key={folder.id}>
                   <View
                     style={{ marginLeft: 36 + indentPadding }}
-                    className="h-[0.5px] bg-white/10"
+                    className="h-[0.5px] bg-border"
                   />
                   <Pressable
                     onPress={() => handleSelect(folder.id)}
@@ -195,40 +198,44 @@ export const MoveNoteSheet = forwardRef<MoveNoteSheetRef, MoveNoteSheetProps>(
                             toggleExpand(folder.id)
                           }}
                           hitSlop={10}
-                          className="size-6 items-center justify-center rounded active:bg-white/10"
+                          className="size-6 items-center justify-center rounded active:bg-accent"
                         >
                           {isCollapsed ? (
-                            <ChevronRight size={16} color="#8E8C99" />
+                            <ChevronRight size={16} color={colors.mutedForeground} />
                           ) : (
-                            <ChevronDown size={16} color="#8E8C99" />
+                            <ChevronDown size={16} color={colors.mutedForeground} />
                           )}
                         </Pressable>
                       ) : depth > 0 ? (
                         <View className="size-6 items-center justify-center">
-                          <CornerDownRight size={14} color="#6E6B77" strokeWidth={2} />
+                          <CornerDownRight
+                            size={14}
+                            color={colors.mutedForeground}
+                            strokeWidth={2}
+                          />
                         </View>
                       ) : (
                         <View className="w-1" />
                       )}
 
-                      <View className="size-8 items-center justify-center rounded-lg bg-white/[0.08]">
+                      <View className="size-8 items-center justify-center rounded-lg bg-accent">
                         <FolderIcon
                           name={folder.icon || DEFAULT_FOLDER_ICON}
                           size={18}
-                          color="#CABEFF"
-                          fill="#CABEFF"
+                          color={colors.primary}
+                          fill={colors.primary}
                         />
                       </View>
                       <Text
                         numberOfLines={1}
                         className={`flex-1 text-[15px] font-medium ${
-                          isSelected ? "font-semibold text-[#CABEFF]" : "text-white"
+                          isSelected ? "font-semibold text-primary" : "text-foreground"
                         }`}
                       >
                         {folder.name}
                       </Text>
                     </View>
-                    {isSelected && <Check size={18} color="#CABEFF" strokeWidth={2.5} />}
+                    {isSelected && <Check size={18} color={colors.primary} strokeWidth={2.5} />}
                   </Pressable>
                 </View>
               )

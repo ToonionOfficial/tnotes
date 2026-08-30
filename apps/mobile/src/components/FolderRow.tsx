@@ -11,6 +11,7 @@ import Animated, {
 import { DEFAULT_FOLDER_ICON, FolderIcon } from "@/components/FolderIcon"
 import { SwipeableListItem } from "@/components/SwipeableListItem"
 import type { Folder } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 
 export interface FolderRowProps {
   folder: Folder
@@ -35,6 +36,7 @@ export const FolderRow = memo(function FolderRow({
   onPress,
   onDelete,
 }: FolderRowProps) {
+  const { colors } = useAppTheme()
   const editProgress = useSharedValue(isEditing ? 1 : 0)
 
   useEffect(() => {
@@ -72,8 +74,12 @@ export const FolderRow = memo(function FolderRow({
         : ""
 
   return (
-    <View className={`overflow-hidden bg-white/7 ${roundingClass} ${isFirst ? "mt-5" : ""}`}>
-      {!isFirst && <View className="ml-15 h-[0.5px] bg-white/8" />}
+    <View
+      className={`overflow-hidden bg-card border-x border-t border-border/40 ${roundingClass} ${
+        isFirst ? "mt-5" : ""
+      } ${isLast || isOnly ? "border-b" : ""}`}
+    >
+      {!isFirst && <View className="ml-15 h-[0.5px] bg-border" />}
       <SwipeableListItem
         enabled={!isEditing}
         rounded={isOnly ? "only" : isFirst ? "first" : isLast ? "last" : "middle"}
@@ -86,22 +92,22 @@ export const FolderRow = memo(function FolderRow({
       >
         <Pressable
           onPress={onPress}
-          className={`flex-row items-center justify-between px-4 py-3.5 active:bg-white/12 ${roundingClass}`}
+          className={`flex-row items-center justify-between px-4 py-3.5 active:bg-accent ${roundingClass}`}
         >
           <View className="flex-1 flex-row items-center">
             <Animated.View style={selectCircleStyle} className="justify-center overflow-hidden">
               {isSelected ? (
-                <CircleCheck size={22} color="#CABEFF" fill="#CABEFF" />
+                <CircleCheck size={22} color={colors.primary} fill={colors.primary} />
               ) : (
-                <Circle size={22} color="#8E8C99" />
+                <Circle size={22} color={colors.mutedForeground} />
               )}
             </Animated.View>
             <View className="size-8 items-center justify-center rounded-lg">
               <FolderIcon
                 name={folder.icon || DEFAULT_FOLDER_ICON}
                 size={20}
-                color="#CABEFF"
-                fill="#CABEFF"
+                color={colors.primary}
+                fill={colors.primary}
               />
             </View>
             <Text className="ml-3 flex-1 text-[17px] text-foreground" numberOfLines={1}>
@@ -114,12 +120,12 @@ export const FolderRow = memo(function FolderRow({
               style={[handleStyle, { position: "absolute", right: 0 }]}
               pointerEvents={isEditing ? "auto" : "none"}
             >
-              <GripVertical size={20} color="#8E8C99" />
+              <GripVertical size={20} color={colors.mutedForeground} />
             </Animated.View>
             <Animated.View style={countStyle} pointerEvents={isEditing ? "none" : "auto"}>
               <View className="flex-row items-center gap-1.5">
                 <Text className="text-[15px] text-muted-foreground">{noteCount}</Text>
-                <ChevronRight size={16} color="#8E8C99" />
+                <ChevronRight size={16} color={colors.mutedForeground} />
               </View>
             </Animated.View>
           </View>

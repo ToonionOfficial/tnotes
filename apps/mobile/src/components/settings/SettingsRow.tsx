@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react-native"
 import type { ReactNode } from "react"
 import { memo } from "react"
 import { Pressable, Switch, Text, View } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 
 export interface SettingsRowProps {
   icon?: ReactNode
@@ -35,6 +36,8 @@ export const SettingsRow = memo(function SettingsRow({
   showDivider = false,
   disabled = false,
 }: SettingsRowProps) {
+  const { isDarkMode, colors } = useAppTheme()
+
   const handlePress = () => {
     if (disabled) return
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -52,7 +55,7 @@ export const SettingsRow = memo(function SettingsRow({
         disabled={disabled || isSwitch || !onPress}
         onPress={handlePress}
         className={`flex-row items-center justify-between px-4 py-3.5 ${
-          onPress && !disabled ? "active:bg-white/10" : ""
+          onPress && !disabled ? "active:bg-accent" : ""
         } ${disabled ? "opacity-40" : ""}`}
       >
         <View className="flex-1 flex-row items-center gap-3">
@@ -60,7 +63,7 @@ export const SettingsRow = memo(function SettingsRow({
           <View className="flex-1">
             <Text
               className={`text-[16px] font-medium ${
-                isDestructive ? "text-[#FF5A52]" : "text-white"
+                isDestructive ? "text-[#FF5A52]" : "text-foreground"
               }`}
               numberOfLines={1}
             >
@@ -81,16 +84,27 @@ export const SettingsRow = memo(function SettingsRow({
             <Switch
               value={switchValue}
               onValueChange={handleSwitchChange}
-              trackColor={{ false: "#3E3D46", true: "#CABEFF" }}
-              thumbColor={switchValue ? "#141318" : "#E6E1E9"}
+              trackColor={{
+                false: isDarkMode ? "#3E3D46" : "#E0DCE6",
+                true: isDarkMode ? "#CABEFF" : "#65558F",
+              }}
+              thumbColor={
+                switchValue
+                  ? isDarkMode
+                    ? "#141318"
+                    : "#FFFFFF"
+                  : isDarkMode
+                    ? "#E6E1E9"
+                    : "#FFFFFF"
+              }
             />
           ) : showChevron && onPress ? (
-            <ChevronRight size={16} color="#6E6D77" />
+            <ChevronRight size={16} color={colors.mutedForeground} />
           ) : null}
         </View>
       </Pressable>
 
-      {showDivider && <View className="ml-14 h-[0.5px] bg-white/8" />}
+      {showDivider && <View className="ml-14 h-[0.5px] bg-border" />}
     </View>
   )
 })

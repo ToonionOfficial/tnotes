@@ -2,6 +2,7 @@ import { Cloud, Globe, LogOut, RefreshCw, RotateCw } from "lucide-react-native"
 import { memo } from "react"
 import { ActivityIndicator, Text, View } from "react-native"
 import { formatDisplayServerUrl } from "@/db/queries"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
 
@@ -26,10 +27,12 @@ export const SyncServerSection = memo(function SyncServerSection({
   onPressSyncNow,
   onPressDisconnect,
 }: SyncServerSectionProps) {
+  const { colors } = useAppTheme()
+
   const statusBadge = (
-    <View className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
+    <View className="flex-row items-center gap-1.5 rounded-full bg-accent px-2.5 py-1">
       <View className={`size-2 rounded-full ${isConnected ? "bg-[#22C55E]" : "bg-[#FFC107]"}`} />
-      <Text className="text-[12px] font-medium text-white">
+      <Text className="text-[12px] font-medium text-foreground">
         {isConnected ? "Connected" : "Offline"}
       </Text>
     </View>
@@ -38,7 +41,7 @@ export const SyncServerSection = memo(function SyncServerSection({
   return (
     <SettingsSection title="Sync">
       <SettingsRow
-        icon={<Cloud size={20} color="#E6E1E9" />}
+        icon={<Cloud size={20} color={colors.foreground} />}
         title="Sync Status"
         subtitle={isConnected && serverUrl ? formatDisplayServerUrl(serverUrl) : undefined}
         badge={statusBadge}
@@ -46,7 +49,7 @@ export const SyncServerSection = memo(function SyncServerSection({
       />
 
       <SettingsRow
-        icon={<RefreshCw size={19} color="#E6E1E9" />}
+        icon={<RefreshCw size={19} color={colors.foreground} />}
         title="Auto-Sync"
         subtitle="Sync changes automatically when connected"
         isSwitch
@@ -57,17 +60,19 @@ export const SyncServerSection = memo(function SyncServerSection({
 
       {!isConnected ? (
         <SettingsRow
-          icon={<Globe size={20} color="#E6E1E9" />}
+          icon={<Globe size={20} color={colors.foreground} />}
           title="Connect Server"
           onPress={onPressConnectServer}
         />
       ) : (
         <>
           <SettingsRow
-            icon={<RotateCw size={19} color="#CABEFF" />}
+            icon={<RotateCw size={19} color={colors.primary} />}
             title="Sync Now"
             subtitle="Send & receive latest changes"
-            badge={isSyncing ? <ActivityIndicator size="small" color="#CABEFF" /> : undefined}
+            badge={
+              isSyncing ? <ActivityIndicator size="small" color={colors.primary} /> : undefined
+            }
             onPress={onPressSyncNow}
             disabled={isSyncing}
             showDivider
