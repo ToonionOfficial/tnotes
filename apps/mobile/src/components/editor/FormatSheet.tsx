@@ -6,47 +6,48 @@ import BottomSheet, {
   BottomSheetView,
 } from "@gorhom/bottom-sheet"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
-import { Platform, Pressable, ScrollView, Text, View } from "react-native"
+import { Pressable, ScrollView, Text, View } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { ToolbarIcon, type ToolbarIconName } from "./ToolbarIcon"
 
 const STYLES = [
   {
     id: "title",
     label: "Title",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700" as const,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   {
     id: "heading",
     label: "Heading",
-    fontSize: 17,
-    fontWeight: "700" as const,
-    letterSpacing: -0.2,
+    fontSize: 18,
+    fontWeight: "600" as const,
+    letterSpacing: -0.3,
   },
   {
     id: "subheading",
     label: "Subheading",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600" as const,
   },
   {
     id: "body",
     label: "Body",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "400" as const,
   },
   {
     id: "code",
-    label: "Monospaced",
-    fontSize: 13,
-    fontWeight: "500" as const,
-    fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
+    label: "Code",
+    fontSize: 14,
+    fontWeight: "400" as const,
+    fontFamily: "monospace" as const,
   },
   {
     id: "quote",
     label: "Quote",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "400" as const,
     fontStyle: "italic" as const,
   },
@@ -77,6 +78,15 @@ function FormatButton({
   disabled: isDisabled = false,
   onPress,
 }: FormatButtonProps) {
+  const { colors, isDarkMode } = useAppTheme()
+  const iconColor = active
+    ? isDarkMode
+      ? "#32285F"
+      : "#FFFFFF"
+    : isDisabled
+      ? colors.mutedForeground
+      : colors.foreground
+
   return (
     <Pressable
       onPress={onPress}
@@ -86,7 +96,7 @@ function FormatButton({
         active ? "bg-primary" : "bg-transparent"
       } ${isDisabled ? "opacity-35" : "opacity-100"}`}
     >
-      <ToolbarIcon name={icon} size={20} color={active ? "#32285F" : "#E6E1E9"} />
+      <ToolbarIcon name={icon} size={20} color={iconColor} />
     </Pressable>
   )
 }
@@ -97,6 +107,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
 ) {
   const bottomSheetRef = useRef<BottomSheet>(null)
   const editorState = useBridgeState(editor)
+  const { colors, isDarkMode } = useAppTheme()
   const snapPoints = useMemo(() => [265], [])
 
   const open = useCallback(() => {
@@ -189,19 +200,16 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
       onChange={handleSheetChange}
       backdropComponent={renderBackdrop}
       handleIndicatorStyle={{
-        backgroundColor: "rgba(255, 255, 255, 0.25)",
+        backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.2)",
         width: 36,
         height: 4,
       }}
       backgroundStyle={{
-        backgroundColor: Platform.select({
-          ios: "#1C1B20",
-          default: "#1C1B20",
-        }),
+        backgroundColor: colors.card,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderColor: colors.border,
       }}
     >
       <BottomSheetView className="w-full flex-1 px-4.5 pt-1 pb-6">
@@ -211,9 +219,9 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
           <Pressable
             onPress={handleManualClose}
             hitSlop={8}
-            className="size-7 items-center justify-center rounded-full bg-white/10 active:opacity-60"
+            className="size-7 items-center justify-center rounded-full bg-accent active:opacity-60"
           >
-            <ToolbarIcon name="close" size={13} color="#E6E1E9" />
+            <ToolbarIcon name="close" size={13} color={colors.foreground} />
           </Pressable>
         </View>
 
@@ -236,7 +244,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
                 key={style.id}
                 onPress={() => handleSelectStyle(style.id)}
                 className={`h-9 items-center justify-center rounded-full px-4 active:opacity-75 ${
-                  isSelected ? "bg-primary" : "bg-white/8"
+                  isSelected ? "bg-primary" : "bg-accent"
                 }`}
               >
                 <Text
@@ -247,7 +255,9 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
                     fontFamily: "fontFamily" in style ? style.fontFamily : undefined,
                     fontStyle: "fontStyle" in style ? style.fontStyle : undefined,
                   }}
-                  className={isSelected ? "text-[#32285F]" : "text-foreground"}
+                  className={
+                    isSelected ? (isDarkMode ? "text-[#32285F]" : "text-white") : "text-foreground"
+                  }
                 >
                   {style.label}
                 </Text>
@@ -256,7 +266,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
           })}
         </ScrollView>
 
-        <View className="mb-2.5 w-full flex-row overflow-hidden rounded-2xl bg-[#28272E] p-1">
+        <View className="mb-2.5 w-full flex-row overflow-hidden rounded-2xl bg-background border border-border/40 p-1">
           <FormatButton
             icon="bold"
             active={editorState.isBoldActive}
@@ -289,7 +299,7 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
           />
         </View>
 
-        <View className="w-full flex-row overflow-hidden rounded-2xl bg-[#28272E] p-1">
+        <View className="w-full flex-row overflow-hidden rounded-2xl bg-background border border-border/40 p-1">
           <FormatButton
             icon="checklist"
             active={editorState.isTaskListActive}

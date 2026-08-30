@@ -7,9 +7,10 @@ import {
 import * as Haptics from "expo-haptics"
 import { FolderInput, Pin, Share2, Trash2 } from "lucide-react-native"
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
-import { Platform, Pressable, Share, Text, View } from "react-native"
+import { Pressable, Share, Text, View } from "react-native"
 import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { formatNoteTime } from "@/utils/date"
 import { stripHtml } from "@/utils/text"
 
@@ -24,27 +25,19 @@ interface NoteActionSheetProps {
 }
 
 export interface NoteActionSheetRef {
-  open: (note?: Note | SearchResult) => void
+  open: (noteToOpen?: Note | SearchResult) => void
   close: () => void
 }
 
 export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetProps>(
   function NoteActionSheet(
-    {
-      note: propNote,
-      isTrash = false,
-      onTogglePin,
-      onMoveToFolder,
-      onTrash,
-      onRestore,
-      onDeletePermanently,
-    },
+    { note, isTrash = false, onTogglePin, onMoveToFolder, onTrash, onRestore, onDeletePermanently },
     ref,
   ) {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
-    const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(propNote ?? null)
-
-    const activeNote = propNote ?? internalNote
+    const [internalNote, setInternalNote] = useState<Note | SearchResult | null>(null)
+    const { colors, isDarkMode } = useAppTheme()
+    const activeNote = internalNote || note
 
     const open = useCallback((noteToOpen?: Note | SearchResult) => {
       if (noteToOpen) {
@@ -88,8 +81,8 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
           ? `${activeNote.title}\n\n${previewText}`
           : previewText
         await Share.share({
-          title: activeNote.title || "Note",
           message: shareContent,
+          title: activeNote.title || "Note",
         })
       } catch {}
     }
@@ -101,19 +94,16 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255, 255, 255, 0.25)",
+          backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.2)",
           width: 36,
           height: 4,
         }}
         backgroundStyle={{
-          backgroundColor: Platform.select({
-            ios: "#1C1B20",
-            default: "#1C1B20",
-          }),
+          backgroundColor: colors.card,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: colors.border,
         }}
       >
         {activeNote ? (
@@ -121,7 +111,9 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
             {/* Note Preview Header */}
             <View className="mb-3 px-1">
               <View className="flex-row items-center gap-2">
-                {!isTrash && activeNote.pinned && <Pin size={12} color="#CABEFF" fill="#CABEFF" />}
+                {!isTrash && activeNote.pinned && (
+                  <Pin size={12} color={colors.primary} fill={colors.primary} />
+                )}
                 <Text
                   numberOfLines={1}
                   className="flex-1 text-[17px] font-semibold text-foreground"
@@ -156,15 +148,19 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
                   className="flex-row items-center justify-between py-3.5 active:opacity-60"
                 >
                   <View className="flex-row items-center gap-3">
-                    <Pin size={19} color="#CABEFF" fill={activeNote.pinned ? "#CABEFF" : "none"} />
-                    <Text className="text-[15px] font-medium text-white">
+                    <Pin
+                      size={19}
+                      color={colors.primary}
+                      fill={activeNote.pinned ? colors.primary : "none"}
+                    />
+                    <Text className="text-[15px] font-medium text-foreground">
                       {activeNote.pinned ? "Unpin Note" : "Pin Note"}
                     </Text>
                   </View>
                 </Pressable>
               )}
 
-              {!isTrash && onTogglePin && <View className="ml-8 h-[0.5px] bg-white/10" />}
+              {!isTrash && onTogglePin && <View className="ml-8 h-[0.5px] bg-border" />}
 
               {!isTrash && onMoveToFolder && (
                 <Pressable
@@ -176,25 +172,27 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
                   className="flex-row items-center justify-between py-3.5 active:opacity-60"
                 >
                   <View className="flex-row items-center gap-3">
-                    <FolderInput size={19} color="#E6E1E9" />
-                    <Text className="text-[15px] font-medium text-white">Move to Folder...</Text>
+                    <FolderInput size={19} color={colors.foreground} />
+                    <Text className="text-[15px] font-medium text-foreground">
+                      Move to Folder...
+                    </Text>
                   </View>
                 </Pressable>
               )}
 
-              {!isTrash && onMoveToFolder && <View className="ml-8 h-[0.5px] bg-white/10" />}
+              {!isTrash && onMoveToFolder && <View className="ml-8 h-[0.5px] bg-border" />}
 
               <Pressable
                 onPress={handleShare}
                 className="flex-row items-center justify-between py-3.5 active:opacity-60"
               >
                 <View className="flex-row items-center gap-3">
-                  <Share2 size={19} color="#E6E1E9" />
-                  <Text className="text-[15px] font-medium text-white">Share Note</Text>
+                  <Share2 size={19} color={colors.foreground} />
+                  <Text className="text-[15px] font-medium text-foreground">Share Note</Text>
                 </View>
               </Pressable>
 
-              <View className="ml-8 h-[0.5px] bg-white/10" />
+              <View className="ml-8 h-[0.5px] bg-border" />
 
               {isTrash ? (
                 <>

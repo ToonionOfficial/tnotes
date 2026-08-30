@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Pressable, Text } from "react-native"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { ToolbarIcon, type ToolbarIconName } from "./ToolbarIcon"
 
 interface ToolbarButtonProps {
@@ -24,10 +25,19 @@ export function ToolbarButton({
   onPress,
   size = 21,
   variant = "square",
-  activeColor = "#32285F",
-  activeBgColor = "#CABEFF",
+  activeColor,
+  activeBgColor,
 }: ToolbarButtonProps) {
-  const iconColor = isDisabled ? "#605D66" : isActive ? activeColor : "#E6E1E9"
+  const { colors, isDarkMode } = useAppTheme()
+
+  const resolvedActiveBg = activeBgColor ?? colors.primary
+  const resolvedActiveColor = activeColor ?? (isDarkMode ? "#32285F" : "#FFFFFF")
+
+  const iconColor = isDisabled
+    ? colors.mutedForeground
+    : isActive
+      ? resolvedActiveColor
+      : colors.foreground
 
   const buttonDimensions =
     variant === "compact"
@@ -47,7 +57,7 @@ export function ToolbarButton({
       style={
         isActive
           ? {
-              backgroundColor: activeBgColor,
+              backgroundColor: resolvedActiveBg,
             }
           : undefined
       }
@@ -56,10 +66,8 @@ export function ToolbarButton({
         <ToolbarIcon name={icon} size={size} color={iconColor} />
       ) : label ? (
         <Text
-          className={`text-[15px] font-medium ${
-            isActive ? "font-semibold text-[#32285F]" : "text-foreground"
-          }`}
-          style={isActive ? { color: activeColor } : undefined}
+          className={`text-[15px] font-medium ${isActive ? "font-semibold" : "text-foreground"}`}
+          style={isActive ? { color: resolvedActiveColor } : undefined}
         >
           {label}
         </Text>

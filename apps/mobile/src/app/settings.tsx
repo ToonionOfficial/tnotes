@@ -1,7 +1,8 @@
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { X } from "lucide-react-native"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
@@ -14,6 +15,7 @@ import {
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
+import { AccentColorSheet, type AccentColorSheetRef } from "@/components/settings/AccentColorSheet"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 import {
@@ -29,7 +31,8 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
-  const { isDarkMode, toggleTheme } = useAppTheme()
+  const accentSheetRef = useRef<AccentColorSheetRef>(null)
+  const { isDarkMode, toggleTheme, colors } = useAppTheme()
 
   const { data: syncStatus } = useSyncState()
   const { data: autoSyncEnabled } = useAutoSyncQuery()
@@ -117,85 +120,93 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          title: "Settings",
-          headerLargeTitle: true,
-          headerRight: () => (
-            <Pressable
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                router.back()
-              }}
-              hitSlop={8}
-              className="p-1 active:opacity-60"
-            >
-              <X size={20} color="#E6E1E9" strokeWidth={2} />
-            </Pressable>
-          ),
-        }}
-      />
-
-      <ScrollView
-        className="flex-1"
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 60,
-        }}
-      >
-        <SettingsSearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search settings"
+    <BottomSheetModalProvider>
+      <View className="flex-1 bg-background">
+        <Stack.Screen
+          options={{
+            title: "Settings",
+            headerLargeTitle: true,
+            headerRight: () => (
+              <Pressable
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                  router.back()
+                }}
+                hitSlop={8}
+                className="p-1 active:opacity-60"
+              >
+                <X size={20} color={colors.foreground} strokeWidth={2} />
+              </Pressable>
+            ),
+          }}
         />
 
-        {matches.profile && (
-          <ProfileSection
-            username={syncStatus?.username}
-            isConnected={syncStatus?.isConnected}
-            onPressProfile={() => router.push("/account")}
+        <ScrollView
+          className="flex-1"
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: 60,
+          }}
+        >
+          <SettingsSearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search settings"
           />
-        )}
 
-        {matches.sync && (
-          <SyncServerSection
-            isConnected={syncStatus?.isConnected}
-            serverUrl={syncStatus?.serverUrl}
-            isSyncing={syncNowMutation.isPending}
-            autoSync={autoSyncEnabled !== false}
-            onToggleAutoSync={handleToggleAutoSync}
-            onPressConnectServer={() => setIsPairModalOpen(true)}
-            onPressSyncNow={handleSyncNow}
-            onPressDisconnect={handleDisconnect}
-          />
-        )}
+          {matches.profile && (
+            <ProfileSection
+              username={syncStatus?.username}
+              isConnected={syncStatus?.isConnected}
+              onPressProfile={() => router.push("/account")}
+            />
+          )}
 
-        {matches.appearance && (
-          <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
-        )}
-        {matches.data && <DataStorageSection stats={stats} />}
-        {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
-        {matches.about && <AboutSection />}
+          {matches.sync && (
+            <SyncServerSection
+              isConnected={syncStatus?.isConnected}
+              serverUrl={syncStatus?.serverUrl}
+              isSyncing={syncNowMutation.isPending}
+              autoSync={autoSyncEnabled !== false}
+              onToggleAutoSync={handleToggleAutoSync}
+              onPressConnectServer={() => setIsPairModalOpen(true)}
+              onPressSyncNow={handleSyncNow}
+              onPressDisconnect={handleDisconnect}
+            />
+          )}
 
-        {!hasAnyMatch && (
-          <View className="items-center justify-center py-16">
-            <Text className="text-[17px] font-semibold text-white">No Results</Text>
-            <Text className="pt-1 text-[14px] text-muted-foreground">
-              No settings match &ldquo;{searchQuery}&rdquo;
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          {matches.appearance && (
+            <AppearanceSection
+              isDarkMode={isDarkMode}
+              onToggleTheme={toggleTheme}
+              onPressAccent={() => accentSheetRef.current?.open()}
+            />
+          )}
+          {matches.data && <DataStorageSection stats={stats} />}
+          {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
+          {matches.about && <AboutSection />}
 
-      <PairServerModal
-        visible={isPairModalOpen}
-        onClose={() => setIsPairModalOpen(false)}
-        onPairSuccess={handlePairSuccess}
-      />
-    </View>
+          {!hasAnyMatch && (
+            <View className="items-center justify-center py-16">
+              <Text className="text-[17px] font-semibold text-foreground">No Results</Text>
+              <Text className="pt-1 text-[14px] text-muted-foreground">
+                No settings match &ldquo;{searchQuery}&rdquo;
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <PairServerModal
+          visible={isPairModalOpen}
+          onClose={() => setIsPairModalOpen(false)}
+          onPairSuccess={handlePairSuccess}
+        />
+
+        <AccentColorSheet ref={accentSheetRef} />
+      </View>
+    </BottomSheetModalProvider>
   )
 }

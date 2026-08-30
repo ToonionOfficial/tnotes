@@ -8,43 +8,47 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod"
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
-import { Keyboard, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import { Keyboard, Pressable, ScrollView, Text, View } from "react-native"
 import { z } from "zod"
-import type { Folder } from "@/db/schema"
-import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
 import {
   DEFAULT_FOLDER_ICON,
   FOLDER_ICON_OPTIONS,
   FolderIcon,
   type FolderIconName,
   isFolderIconName,
-} from "./FolderIcon"
+} from "@/components/FolderIcon"
+import type { Folder } from "@/db/schema"
+import { useAppTheme } from "@/hooks/useAppTheme"
+import { useCreateFolder, useUpdateFolder } from "@/hooks/useFolders"
 
 const folderSchema = z.object({
-  name: z.string().trim().min(1, "Folder name is required").max(60, "Folder name is too long"),
+  name: z.string().trim().min(1, "Folder name is required"),
   icon: z.custom<FolderIconName>((val) => typeof val === "string" && isFolderIconName(val), {
-    message: "Invalid icon",
+    message: "Invalid folder icon",
   }),
-  parentId: z.string().nullable(),
+  parentId: z.string().nullable().optional(),
 })
 
-export type FolderFormData = z.infer<typeof folderSchema>
-
-interface NewFolderSheetProps {
-  parentId?: string | null
-  onCreated?: (folderId: string) => void
-  onUpdated?: (folder: Folder) => void
-}
+type FolderFormData = z.infer<typeof folderSchema>
 
 export interface NewFolderSheetRef {
   open: (folderToEdit?: Folder | null, parentIdOverride?: string | null) => void
   close: () => void
 }
 
+interface NewFolderSheetProps {
+  defaultParentId?: string | null
+  parentId?: string | null
+  onCreated?: (folderId: string) => void
+  onUpdated?: (folder: Folder) => void
+}
+
 export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>(
-  function NewFolderSheet({ parentId: defaultParentId = null, onCreated, onUpdated }, ref) {
+  function NewFolderSheet({ defaultParentId, parentId, onCreated, onUpdated }, ref) {
+    const initialParentId = defaultParentId ?? parentId ?? null
     const bottomSheetModalRef = useRef<BottomSheetModal>(null)
     const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+    const { colors, isDarkMode } = useAppTheme()
 
     const createFolderMutation = useCreateFolder()
     const updateFolderMutation = useUpdateFolder()
@@ -62,7 +66,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       defaultValues: {
         name: "",
         icon: DEFAULT_FOLDER_ICON,
-        parentId: defaultParentId ?? null,
+        parentId: initialParentId,
       },
     })
 
@@ -76,9 +80,9 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       reset({
         name: "",
         icon: DEFAULT_FOLDER_ICON,
-        parentId: defaultParentId ?? null,
+        parentId: initialParentId,
       })
-    }, [defaultParentId, reset])
+    }, [initialParentId, reset])
 
     const open = useCallback(
       (folderToEdit?: Folder | null, parentIdOverride?: string | null) => {
@@ -98,12 +102,12 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
           reset({
             name: "",
             icon: DEFAULT_FOLDER_ICON,
-            parentId: parentIdOverride !== undefined ? parentIdOverride : (defaultParentId ?? null),
+            parentId: parentIdOverride !== undefined ? parentIdOverride : initialParentId,
           })
         }
         bottomSheetModalRef.current?.present()
       },
-      [defaultParentId, reset],
+      [initialParentId, reset],
     )
 
     useImperativeHandle(ref, () => ({ open, close }), [open, close])
@@ -152,9 +156,9 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
       reset({
         name: "",
         icon: DEFAULT_FOLDER_ICON,
-        parentId: defaultParentId ?? null,
+        parentId: initialParentId,
       })
-    }, [defaultParentId, reset])
+    }, [initialParentId, reset])
 
     const isEditing = Boolean(editingFolder)
 
@@ -169,19 +173,16 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={{
-          backgroundColor: "rgba(255, 255, 255, 0.25)",
+          backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.2)",
           width: 36,
           height: 4,
         }}
         backgroundStyle={{
-          backgroundColor: Platform.select({
-            ios: "#1C1B20",
-            default: "#1C1B20",
-          }),
+          backgroundColor: colors.card,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: colors.border,
         }}
       >
         <BottomSheetView className="px-5 pt-1 pb-6">
@@ -190,9 +191,14 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
               {isEditing ? "Edit Folder" : "New Folder"}
             </Text>
 
-            <View className="mb-4 flex-row items-center overflow-hidden rounded-3xl bg-white/[0.07] px-4 py-3">
+            <View className="mb-4 flex-row items-center overflow-hidden rounded-3xl bg-background border border-border/40 px-4 py-3">
               <View className="mr-3 items-center justify-center">
-                <FolderIcon name={selectedIcon} size={22} color="#CABEFF" fill="#CABEFF" />
+                <FolderIcon
+                  name={selectedIcon}
+                  size={22}
+                  color={colors.primary}
+                  fill={colors.primary}
+                />
               </View>
               <Controller
                 control={control}
@@ -203,8 +209,8 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                     onChangeText={onChange}
                     onBlur={onBlur}
                     placeholder="Folder name"
-                    placeholderTextColor="#6E6B77"
-                    cursorColor="#CABEFF"
+                    placeholderTextColor={colors.mutedForeground}
+                    cursorColor={colors.primary}
                     autoFocus
                     returnKeyType="done"
                     onSubmitEditing={handleSubmit(onSubmit)}
@@ -212,7 +218,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                       flex: 1,
                       fontSize: 17,
                       fontWeight: "500",
-                      color: "#FFFFFF",
+                      color: colors.foreground,
                     }}
                   />
                 )}
@@ -234,14 +240,14 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                   key={iconName}
                   onPress={() => setValue("icon", iconName, { shouldValidate: true })}
                   className={`size-11 items-center justify-center rounded-2xl ${
-                    isSelected ? "bg-primary/20" : "active:bg-white/10"
+                    isSelected ? "bg-primary/20" : "active:bg-accent"
                   }`}
                 >
                   <FolderIcon
                     name={iconName}
                     size={20}
-                    color={isSelected ? "#CABEFF" : "#8E8C99"}
-                    fill={isSelected ? "#CABEFF" : "#8E8C99"}
+                    color={isSelected ? colors.primary : colors.mutedForeground}
+                    fill={isSelected ? colors.primary : colors.mutedForeground}
                   />
                 </Pressable>
               )
@@ -249,7 +255,7 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
           </ScrollView>
 
           <View className="flex-row items-center justify-end gap-3">
-            <Pressable onPress={close} className="rounded-xl px-4 py-2.5 active:bg-white/6">
+            <Pressable onPress={close} className="rounded-xl px-4 py-2.5 active:bg-accent">
               <Text className="text-[15px] font-medium text-muted-foreground">Cancel</Text>
             </Pressable>
             <Pressable
@@ -259,7 +265,11 @@ export const NewFolderSheet = forwardRef<NewFolderSheetRef, NewFolderSheetProps>
                 !folderName?.trim() || !isValid || isSubmitting ? "opacity-30" : ""
               }`}
             >
-              <Text className="text-[15px] font-semibold text-[#141318]">
+              <Text
+                className={`text-[15px] font-semibold ${
+                  isDarkMode ? "text-[#141318]" : "text-white"
+                }`}
+              >
                 {isEditing ? "Save" : "Create"}
               </Text>
             </Pressable>

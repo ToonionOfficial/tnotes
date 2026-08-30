@@ -1,6 +1,7 @@
 import { Moon, Sparkles, Sun, Type } from "lucide-react-native"
 import { memo } from "react"
 import { View } from "react-native"
+import { getAccentColorPreset } from "@/constants/accentColors"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { SettingsRow } from "./SettingsRow"
 import { SettingsSection } from "./SettingsSection"
@@ -18,8 +19,11 @@ export const AppearanceSection = memo(function AppearanceSection({
   onPressAccent,
   onPressFont,
 }: AppearanceSectionProps) {
-  const { colors, preference } = useAppTheme()
-  const accentColorBadge = <View className="size-3.5 rounded-full bg-primary" />
+  const { colors, preference, accentColor } = useAppTheme()
+  const accentPreset = getAccentColorPreset(accentColor)
+  const accentColorBadge = (
+    <View style={{ backgroundColor: accentPreset.preview }} className="size-3.5 rounded-full" />
+  )
 
   const subtitle =
     preference === "system"
@@ -48,7 +52,7 @@ export const AppearanceSection = memo(function AppearanceSection({
       <SettingsRow
         icon={<Sparkles size={20} color={colors.foreground} />}
         title="Accent Color"
-        value="Lavender"
+        value={accentPreset.label}
         badge={accentColorBadge}
         onPress={onPressAccent}
         showDivider
