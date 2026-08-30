@@ -31,7 +31,12 @@ export const SettingsHeader = memo(function SettingsHeader({ onClose }: Settings
   }
 
   return (
-    <View style={{ paddingTop: insets.top + 8 }} className="px-5">
+    <View
+      style={{
+        paddingTop: Platform.OS === "ios" ? 24 : Math.max(insets.top + 8, 24),
+      }}
+      className="px-5"
+    >
       <View className="h-11 min-h-11 flex-row items-center justify-end">
         {Platform.OS === "ios" ? (
           <Host matchContents ignoreSafeArea="all">
@@ -59,7 +64,7 @@ export const SettingsHeader = memo(function SettingsHeader({ onClose }: Settings
         )}
       </View>
 
-      <Text className="mb-1 mt-2 text-[34px] font-bold tracking-tight text-foreground">
+      <Text className="mb-1 mt-1 text-[34px] font-bold tracking-tight text-foreground">
         Settings
       </Text>
     </View>
