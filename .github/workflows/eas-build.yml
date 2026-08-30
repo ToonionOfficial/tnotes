@@ -95,6 +95,8 @@ jobs:
           EOF
 
       - name: Build Android
+        env:
+          APP_VARIANT: ${{ inputs.profile }}
         run: |
           eas build \
             --platform android \
@@ -114,7 +116,7 @@ jobs:
         if: ${{ env.FIREBASE_SERVICE_ACCOUNT != '' && env.FIREBASE_ANDROID_APP_ID != '' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_ANDROID_APP_ID: ${{ (inputs.profile == 'development' && secrets.FIREBASE_ANDROID_DEV_APP_ID) || (inputs.profile == 'preview' && secrets.FIREBASE_ANDROID_PREVIEW_APP_ID) || secrets.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > ./firebase-sa.json
@@ -185,6 +187,8 @@ jobs:
           EOF
 
       - name: Build iOS
+        env:
+          APP_VARIANT: ${{ inputs.profile }}
         run: |
           eas build \
             --platform ios \
@@ -204,7 +208,7 @@ jobs:
         if: ${{ env.FIREBASE_SERVICE_ACCOUNT != '' && env.FIREBASE_IOS_APP_ID != '' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID }}
+          FIREBASE_IOS_APP_ID: ${{ (inputs.profile == 'development' && secrets.FIREBASE_IOS_DEV_APP_ID) || (inputs.profile == 'preview' && secrets.FIREBASE_IOS_PREVIEW_APP_ID) || secrets.FIREBASE_IOS_APP_ID }}
           FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS || 'testers' }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > ./firebase-sa.json
