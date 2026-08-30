@@ -1,5 +1,4 @@
 export * from "./AboutSection"
-export * from "./AccentColorSheet"
 export * from "./AppearanceSection"
 export * from "./DataStorageSection"
 export * from "./FlagsSection"

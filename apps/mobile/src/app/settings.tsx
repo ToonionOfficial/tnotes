@@ -2,7 +2,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { X } from "lucide-react-native"
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { Alert, Pressable, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
@@ -15,7 +15,6 @@ import {
   SettingsSearchBar,
   SyncServerSection,
 } from "@/components/settings"
-import { AccentColorSheet, type AccentColorSheetRef } from "@/components/settings/AccentColorSheet"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDatabaseStats } from "@/hooks/useDatabaseStats"
 import {
@@ -31,7 +30,6 @@ export default function SettingsScreen() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
-  const accentSheetRef = useRef<AccentColorSheetRef>(null)
   const { isDarkMode, toggleTheme, colors } = useAppTheme()
 
   const { data: syncStatus } = useSyncState()
@@ -51,8 +49,7 @@ export default function SettingsScreen() {
         !normalizedQuery ||
         "sync server connect websocket cloud backend url disconnect".includes(normalizedQuery),
       appearance:
-        !normalizedQuery ||
-        "theme appearance dark oled accent color font typography".includes(normalizedQuery),
+        !normalizedQuery || "theme appearance dark oled font typography".includes(normalizedQuery),
       data:
         !normalizedQuery ||
         "data storage database sqlite export backup markdown json".includes(normalizedQuery),
@@ -179,11 +176,7 @@ export default function SettingsScreen() {
           )}
 
           {matches.appearance && (
-            <AppearanceSection
-              isDarkMode={isDarkMode}
-              onToggleTheme={toggleTheme}
-              onPressAccent={() => accentSheetRef.current?.open()}
-            />
+            <AppearanceSection isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
           )}
           {matches.data && <DataStorageSection stats={stats} />}
           {ENABLE_BENCHMARK && matches.flags && <FlagsSection />}
@@ -204,8 +197,6 @@ export default function SettingsScreen() {
           onClose={() => setIsPairModalOpen(false)}
           onPairSuccess={handlePairSuccess}
         />
-
-        <AccentColorSheet ref={accentSheetRef} />
       </View>
     </BottomSheetModalProvider>
   )
