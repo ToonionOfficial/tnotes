@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 echo "Building TNotes web frontend..."
-cd "${REPO_ROOT}/web"
+cd "${REPO_ROOT}/apps/web"
 pnpm install --frozen-lockfile
 pnpm run build
 
