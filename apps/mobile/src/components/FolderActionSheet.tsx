@@ -80,10 +80,10 @@ export const FolderActionSheet = forwardRef<FolderActionSheetRef, FolderActionSh
             {/* Folder Preview Header */}
             <View className="mb-3 px-1">
               <View className="flex-row items-center gap-2.5">
-                <View className="size-8 items-center justify-center rounded-lg bg-accent">
+                <View className="size-8 items-center justify-center">
                   <FolderIcon
                     name={activeFolder.icon || DEFAULT_FOLDER_ICON}
-                    size={18}
+                    size={20}
                     color={colors.primary}
                     fill={colors.primary}
                   />

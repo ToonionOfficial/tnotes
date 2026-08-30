@@ -1,9 +1,16 @@
+import { Button, Host, Icon } from "@expo/ui"
+import {
+  buttonBorderShape,
+  buttonStyle,
+  controlSize,
+  foregroundStyle,
+} from "@expo/ui/swift-ui/modifiers"
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { X } from "lucide-react-native"
 import { useMemo, useState } from "react"
-import { Alert, Pressable, ScrollView, Text, View } from "react-native"
+import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native"
 import { type PairPayload, PairServerModal } from "@/components/scanner"
 import {
   AboutSection,
@@ -25,6 +32,11 @@ import {
   useSyncState,
   useUnpairServerMutation,
 } from "@/hooks/useSyncState"
+
+const CLOSE_ICON = Icon.select({
+  ios: "xmark",
+  android: import("@expo/material-symbols/close.xml"),
+})
 
 export default function SettingsScreen() {
   const router = useRouter()
@@ -123,18 +135,37 @@ export default function SettingsScreen() {
           options={{
             title: "Settings",
             headerLargeTitle: true,
-            headerRight: () => (
-              <Pressable
-                onPress={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                  router.back()
-                }}
-                hitSlop={8}
-                className="p-1 active:opacity-60"
-              >
-                <X size={20} color={colors.foreground} strokeWidth={2} />
-              </Pressable>
-            ),
+            headerRight: () =>
+              Platform.OS === "ios" ? (
+                <Host matchContents ignoreSafeArea="all">
+                  <Button
+                    variant="filled"
+                    onPress={() => {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                      router.back()
+                    }}
+                    modifiers={[
+                      buttonStyle("glass"),
+                      buttonBorderShape("circle"),
+                      controlSize("regular"),
+                      foregroundStyle(colors.foreground),
+                    ]}
+                  >
+                    <Icon name={CLOSE_ICON} color={colors.foreground} size={15} />
+                  </Button>
+                </Host>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                    router.back()
+                  }}
+                  hitSlop={8}
+                  className="p-1 active:opacity-60"
+                >
+                  <X size={20} color={colors.foreground} strokeWidth={2} />
+                </Pressable>
+              ),
           }}
         />
 
