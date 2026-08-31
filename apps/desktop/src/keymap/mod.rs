@@ -33,7 +33,6 @@ pub fn load_keymap() -> KeymapConfig {
         && let Ok(content) = std::fs::read_to_string(&user_path)
         && let Ok(user_config) = serde_json::from_str::<KeymapConfig>(&content)
     {
-        // Merge user overrides into config
         for user_section in user_config {
             if let Some(existing) = config
                 .iter_mut()

@@ -5,7 +5,6 @@ use crate::views::TNotesWorkspace;
 use gpui::*;
 
 pub fn run_app() {
-    // 1. Initialize local SQLite database & persistence
     let db = AppDb::init().unwrap_or_else(|err| {
         eprintln!("Error initializing local SQLite database: {err}. Falling back to in-memory mode.");
         AppDb::in_memory().expect("In-memory SQLite initialization failed")
@@ -13,21 +12,17 @@ pub fn run_app() {
 
     let platform = gpui_platform::current_platform(false);
     Application::with_platform(platform).run(move |cx: &mut App| {
-        // 2. Global Shortcuts & Keybindings from Keymap System
         keymap::init_keymap(cx);
 
-        // 3. Instantiate Reactive Stores
         let note_store = cx.new(|_cx| NoteStore::new(db.clone()));
         let folder_store = cx.new(|_cx| FolderStore::new(db.clone()));
         let auth_store = cx.new(|_cx| AuthStore::new(db.default_user_id.clone(), db.device_id.clone()));
         let sync_store = cx.new(|_cx| SyncStore::new());
 
-        // 4. Instantiate Global AppState Coordinator
         let app_state = cx.new(|_cx| {
             AppState::new(note_store, folder_store, auth_store, sync_store)
         });
 
-        // 5. Open Main Window
         open_main_window(app_state, cx);
     });
 }

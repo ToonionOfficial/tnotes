@@ -109,7 +109,7 @@ impl FpsTracker {
             let sum: Duration = inner.active_durations.iter().sum();
             sum.as_secs_f64() * 1000.0 / inner.active_durations.len() as f64
         } else {
-            6.94 // 144Hz default
+            6.94
         };
 
         let active_fps = if self.is_stress_testing {
@@ -153,16 +153,16 @@ pub fn fps_overlay(
 ) -> impl IntoElement {
     let dot_color = if is_stress_testing || !metrics.is_idle {
         if metrics.active_fps >= 100 {
-            rgb(0xa6e3a1) // Green for 120/144/180 FPS
+            rgb(0xa6e3a1)
         } else if metrics.active_fps >= 55 {
-            rgb(0x89dceb) // Cyan for 60 FPS
+            rgb(0x89dceb)
         } else if metrics.active_fps >= 30 {
-            rgb(0xfacc15) // Yellow for 30-55 FPS
+            rgb(0xfacc15)
         } else {
-            rgb(0xffb4ab) // Red for < 30 FPS
+            rgb(0xffb4ab)
         }
     } else {
-        rgb(0x79747e) // Muted dot when idle
+        rgb(0x79747e)
     };
 
     let displayed_fps = if is_stress_testing {
@@ -186,12 +186,11 @@ pub fn fps_overlay(
         .px_3()
         .py_1p5()
         .rounded_full()
-        .bg(rgba(0x201f24f0)) // Semi-transparent theme card background
+        .bg(rgba(0x201f24f0))
         .border_1()
         .border_color(if is_stress_testing { rgb(0xcabeff) } else { rgb(0x302e36) })
         .shadow_md()
         .child(
-            // Canvas element hook to record every actual GPU paint pass
             canvas(
                 |_bounds, _window, _cx| (),
                 move |_bounds, (), _window, _cx| {
@@ -201,11 +200,9 @@ pub fn fps_overlay(
             .size_0(),
         )
         .child(
-            // Live indicator dot
             div().w_2().h_2().rounded_full().bg(dot_color),
         )
         .child(
-            // FPS label
             div()
                 .text_xs()
                 .font_weight(FontWeight::BOLD)
@@ -220,14 +217,12 @@ pub fn fps_overlay(
         )
         .child(div().text_xs().text_color(rgb(0x79747e)).child("·"))
         .child(
-            // Latency ms
             div()
                 .text_xs()
                 .text_color(rgb(0x938f99))
                 .child(format!("{:.1}ms", metrics.frame_time_ms)),
         )
         .child(
-            // Benchmark loop button
             div()
                 .id("fps-stress-btn")
                 .px_2()
@@ -243,7 +238,6 @@ pub fn fps_overlay(
                 .child(if is_stress_testing { "🔥 Stop" } else { "⚡ Test Max FPS" }),
         )
         .child(
-            // Shortcut hint
             div()
                 .text_xs()
                 .text_color(rgb(0x79747e))

@@ -21,7 +21,6 @@ pub fn sidebar_footer(
         .cursor_pointer()
         .on_click(on_click)
         .child(
-            // User Account Info
             div()
                 .flex()
                 .items_center()
@@ -53,7 +52,7 @@ pub fn sidebar_footer(
                                 .flex()
                                 .items_center()
                                 .gap_1()
-                                .child(div().w_1p5().h_1p5().rounded_full().bg(rgb(0xa6e3a1))) // Green online dot
+                                .child(div().w_1p5().h_1p5().rounded_full().bg(rgb(0xa6e3a1)))
                                 .child(
                                     div()
                                         .text_xs()
@@ -64,7 +63,6 @@ pub fn sidebar_footer(
                 ),
         )
         .child(
-            // Settings Gear icon
             div()
                 .p_1()
                 .child(icon_settings().size_4().text_color(rgb(0xc6c2cd))),

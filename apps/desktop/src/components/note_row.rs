@@ -21,7 +21,7 @@ pub fn note_row(
         .when(is_selected, |s| {
             s.bg(rgb(0x201f24))
                 .border_1()
-                .border_color(rgb(0xcabeff)) // Primary outline
+                .border_color(rgb(0xcabeff))
         })
         .when(!is_selected, |s| {
             s.hover(|s| s.bg(rgb(0x201f24)))

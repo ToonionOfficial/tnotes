@@ -30,11 +30,9 @@ pub fn command_palette_modal(
                 .shadow_xl()
                 .overflow_hidden()
                 .on_click(|_event, _window, cx| {
-                    // Prevent closing when clicking inside the palette box
                     cx.stop_propagation();
                 })
                 .child(
-                    // Search Input header
                     div()
                         .flex()
                         .items_center()
@@ -63,7 +61,6 @@ pub fn command_palette_modal(
                         ),
                 )
                 .child(
-                    // Command items list
                     div()
                         .id("command-palette-actions-list")
                         .flex()
@@ -97,7 +94,8 @@ pub fn command_palette_modal(
                                 let app_state = app_state.clone();
                                 move |_event, _window, cx| {
                                     app_state.update(cx, |state, cx| {
-                                        state.set_modal(crate::state::ActiveModal::Settings, cx);
+                                        state.set_screen(crate::state::ActiveScreen::Settings, cx);
+                                        state.close_modal(cx);
                                     });
                                 }
                             },

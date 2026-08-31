@@ -1,34 +1,20 @@
 use gpui::{Rgba, rgb};
 
-/// Design tokens matching `apps/mobile/global.css`
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Theme {
-    /// `--background`: #141318
     pub background: Rgba,
-    /// `--foreground`: #e6e1e9
     pub foreground: Rgba,
-    /// `--card`: #201f24
     pub card: Rgba,
-    /// `--card-foreground`: #e6e1e9
     pub card_foreground: Rgba,
-    /// `--primary`: #cabeff
     pub primary: Rgba,
-    /// `--primary-foreground`: #32285f
     pub primary_foreground: Rgba,
-    /// `--secondary` / `--accent`: #2a2930
     pub secondary: Rgba,
-    /// `--muted-foreground`: #c6c2cd
     pub muted_foreground: Rgba,
-    /// Subdued text: #938f99
     pub subtle_foreground: Rgba,
-    /// `--border` / `--input`: #302e36
     pub border: Rgba,
-    /// `--success`: #a6e3a1
     pub success: Rgba,
-    /// `--destructive`: #ffb4ab / #ff6b6b
     pub destructive: Rgba,
-    /// Star / favorite gold: #ffc107
     pub favorite: Rgba,
 }
 

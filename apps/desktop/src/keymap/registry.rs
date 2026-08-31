@@ -1,5 +1,5 @@
 use crate::components::fps_overlay::{ToggleFps, ToggleStressTest};
-use crate::views::{CloseModal, CreateNewNote, ToggleCommandPalette, ToggleSettingsModal};
+use crate::views::{CloseModal, CreateNewNote, ToggleCommandPalette, ToggleSettings};
 use gpui::KeyBinding;
 
 #[derive(Debug, Clone)]
@@ -53,7 +53,7 @@ pub fn build_key_binding(key: &str, action_name: &str, context: Option<&str>) ->
     match action_name {
         "workspace::toggle_command_palette" => Some(KeyBinding::new(key, ToggleCommandPalette, context)),
         "workspace::create_new_note" => Some(KeyBinding::new(key, CreateNewNote, context)),
-        "workspace::toggle_settings" => Some(KeyBinding::new(key, ToggleSettingsModal, context)),
+        "workspace::toggle_settings" => Some(KeyBinding::new(key, ToggleSettings, context)),
         "workspace::close_modal" => Some(KeyBinding::new(key, CloseModal, context)),
         "fps::toggle_fps" => Some(KeyBinding::new(key, ToggleFps, context)),
         "fps::toggle_stress_test" => Some(KeyBinding::new(key, ToggleStressTest, context)),

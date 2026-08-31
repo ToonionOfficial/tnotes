@@ -8,7 +8,6 @@ pub struct SidebarView {
 
 impl SidebarView {
     pub fn new(app_state: Entity<AppState>, cx: &mut Context<Self>) -> Self {
-        // Observe changes to app_state, note_store, and folder_store
         let note_store = app_state.read(cx).note_store.clone();
         let folder_store = app_state.read(cx).folder_store.clone();
 
@@ -38,12 +37,11 @@ impl Render for SidebarView {
             .flex()
             .flex_col()
             .size_full()
-            .bg(rgb(0x141318)) // Theme background
+            .bg(rgb(0x141318))
             .border_r_1()
-            .border_color(rgb(0x302e36)) // Theme border
+            .border_color(rgb(0x302e36))
             .p_2p5()
             .gap_2p5()
-            // 1. Header
             .child(sidebar_header(
                 "TNotes",
                 cx.listener({
@@ -55,9 +53,7 @@ impl Render for SidebarView {
                     }
                 }),
             ))
-            // 2. Search Bar
             .child(search_bar())
-            // 3. Unified Scrollable Tree: Folders and Notes together
             .child(
                 div()
                     .id("sidebar-tree-scroll")
@@ -73,12 +69,10 @@ impl Render for SidebarView {
                             .flex()
                             .flex_col()
                             .gap_0p5()
-                            // FOLDERS Section
                             .child(section_header("FOLDERS"))
                             .children(folders.iter().enumerate().map(|(idx, folder)| {
                                 folder_row(idx as u64, folder.name.clone(), 0)
                             }))
-                            // NOTES Section (unified in same tree)
                             .child(section_header("NOTES"))
                             .children(notes.iter().enumerate().map(|(idx, note)| {
                                 let is_selected = selected_id.as_deref() == Some(&note.id);
@@ -99,9 +93,7 @@ impl Render for SidebarView {
                             })),
                     ),
             )
-            // 4. Pinned SYSTEM Section at Bottom
             .child(system_section())
-            // 5. Pinned Profile & Settings Footer
             .child(sidebar_footer(
                 "Local Account",
                 "Synced with local SQLite",
@@ -124,6 +116,6 @@ fn section_header(label: &'static str) -> impl IntoElement {
         .pb_1()
         .text_xs()
         .font_weight(FontWeight::BOLD)
-        .text_color(rgb(0x79747e)) // Subtle uppercase category label
+        .text_color(rgb(0x79747e))
         .child(label)
 }

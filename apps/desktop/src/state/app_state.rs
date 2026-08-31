@@ -7,6 +7,7 @@ use gpui::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActiveScreen {
     Workspace,
+    Settings,
     Auth,
 }
 
@@ -14,7 +15,6 @@ pub enum ActiveScreen {
 pub enum ActiveModal {
     None,
     CommandPalette,
-    Settings,
 }
 
 #[allow(dead_code)]
@@ -44,12 +44,14 @@ impl AppState {
         }
     }
 
-    #[allow(dead_code)]
     pub fn set_screen(&mut self, screen: ActiveScreen, cx: &mut Context<Self>) {
-        self.active_screen = screen;
-        cx.notify();
+        if self.active_screen != screen {
+            self.active_screen = screen;
+            cx.notify();
+        }
     }
 
+    #[allow(dead_code)]
     pub fn set_modal(&mut self, modal: ActiveModal, cx: &mut Context<Self>) {
         self.active_modal = modal;
         cx.notify();
@@ -64,9 +66,9 @@ impl AppState {
     }
 
     pub fn toggle_settings(&mut self, cx: &mut Context<Self>) {
-        self.active_modal = match self.active_modal {
-            ActiveModal::Settings => ActiveModal::None,
-            _ => ActiveModal::Settings,
+        self.active_screen = match self.active_screen {
+            ActiveScreen::Settings => ActiveScreen::Workspace,
+            _ => ActiveScreen::Settings,
         };
         cx.notify();
     }

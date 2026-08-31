@@ -8,7 +8,6 @@ pub struct EditorView {
 
 impl EditorView {
     pub fn new(note_store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
-        // Automatically re-render when note_store changes
         cx.observe(&note_store, |_this, _note_store, cx| {
             cx.notify();
         })
@@ -39,12 +38,11 @@ impl Render for EditorView {
             .flex()
             .flex_col()
             .size_full()
-            .bg(rgb(0x141318)) // Theme background
+            .bg(rgb(0x141318))
             .p_8()
             .overflow_y_scroll()
             .gap_4()
             .child(
-                // Note Title Header
                 div()
                     .text_2xl()
                     .font_weight(FontWeight::BOLD)
@@ -52,11 +50,9 @@ impl Render for EditorView {
                     .child(title),
             )
             .child(
-                // Subtle Divider
                 div().h_px().bg(rgb(0x302e36)),
             )
             .child(
-                // Rendered Document AST blocks
                 div()
                     .flex()
                     .flex_col()

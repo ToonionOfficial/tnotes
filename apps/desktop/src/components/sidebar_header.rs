@@ -3,7 +3,7 @@ use gpui::*;
 
 pub fn sidebar_header(
     title: impl Into<SharedString>,
-    on_add_note: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    on_new_note: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
     let title = title.into();
 
@@ -15,55 +15,50 @@ pub fn sidebar_header(
         .px_2()
         .py_1p5()
         .child(
-            // Left: Brand Icon + Title
             div()
-                .id("sidebar-header-brand")
                 .flex()
                 .items_center()
-                .gap_2()
-                .cursor_pointer()
+                .gap_2p5()
                 .child(
                     div()
                         .w_6()
                         .h_6()
-                        .rounded_md()
-                        .overflow_hidden()
-                        .child(app_logo().size_6()),
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(app_logo().size_6().rounded_md()),
                 )
                 .child(
                     div()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgb(0xe6e1e9)) // Foreground
+                        .text_base()
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(rgb(0xe6e1e9))
                         .child(title),
                 ),
         )
         .child(
-            // Right: Quick Action Buttons (+ and Sidebar toggle)
             div()
                 .flex()
                 .items_center()
                 .gap_1()
                 .child(
                     div()
-                        .id("add-item-header")
+                        .id("sidebar-btn-new-note")
                         .p_1()
                         .rounded_md()
-                        .text_color(rgb(0xc6c2cd))
-                        .hover(|s| s.bg(rgb(0x201f24)).text_color(rgb(0xe6e1e9)))
+                        .hover(|s| s.bg(rgb(0x201f24)))
                         .cursor_pointer()
-                        .on_click(on_add_note)
-                        .child(icon_plus().size_3p5()),
+                        .on_click(on_new_note)
+                        .child(icon_plus().size_4().text_color(rgb(0xc6c2cd))),
                 )
                 .child(
                     div()
-                        .id("toggle-sidebar-header")
+                        .id("sidebar-btn-toggle")
                         .p_1()
                         .rounded_md()
-                        .text_color(rgb(0xc6c2cd))
-                        .hover(|s| s.bg(rgb(0x201f24)).text_color(rgb(0xe6e1e9)))
+                        .hover(|s| s.bg(rgb(0x201f24)))
                         .cursor_pointer()
-                        .child(icon_panel_left().size_3p5()),
+                        .child(icon_panel_left().size_4().text_color(rgb(0xc6c2cd))),
                 ),
         )
 }

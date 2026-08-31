@@ -55,14 +55,12 @@ impl AppDb {
 
     fn seed_defaults_if_needed(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        // Seed default user if not present
         if users::get_user_by_id(&conn, &self.default_user_id)?.is_none() {
             let mut user = User::new("local", "");
             user.id = self.default_user_id.clone();
             let _ = users::create_user(&conn, &user);
         }
 
-        // Seed initial folders if empty
         let existing_folders = folders::list_all_folders(&conn, &self.default_user_id)?;
         if existing_folders.is_empty() {
             let initial_folders = ["Work", "Personal", "Research", "Studio"];
@@ -79,7 +77,6 @@ impl AppDb {
             }
         }
 
-        // Seed initial notes if empty
         let existing_notes = notes::list_active_notes(&conn, &self.default_user_id)?;
         if existing_notes.is_empty() {
             let initial_notes = [
