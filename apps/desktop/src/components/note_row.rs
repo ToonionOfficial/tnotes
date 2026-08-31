@@ -20,8 +20,6 @@ pub fn note_row(
         .rounded_md()
         .when(is_selected, |s| {
             s.bg(rgb(0x201f24))
-                .border_1()
-                .border_color(rgb(0xcabeff))
         })
         .when(!is_selected, |s| {
             s.hover(|s| s.bg(rgb(0x201f24)))
@@ -37,12 +35,20 @@ pub fn note_row(
                     div()
                         .w_4()
                         .h_4()
-                        .child(icon_file_text().size_4().text_color(rgb(0x938f99))),
+                        .child(icon_file_text().size_4().text_color(if is_selected {
+                            rgb(0xcabeff)
+                        } else {
+                            rgb(0x938f99)
+                        })),
                 )
                 .child(
                     div()
                         .text_xs()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(if is_selected {
+                            FontWeight::BOLD
+                        } else {
+                            FontWeight::MEDIUM
+                        })
                         .text_color(rgb(0xe6e1e9))
                         .line_clamp(1)
                         .child(title),

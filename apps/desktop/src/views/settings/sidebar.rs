@@ -163,8 +163,6 @@ fn settings_nav_row(
         .rounded_md()
         .when(is_active, |s| {
             s.bg(rgb(0x201f24))
-                .border_1()
-                .border_color(rgb(0xcabeff))
         })
         .when(!is_active, |s| {
             s.hover(|s| s.bg(rgb(0x201f24)))
