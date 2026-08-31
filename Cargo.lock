@@ -6244,6 +6244,9 @@ dependencies = [
 [[package]]
 name = "tnotes-document"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "tnotes-server"
