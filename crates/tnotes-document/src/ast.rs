@@ -8,12 +8,24 @@ pub struct Document {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Block {
     Paragraph(RichText),
-    Heading { level: u8, content: RichText },
+    Heading {
+        level: u8,
+        content: RichText,
+    },
+    BulletList(Vec<ListItem>),
+    OrderedList(Vec<ListItem>),
+    TaskList(Vec<TaskItem>),
+    Quote(RichText),
+    CodeBlock {
+        language: Option<String>,
+        code: String,
+    },
+    Divider,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RichText {
-    spans: Vec<Span>,
+    pub spans: Vec<Span>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -24,7 +36,7 @@ pub struct Span {
     pub link: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Marks {
     pub bold: bool,
     pub italic: bool,
