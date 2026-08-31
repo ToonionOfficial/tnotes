@@ -28,7 +28,6 @@ impl Render for SettingsView {
             .bg(rgb(0x141318))
             .flex()
             .flex_row()
-            // 1. Left Column: Settings Sidebar
             .child(settings_sidebar(
                 app_state_entity.clone(),
                 settings_tab,
@@ -41,7 +40,6 @@ impl Render for SettingsView {
                     }
                 },
             ))
-            // 2. Right Column: Settings Tab Detail View
             .child(match settings_tab {
                 SettingsTab::Account => account_tab(app_state_entity, cx).into_any_element(),
                 SettingsTab::Sync => placeholder_screen("Sync & Network Settings", "Sync status, auto-sync toggle, and server pairing.").into_any_element(),
@@ -56,23 +54,33 @@ impl Render for SettingsView {
 
 fn placeholder_screen(title: &'static str, description: &'static str) -> impl IntoElement {
     div()
+        .id("settings-placeholder-screen")
         .flex_1()
         .h_full()
+        .overflow_y_scroll()
         .p_8()
         .flex()
         .flex_col()
-        .gap_2()
+        .items_center()
         .child(
             div()
-                .text_xl()
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgb(0xe6e1e9))
-                .child(title),
-        )
-        .child(
-            div()
-                .text_xs()
-                .text_color(rgb(0x938f99))
-                .child(description),
+                .w_full()
+                .max_w(px(680.0))
+                .flex()
+                .flex_col()
+                .gap_2()
+                .child(
+                    div()
+                        .text_xl()
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(rgb(0xe6e1e9))
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(rgb(0x938f99))
+                        .child(description),
+                ),
         )
 }
