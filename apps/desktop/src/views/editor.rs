@@ -37,27 +37,35 @@ impl Render for EditorView {
             .id("editor-view-container")
             .flex()
             .flex_col()
+            .items_center()
             .size_full()
             .bg(rgb(0x141318))
             .p_8()
             .overflow_y_scroll()
-            .gap_4()
             .child(
                 div()
-                    .text_2xl()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(rgb(0xe6e1e9))
-                    .child(title),
-            )
-            .child(
-                div().h_px().bg(rgb(0x302e36)),
-            )
-            .child(
-                div()
+                    .w_full()
+                    .max_w(px(720.0))
                     .flex()
                     .flex_col()
-                    .gap_3()
-                    .children(document.blocks.iter().map(render_block)),
+                    .gap_4()
+                    .child(
+                        div()
+                            .text_2xl()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(rgb(0xe6e1e9))
+                            .child(title),
+                    )
+                    .child(
+                        div().h_px().bg(rgb(0x302e36)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_3()
+                            .children(document.blocks.iter().map(render_block)),
+                    ),
             )
     }
 }
