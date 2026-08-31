@@ -65,112 +65,93 @@ pub fn settings_sidebar(
                 .overflow_y_scroll()
                 .flex()
                 .flex_col()
-                .gap_3()
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_0p5()
-                        .child(settings_section_header("ACCOUNT"))
-                        .child(settings_nav_row(
-                            "nav-account",
-                            icon_user().size_4().text_color(rgb(0xcabeff)),
-                            "Account & Profile",
-                            current_tab == SettingsTab::Account,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Account, cx))
-                            },
-                        ))
-                        .child(settings_section_header("SYNC & NETWORK"))
-                        .child(settings_nav_row(
-                            "nav-sync",
-                            icon_sync().size_4().text_color(rgb(0x89dceb)),
-                            "Sync & Server",
-                            current_tab == SettingsTab::Sync,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Sync, cx))
-                            },
-                        ))
-                        .child(settings_section_header("APPEARANCE"))
-                        .child(settings_nav_row(
-                            "nav-appearance",
-                            icon_palette().size_4().text_color(rgb(0xf9e2af)),
-                            "Appearance & Theme",
-                            current_tab == SettingsTab::Appearance,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Appearance, cx))
-                            },
-                        ))
-                        .child(settings_section_header("DATA & STORAGE"))
-                        .child(settings_nav_row(
-                            "nav-storage",
-                            icon_database().size_4().text_color(rgb(0xa6e3a1)),
-                            "Storage & Database",
-                            current_tab == SettingsTab::Storage,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Storage, cx))
-                            },
-                        ))
-                        .child(settings_section_header("KEYBOARD"))
-                        .child(settings_nav_row(
-                            "nav-keyboard",
-                            icon_keyboard().size_4().text_color(rgb(0xcabeff)),
-                            "Keyboard Shortcuts",
-                            current_tab == SettingsTab::Keyboard,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Keyboard, cx))
-                            },
-                        ))
-                        .child(settings_section_header("DEVELOPER & FLAGS"))
-                        .child(settings_nav_row(
-                            "nav-developer",
-                            icon_cpu().size_4().text_color(rgb(0xffb4ab)),
-                            "Developer Tools",
-                            current_tab == SettingsTab::Developer,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Developer, cx))
-                            },
-                        ))
-                        .child(settings_section_header("ABOUT"))
-                        .child(settings_nav_row(
-                            "nav-about",
-                            icon_info().size_4().text_color(rgb(0x938f99)),
-                            "About TNotes",
-                            current_tab == SettingsTab::About,
-                            {
-                                let state = app_state.clone();
-                                move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::About, cx))
-                            },
-                        )),
-                ),
+                .gap_0p5()
+                .child(settings_nav_row(
+                    "nav-account",
+                    icon_user().size_4(),
+                    "Account & Profile",
+                    current_tab == SettingsTab::Account,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Account, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-sync",
+                    icon_sync().size_4(),
+                    "Sync & Server",
+                    current_tab == SettingsTab::Sync,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Sync, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-appearance",
+                    icon_palette().size_4(),
+                    "Appearance & Theme",
+                    current_tab == SettingsTab::Appearance,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Appearance, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-storage",
+                    icon_database().size_4(),
+                    "Storage & Database",
+                    current_tab == SettingsTab::Storage,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Storage, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-keyboard",
+                    icon_keyboard().size_4(),
+                    "Keyboard Shortcuts",
+                    current_tab == SettingsTab::Keyboard,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Keyboard, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-developer",
+                    icon_cpu().size_4(),
+                    "Developer Tools",
+                    current_tab == SettingsTab::Developer,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::Developer, cx))
+                    },
+                ))
+                .child(settings_nav_row(
+                    "nav-about",
+                    icon_info().size_4(),
+                    "About TNotes",
+                    current_tab == SettingsTab::About,
+                    {
+                        let state = app_state.clone();
+                        move |_e, _w, cx| state.update(cx, |s, cx| s.set_settings_tab(SettingsTab::About, cx))
+                    },
+                )),
         )
-}
-
-fn settings_section_header(label: &'static str) -> impl IntoElement {
-    div()
-        .px_2()
-        .pt_2()
-        .pb_1()
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .text_color(rgb(0x79747e))
-        .child(label)
 }
 
 fn settings_nav_row(
     id: &'static str,
-    icon: impl IntoElement,
+    icon: Svg,
     label: impl Into<SharedString>,
     is_active: bool,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
     let label = label.into();
+    let icon_color = if is_active {
+        rgb(0xcabeff)
+    } else {
+        rgb(0x938f99)
+    };
 
     div()
         .id(id)
@@ -197,7 +178,7 @@ fn settings_nav_row(
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(icon),
+                .child(icon.text_color(icon_color)),
         )
         .child(
             div()
