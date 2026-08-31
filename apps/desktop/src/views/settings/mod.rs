@@ -1,9 +1,11 @@
 pub mod account;
 pub mod sidebar;
+pub mod sync;
 
 use crate::state::{ActiveScreen, AppState, SettingsTab};
 use account::account_tab;
 use sidebar::settings_sidebar;
+use sync::sync_tab;
 use gpui::*;
 
 pub struct SettingsView {
@@ -42,7 +44,7 @@ impl Render for SettingsView {
             ))
             .child(match settings_tab {
                 SettingsTab::Account => account_tab(app_state_entity, cx).into_any_element(),
-                SettingsTab::Sync => placeholder_screen("Sync & Network Settings", "Sync status, auto-sync toggle, and server pairing.").into_any_element(),
+                SettingsTab::Sync => sync_tab(app_state_entity, cx).into_any_element(),
                 SettingsTab::Appearance => placeholder_screen("Appearance & Theme Settings", "Dark theme toggle, font scales, and accent colors.").into_any_element(),
                 SettingsTab::Storage => placeholder_screen("Storage & Database", "Database statistics, local SQLite path, and note exports.").into_any_element(),
                 SettingsTab::Keyboard => placeholder_screen("Keyboard Shortcuts", "Keymap configuration and customizable shortcut bindings.").into_any_element(),
