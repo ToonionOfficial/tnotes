@@ -1,6 +1,4 @@
-use tnotes_document::{
-    Block, Document, ListItem, Marks, RichText, Span, SubList, TaskItem,
-};
+use tnotes_document::{Block, Document, ListItem, Marks, RichText, Span, SubList, TaskItem};
 
 #[test]
 fn test_document_to_html_to_document_roundtrip() {

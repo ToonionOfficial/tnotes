@@ -296,7 +296,10 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(Serializer::serialize(&doc), "<h1>Title</h1><h2>Heading</h2>");
+        assert_eq!(
+            Serializer::serialize(&doc),
+            "<h1>Title</h1><h2>Heading</h2>"
+        );
     }
 
     #[test]
