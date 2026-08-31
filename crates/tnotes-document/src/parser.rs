@@ -1,7 +1,7 @@
 use tl::{HTMLTag, Node, NodeHandle, VDom};
 
-use crate::ast::{Block, Document, ListItem, Marks, RichText, Span, TaskItem};
 use crate::error::ParseError;
+use crate::model::{Block, Document, ListItem, Marks, RichText, Span, SubList, TaskItem};
 
 #[derive(Debug, Default, Clone)]
 pub struct Parser {
@@ -61,7 +61,8 @@ impl Parser {
                 }
             }
             Node::Raw(bytes) => {
-                let text = bytes.as_utf8_str().trim().to_string();
+                let raw_text = bytes.as_utf8_str();
+                let text = decode_html_entities(raw_text.trim());
                 if !text.is_empty() {
                     blocks.push(Block::Paragraph(RichText {
                         spans: vec![Span {
@@ -132,9 +133,9 @@ impl Parser {
     fn parse_rich_text(&self, root_tag: &HTMLTag, dom: &VDom) -> RichText {
         let mut spans = Vec::new();
         self.collect_spans(root_tag, dom, Marks::default(), None, &mut spans);
-        RichText {
-            spans: self.normalize_spans(spans),
-        }
+        let normalized = self.normalize_spans(spans);
+        let trimmed = self.trim_rich_text(normalized);
+        RichText { spans: trimmed }
     }
 
     fn collect_spans(
@@ -164,11 +165,28 @@ impl Parser {
             if let Some(child_node) = child_handle.get(dom.parser()) {
                 match child_node {
                     Node::Tag(child_tag) => {
-                        if child_tag.name().as_utf8_str() == "br" {
+                        let child_name = child_tag.name().as_utf8_str();
+                        if matches!(child_name.as_ref(), "ul" | "ol" | "label" | "input") {
+                            continue;
+                        }
+
+                        if child_name == "p"
+                            && !spans.is_empty()
+                            && let Some(last) = spans.last()
+                            && !last.text.ends_with('\n')
+                        {
                             spans.push(Span {
                                 text: "\n".to_string(),
                                 marks: current_marks,
                                 link: None,
+                            });
+                        }
+
+                        if child_name == "br" {
+                            spans.push(Span {
+                                text: "\n".to_string(),
+                                marks: current_marks,
+                                link: current_link.clone(),
                             });
                         } else {
                             self.collect_spans(
@@ -181,7 +199,8 @@ impl Parser {
                         }
                     }
                     Node::Raw(bytes) => {
-                        let text = bytes.as_utf8_str().to_string();
+                        let raw_text = bytes.as_utf8_str();
+                        let text = decode_html_entities(&raw_text);
                         if !text.is_empty() {
                             spans.push(Span {
                                 text,
@@ -218,6 +237,32 @@ impl Parser {
         normalized
     }
 
+    fn trim_rich_text(&self, mut spans: Vec<Span>) -> Vec<Span> {
+        const WS: [char; 4] = [' ', '\t', '\n', '\r'];
+
+        while let Some(first) = spans.first_mut() {
+            let trimmed = first.text.trim_start_matches(WS);
+            if trimmed.is_empty() {
+                spans.remove(0);
+            } else {
+                first.text = trimmed.to_string();
+                break;
+            }
+        }
+
+        while let Some(last) = spans.last_mut() {
+            let trimmed = last.text.trim_end_matches(WS);
+            if trimmed.is_empty() {
+                spans.pop();
+            } else {
+                last.text = trimmed.to_string();
+                break;
+            }
+        }
+
+        spans
+    }
+
     fn parse_code_block(&self, pre_tag: &HTMLTag, dom: &VDom) -> (Option<String>, String) {
         let parser = dom.parser();
         let mut language = None;
@@ -235,11 +280,13 @@ impl Parser {
                         }
                     }
                 }
-                return (language, code_tag.inner_text(parser).to_string());
+                let code_raw = code_tag.inner_text(parser).to_string();
+                return (language, decode_html_entities(&code_raw));
             }
         }
 
-        (None, pre_tag.inner_text(parser).to_string())
+        let pre_raw = pre_tag.inner_text(parser).to_string();
+        (None, decode_html_entities(&pre_raw))
     }
 
     fn parse_list_items(
@@ -255,20 +302,25 @@ impl Parser {
                 && li_tag.name().as_utf8_str() == "li"
             {
                 let content = self.parse_rich_text(li_tag, dom);
-                let mut children = Vec::new();
+                let mut sub_list = None;
 
                 for sub_handle in li_tag.children().top().iter() {
                     if let Some(Node::Tag(sub_tag)) = sub_handle.get(parser) {
                         match sub_tag.name().as_utf8_str().as_ref() {
-                            "ul" | "ol" => {
-                                children.extend(self.parse_list_items(sub_tag, dom)?);
+                            "ul" => {
+                                let nested = self.parse_list_items(sub_tag, dom)?;
+                                sub_list = Some(Box::new(SubList::Bullet(nested)));
+                            }
+                            "ol" => {
+                                let nested = self.parse_list_items(sub_tag, dom)?;
+                                sub_list = Some(Box::new(SubList::Ordered(nested)));
                             }
                             _ => {}
                         }
                     }
                 }
 
-                items.push(ListItem { content, children });
+                items.push(ListItem { content, sub_list });
             }
         }
 
@@ -300,5 +352,513 @@ impl Parser {
         }
 
         Ok(items)
+    }
+}
+
+/// Decodes common HTML entities (e.g. `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`, `&nbsp;`, `&#...;`, `&#x...;`)
+fn decode_html_entities(input: &str) -> String {
+    if !input.contains('&') {
+        return input.to_string();
+    }
+
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '&' {
+            let mut entity = String::new();
+            let mut found_semicolon = false;
+
+            while let Some(&next_c) = chars.peek() {
+                if next_c == ';' {
+                    chars.next();
+                    found_semicolon = true;
+                    break;
+                } else if next_c == '&' || next_c.is_whitespace() || entity.len() > 10 {
+                    break;
+                } else {
+                    entity.push(chars.next().unwrap());
+                }
+            }
+
+            if found_semicolon {
+                match entity.as_str() {
+                    "amp" => result.push('&'),
+                    "lt" => result.push('<'),
+                    "gt" => result.push('>'),
+                    "quot" => result.push('"'),
+                    "apos" => result.push('\''),
+                    "nbsp" => result.push('\u{00A0}'),
+                    s if s.starts_with("#x") || s.starts_with("#X") => {
+                        if let Ok(code) = u32::from_str_radix(&s[2..], 16)
+                            && let Some(ch) = char::from_u32(code)
+                        {
+                            result.push(ch);
+                            continue;
+                        }
+                        result.push('&');
+                        result.push_str(&entity);
+                        result.push(';');
+                    }
+                    s if s.starts_with('#') => {
+                        if let Ok(code) = s[1..].parse::<u32>()
+                            && let Some(ch) = char::from_u32(code)
+                        {
+                            result.push(ch);
+                            continue;
+                        }
+                        result.push('&');
+                        result.push_str(&entity);
+                        result.push(';');
+                    }
+                    _ => {
+                        result.push('&');
+                        result.push_str(&entity);
+                        result.push(';');
+                    }
+                }
+            } else {
+                result.push('&');
+                result.push_str(&entity);
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_empty() {
+        let parser = Parser::new();
+        assert_eq!(parser.parse("").unwrap(), Document { blocks: vec![] });
+        assert_eq!(parser.parse("   ").unwrap(), Document { blocks: vec![] });
+    }
+
+    #[test]
+    fn test_parse_paragraph_plain() {
+        let parser = Parser::new();
+        let doc = parser.parse("<p>Hello world</p>").unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans.len(), 1);
+            assert_eq!(rt.spans[0].text, "Hello world");
+            assert_eq!(rt.spans[0].marks, Marks::default());
+            assert_eq!(rt.spans[0].link, None);
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_parse_inline_formatting() {
+        let parser = Parser::new();
+        let html = "<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u> <s>Strike</s> <code>Code</code></p>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans[0].text, "Bold");
+            assert!(rt.spans[0].marks.bold);
+
+            assert_eq!(rt.spans[1].text, " ");
+
+            assert_eq!(rt.spans[2].text, "Italic");
+            assert!(rt.spans[2].marks.italic);
+
+            assert_eq!(rt.spans[4].text, "Underline");
+            assert!(rt.spans[4].marks.underline);
+
+            assert_eq!(rt.spans[6].text, "Strike");
+            assert!(rt.spans[6].marks.strike);
+
+            assert_eq!(rt.spans[8].text, "Code");
+            assert!(rt.spans[8].marks.code);
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_normalize_adjacent_spans() {
+        let parser = Parser::new();
+        let html = "<p><strong>Hello</strong><strong> world</strong></p>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans.len(), 1);
+            assert_eq!(rt.spans[0].text, "Hello world");
+            assert!(rt.spans[0].marks.bold);
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_parse_links() {
+        let parser = Parser::new();
+        let html = r#"<p><a href="https://tnotes.app">TNotes App</a></p>"#;
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans.len(), 1);
+            assert_eq!(rt.spans[0].text, "TNotes App");
+            assert_eq!(rt.spans[0].link, Some("https://tnotes.app".to_string()));
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_parse_links_with_break() {
+        let parser = Parser::new();
+        let html = r#"<p><a href="https://tnotes.app">Line 1<br>Line 2</a></p>"#;
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans.len(), 1);
+            assert_eq!(rt.spans[0].text, "Line 1\nLine 2");
+            assert_eq!(rt.spans[0].link, Some("https://tnotes.app".to_string()));
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_html_entities_and_unicode() {
+        let parser = Parser::new();
+        let html = "<p>Hello &amp; goodbye &lt;tag&gt; &#39;quotes&#39; こんにちは 👋 café</p>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(
+                rt.spans[0].text,
+                "Hello & goodbye <tag> 'quotes' こんにちは 👋 café"
+            );
+        } else {
+            panic!("Expected Paragraph block");
+        }
+    }
+
+    #[test]
+    fn test_parse_headings() {
+        let parser = Parser::new();
+        let html = "<h1>Title</h1><h2>Heading</h2><h3>Subheading</h3>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 3);
+        assert_eq!(
+            doc.blocks[0],
+            Block::Heading {
+                level: 1,
+                content: RichText {
+                    spans: vec![Span {
+                        text: "Title".to_string(),
+                        marks: Marks::default(),
+                        link: None,
+                    }],
+                },
+            }
+        );
+        assert_eq!(
+            doc.blocks[1],
+            Block::Heading {
+                level: 2,
+                content: RichText {
+                    spans: vec![Span {
+                        text: "Heading".to_string(),
+                        marks: Marks::default(),
+                        link: None,
+                    }],
+                },
+            }
+        );
+        assert_eq!(
+            doc.blocks[2],
+            Block::Heading {
+                level: 3,
+                content: RichText {
+                    spans: vec![Span {
+                        text: "Subheading".to_string(),
+                        marks: Marks::default(),
+                        link: None,
+                    }],
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_blockquote() {
+        let parser = Parser::new();
+        let html = "<blockquote>A wise quote</blockquote>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        assert_eq!(
+            doc.blocks[0],
+            Block::Quote(RichText {
+                spans: vec![Span {
+                    text: "A wise quote".to_string(),
+                    marks: Marks::default(),
+                    link: None,
+                }],
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_code_blocks() {
+        let parser = Parser::new();
+        let html = r#"<pre><code class="language-rust">fn main() {}</code></pre>"#;
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        assert_eq!(
+            doc.blocks[0],
+            Block::CodeBlock {
+                language: Some("rust".to_string()),
+                code: "fn main() {}".to_string(),
+            }
+        );
+
+        let plain_pre = "<pre>console.log(1)</pre>";
+        let doc_plain = parser.parse(plain_pre).unwrap();
+        assert_eq!(
+            doc_plain.blocks[0],
+            Block::CodeBlock {
+                language: None,
+                code: "console.log(1)".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_divider() {
+        let parser = Parser::new();
+        let doc = parser.parse("<hr>").unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        assert_eq!(doc.blocks[0], Block::Divider);
+    }
+
+    #[test]
+    fn test_parse_lists() {
+        let parser = Parser::new();
+        let html = "<ul><li>First</li><li>Second<ul><li>Nested</li></ul></li></ul>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::BulletList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].content.spans[0].text, "First");
+            assert_eq!(items[1].content.spans[0].text, "Second");
+            assert!(matches!(
+                &items[1].sub_list,
+                Some(sub) if matches!(**sub, SubList::Bullet(ref sub_items) if sub_items[0].content.spans[0].text == "Nested")
+            ));
+        } else {
+            panic!("Expected BulletList");
+        }
+    }
+
+    #[test]
+    fn test_parse_mixed_nested_lists() {
+        let parser = Parser::new();
+        let html = "<ul><li>Bullet item<ol><li>Ordered sub-item</li></ol></li></ul>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::BulletList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 1);
+            assert_eq!(items[0].content.spans[0].text, "Bullet item");
+            assert!(matches!(
+                &items[0].sub_list,
+                Some(sub) if matches!(**sub, SubList::Ordered(ref sub_items) if sub_items[0].content.spans[0].text == "Ordered sub-item")
+            ));
+        } else {
+            panic!("Expected BulletList");
+        }
+    }
+
+    #[test]
+    fn test_parse_ordered_list() {
+        let parser = Parser::new();
+        let html = "<ol><li>Step 1</li><li>Step 2</li></ol>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::OrderedList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].content.spans[0].text, "Step 1");
+            assert_eq!(items[1].content.spans[0].text, "Step 2");
+        } else {
+            panic!("Expected OrderedList");
+        }
+    }
+
+    #[test]
+    fn test_parse_task_list() {
+        let parser = Parser::new();
+        let html = r#"<ul data-type="taskList"><li data-type="taskItem" data-checked="true">Done task</li><li data-type="taskItem" data-checked="false">Pending task</li></ul>"#;
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::TaskList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert!(items[0].checked);
+            assert_eq!(items[0].content.spans[0].text, "Done task");
+            assert!(!items[1].checked);
+            assert_eq!(items[1].content.spans[0].text, "Pending task");
+        } else {
+            panic!("Expected TaskList");
+        }
+    }
+
+    #[test]
+    fn test_parse_transparent_container() {
+        let parser = Parser::new();
+        let html = "<div><p>Inside div</p></div>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans[0].text, "Inside div");
+        } else {
+            panic!("Expected Paragraph");
+        }
+    }
+
+    #[test]
+    fn test_strict_mode() {
+        let parser_lenient = Parser::new();
+        let doc = parser_lenient
+            .parse("<table><tr><td>Cell</td></tr></table>")
+            .unwrap();
+        assert_eq!(doc.blocks.len(), 0);
+
+        let parser_strict = Parser::new().strict();
+        let err = parser_strict.parse("<table><tr><td>Cell</td></tr></table>");
+        assert_eq!(err, Err(ParseError::UnsupportedBlock("table".to_string())));
+    }
+
+    #[test]
+    fn test_strip_empty_blocks() {
+        let parser = Parser::new();
+        let doc = parser.parse("<p></p>").unwrap();
+        assert_eq!(doc.blocks.len(), 1);
+
+        let parser_strip = Parser {
+            strip_empty_blocks: true,
+            strict_mode: false,
+        };
+        let doc_strip = parser_strip.parse("<p></p>").unwrap();
+        assert_eq!(doc_strip.blocks.len(), 0);
+    }
+
+    // Mobile Compatibility Tests
+
+    #[test]
+    fn test_mobile_tiptap_task_item_structure() {
+        let parser = Parser::new();
+        // Exact TipTap taskList output on mobile
+        let html = r#"
+            <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="true">
+                    <label><input type="checkbox" checked="checked"></label>
+                    <div><p>Buy groceries</p></div>
+                </li>
+                <li data-type="taskItem" data-checked="false">
+                    <label><input type="checkbox"></label>
+                    <div><p>Call the doctor</p></div>
+                </li>
+            </ul>
+        "#;
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::TaskList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert!(items[0].checked);
+            assert_eq!(items[0].content.spans[0].text, "Buy groceries");
+            assert!(!items[1].checked);
+            assert_eq!(items[1].content.spans[0].text, "Call the doctor");
+        } else {
+            panic!("Expected TaskList");
+        }
+    }
+
+    #[test]
+    fn test_mobile_tiptap_multiline_blockquote() {
+        let parser = Parser::new();
+        let html = "<blockquote><p>First paragraph of quote.</p><p>Second paragraph of quote.</p></blockquote>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Quote(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans.len(), 1);
+            assert_eq!(
+                rt.spans[0].text,
+                "First paragraph of quote.\nSecond paragraph of quote."
+            );
+        } else {
+            panic!("Expected Quote block");
+        }
+    }
+
+    #[test]
+    fn test_mobile_tiptap_bullet_list_with_paragraphs() {
+        let parser = Parser::new();
+        let html = "<ul><li><p>Item 1</p></li><li><p>Item 2</p></li></ul>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::BulletList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].content.spans[0].text, "Item 1");
+            assert_eq!(items[1].content.spans[0].text, "Item 2");
+        } else {
+            panic!("Expected BulletList");
+        }
+    }
+
+    #[test]
+    fn test_mobile_tiptap_nested_inline_formatting() {
+        let parser = Parser::new();
+        let html = "<p>Here is <strong>bold and <em>bold-italic</em></strong> and <code>inline code</code>.</p>";
+        let doc = parser.parse(html).unwrap();
+
+        assert_eq!(doc.blocks.len(), 1);
+        if let Block::Paragraph(rt) = &doc.blocks[0] {
+            assert_eq!(rt.spans[0].text, "Here is ");
+            assert_eq!(rt.spans[0].marks, Marks::default());
+
+            assert_eq!(rt.spans[1].text, "bold and ");
+            assert!(rt.spans[1].marks.bold);
+            assert!(!rt.spans[1].marks.italic);
+
+            assert_eq!(rt.spans[2].text, "bold-italic");
+            assert!(rt.spans[2].marks.bold);
+            assert!(rt.spans[2].marks.italic);
+
+            assert_eq!(rt.spans[3].text, " and ");
+
+            assert_eq!(rt.spans[4].text, "inline code");
+            assert!(rt.spans[4].marks.code);
+
+            assert_eq!(rt.spans[5].text, ".");
+        } else {
+            panic!("Expected Paragraph");
+        }
     }
 }

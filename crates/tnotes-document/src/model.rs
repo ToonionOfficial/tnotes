@@ -23,7 +23,7 @@ pub enum Block {
     Divider,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct RichText {
     pub spans: Vec<Span>,
 }
@@ -46,9 +46,16 @@ pub struct Marks {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum SubList {
+    Bullet(Vec<ListItem>),
+    Ordered(Vec<ListItem>),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ListItem {
     pub content: RichText,
-    pub children: Vec<ListItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_list: Option<Box<SubList>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
