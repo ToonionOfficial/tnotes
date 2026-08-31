@@ -18,9 +18,23 @@ pub enum ActiveModal {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsTab {
+    #[default]
+    Account,
+    Sync,
+    Appearance,
+    Storage,
+    Keyboard,
+    Developer,
+    About,
+}
+
+#[allow(dead_code)]
 pub struct AppState {
     pub active_screen: ActiveScreen,
     pub active_modal: ActiveModal,
+    pub settings_tab: SettingsTab,
     pub note_store: Entity<NoteStore>,
     pub folder_store: Entity<FolderStore>,
     pub auth_store: Entity<AuthStore>,
@@ -37,6 +51,7 @@ impl AppState {
         Self {
             active_screen: ActiveScreen::Workspace,
             active_modal: ActiveModal::None,
+            settings_tab: SettingsTab::Account,
             note_store,
             folder_store,
             auth_store,
@@ -47,6 +62,13 @@ impl AppState {
     pub fn set_screen(&mut self, screen: ActiveScreen, cx: &mut Context<Self>) {
         if self.active_screen != screen {
             self.active_screen = screen;
+            cx.notify();
+        }
+    }
+
+    pub fn set_settings_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
+        if self.settings_tab != tab {
+            self.settings_tab = tab;
             cx.notify();
         }
     }
