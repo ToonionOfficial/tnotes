@@ -30,24 +30,9 @@ pub fn settings_sidebar(
                 .child(
                     div()
                         .id("settings-back-btn")
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .px_2p5()
-                        .py_1()
-                        .rounded_md()
-                        .bg(rgb(0x201f24))
-                        .hover(|s| s.bg(rgb(0x2a2930)))
                         .cursor_pointer()
                         .on_click(on_back)
-                        .child(icon_arrow_left().size_4().text_color(rgb(0xcabeff)))
-                        .child(
-                            div()
-                                .text_xs()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgb(0xe6e1e9))
-                                .child("Back to Notes"),
-                        ),
+                        .child(icon_arrow_left().size_4().text_color(rgb(0xc6c2cd))),
                 )
                 .child(
                     div()
