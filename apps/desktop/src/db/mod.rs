@@ -82,23 +82,15 @@ impl AppDb {
             let initial_notes = [
                 (
                     "Welcome to TNotes",
-                    "<h1>Welcome to TNotes</h1><p>TNotes is a fast, minimal, native note-taking app with instant sync across desktop, mobile, and web.</p><blockquote><p>Simplicity is prerequisite for reliability.</p></blockquote><ul data-type=\"taskList\"><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>HTML parser & serializer</p></div></li><li data-type=\"taskItem\" data-checked=\"false\"><label><input type=\"checkbox\"><span></span></label><div><p>GPUI Desktop UI</p></div></li></ul>",
+                    "<h1>Welcome to TNotes</h1><p>TNotes is a fast, minimal, native note-taking app with instant sync across desktop, mobile, and web.</p><blockquote><p>Simplicity is prerequisite for reliability.</p></blockquote><ul data-type=\"taskList\"><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>Local SQLite persistence with instant search</p></div></li><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>Direct GPU-accelerated rendering</p></div></li><li data-type=\"taskItem\" data-checked=\"false\"><label><input type=\"checkbox\"><span></span></label><div><p>Pair mobile and web clients</p></div></li></ul>",
                 ),
                 (
-                    "Architecture & Document AST",
-                    "<h2>Architecture & Document AST</h2><p>The document model in <code>tnotes-document</code> provides editor-independent AST representation for rich text.</p><pre><code class=\"language-rust\">let doc = Document::from_html(html)?;\nlet out = doc.to_html();</code></pre>",
+                    "Explore Keyboard Shortcuts",
+                    "<h2>Explore Keyboard Shortcuts</h2><p>TNotes is built for keyboard-driven workflows with fully customizable keybindings.</p><ul><li><strong>Ctrl+P</strong> / <strong>Cmd+P</strong> — Open Command Palette to search notes and run actions</li><li><strong>Ctrl+N</strong> / <strong>Cmd+N</strong> — Instantly create a new note</li><li><strong>Ctrl+,</strong> / <strong>Cmd+,</strong> — Open Settings and Preferences screen</li><li><strong>F3</strong> — Toggle live Performance and FPS monitor HUD</li></ul><blockquote><p>Customize your keybindings anytime in <code>~/.config/tnotes/keymap.json</code>.</p></blockquote>",
                 ),
                 (
-                    "Bevy Engine Exploration",
-                    "<h2>Bevy Engine Exploration</h2><p>ECS architecture notes and rendering pipeline ideas.</p>",
-                ),
-                (
-                    "Neovim Shortcuts",
-                    "<h2>Neovim Shortcuts</h2><p>Keybindings reference for custom workflow.</p>",
-                ),
-                (
-                    "Release Checklist",
-                    "<h2>Release Checklist</h2><ul data-type=\"taskList\"><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>Verify SQLite migrations</p></div></li><li data-type=\"taskItem\" data-checked=\"false\"><label><input type=\"checkbox\"><span></span></label><div><p>Publish desktop build</p></div></li></ul>",
+                    "Rich Document AST & Formatting",
+                    "<h2>Rich Document AST & Formatting</h2><p>All notes in TNotes are backed by an editor-independent document AST supporting headings, quotes, code blocks, and task lists.</p><pre><code class=\"language-rust\">let doc = Document::from_html(html)?;\nlet out = doc.to_html();</code></pre><p>Enjoy distraction-free, high-performance note-taking!</p>",
                 ),
             ];
 
@@ -106,29 +98,6 @@ impl AppDb {
                 let note = Note::new(
                     title,
                     body,
-                    None,
-                    &self.device_id,
-                    &self.default_user_id,
-                );
-                let _ = notes::insert_note(&conn, &note);
-            }
-
-            let topics = [
-                ("CRDT Sync Engine Protocol", "<h2>CRDT Sync Engine Protocol</h2><p>Real-time replication protocol over WebSockets with hybrid logical clocks.</p><ul><li>State vector exchange</li><li>Delta-based mutation envelopes</li><li>Conflict-free resolution</li></ul>"),
-                ("High-Performance GPUI Shaders", "<h2>High-Performance GPUI Shaders</h2><p>Direct GPU command buffer recording using Blade backend on Vulkan/Metal.</p><pre><code class=\"language-rust\">fn render_quad(encoder: &mut CommandEncoder) {\n    encoder.draw(0..6, 0..1);\n}</code></pre>"),
-                ("Database Schema & FTS5 Indexing", "<h2>Database Schema & FTS5 Indexing</h2><p>SQLite Full-Text Search 5 integration for sub-millisecond query performance over 100,000 notes.</p><blockquote><p>FTS5 uses prefix match tokens with BM25 ranking.</p></blockquote>"),
-                ("TipTap HTML AST Serialization", "<h2>TipTap HTML AST Serialization</h2><p>Bidirectional lossless serializer matching standard HTML5 specs.</p>"),
-                ("Mobile Offline Tombstone Reconciliation", "<h2>Mobile Offline Tombstone Reconciliation</h2><p>Handling soft deletes with timestamp-based tombstone garbage collection after 30 days.</p>"),
-                ("Zero-Copy Memory Allocations in Rust", "<h2>Zero-Copy Memory Allocations in Rust</h2><p>Using <code>Arc&lt;str&gt;</code> and <code>SharedString</code> to eliminate heap allocations across render frames.</p>"),
-                ("Asynchronous Background Workers", "<h2>Asynchronous Background Workers</h2><p>Running non-blocking SQLite writes using Tokio and calloop dispatch loops.</p>"),
-                ("Design Tokens & Typography Scales", "<h2>Design Tokens & Typography Scales</h2><p>Dark theme palette harmonized across React Native and GPUI Desktop.</p>"),
-            ];
-
-            for i in 6..=60 {
-                let (topic_title, topic_body) = topics[i % topics.len()];
-                let note = Note::new(
-                    format!("{topic_title} #{i}"),
-                    format!("{topic_body}<p>Note ID: <code>n-{i}</code></p>"),
                     None,
                     &self.device_id,
                     &self.default_user_id,
