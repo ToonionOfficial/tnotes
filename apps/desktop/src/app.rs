@@ -1,9 +1,7 @@
-use crate::components::fps_overlay::ToggleFps;
 use crate::db::AppDb;
+use crate::keymap;
 use crate::state::{AppState, AuthStore, FolderStore, NoteStore, SyncStore};
-use crate::views::{
-    CloseModal, CreateNewNote, TNotesWorkspace, ToggleCommandPalette, ToggleSettingsModal,
-};
+use crate::views::TNotesWorkspace;
 use gpui::*;
 
 pub fn run_app() {
@@ -15,8 +13,8 @@ pub fn run_app() {
 
     let platform = gpui_platform::current_platform(false);
     Application::with_platform(platform).run(move |cx: &mut App| {
-        // 2. Global Shortcuts & Keybindings
-        init_keybindings(cx);
+        // 2. Global Shortcuts & Keybindings from Keymap System
+        keymap::init_keymap(cx);
 
         // 3. Instantiate Reactive Stores
         let note_store = cx.new(|_cx| NoteStore::new(db.clone()));
@@ -32,19 +30,6 @@ pub fn run_app() {
         // 5. Open Main Window
         open_main_window(app_state, cx);
     });
-}
-
-fn init_keybindings(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("f3", ToggleFps, None),
-        KeyBinding::new("ctrl-p", ToggleCommandPalette, None),
-        KeyBinding::new("cmd-p", ToggleCommandPalette, None),
-        KeyBinding::new("ctrl-n", CreateNewNote, None),
-        KeyBinding::new("cmd-n", CreateNewNote, None),
-        KeyBinding::new("ctrl-,", ToggleSettingsModal, None),
-        KeyBinding::new("cmd-,", ToggleSettingsModal, None),
-        KeyBinding::new("escape", CloseModal, None),
-    ]);
 }
 
 fn open_main_window(app_state: Entity<AppState>, cx: &mut App) {

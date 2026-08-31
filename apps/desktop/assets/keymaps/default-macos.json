@@ -1,0 +1,12 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "cmd-p": "workspace::toggle_command_palette",
+      "cmd-n": "workspace::create_new_note",
+      "cmd-,": "workspace::toggle_settings",
+      "escape": "workspace::close_modal",
+      "f3": "fps::toggle_fps"
+    }
+  }
+]

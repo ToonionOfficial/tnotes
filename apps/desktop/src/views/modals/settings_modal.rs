@@ -1,4 +1,5 @@
 use crate::components::icons::icon_settings;
+use crate::keymap::{user_keymap_path, REGISTERED_ACTIONS};
 use crate::state::AppState;
 use gpui::*;
 
@@ -6,6 +7,8 @@ pub fn settings_modal(
     app_state: Entity<AppState>,
     on_close: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
+    let keymap_path_display = user_keymap_path().to_string_lossy().to_string();
+
     div()
         .id("settings-modal-backdrop")
         .absolute()
@@ -18,7 +21,8 @@ pub fn settings_modal(
         .child(
             div()
                 .id("settings-modal-container")
-                .w(px(580.0))
+                .w(px(640.0))
+                .max_h(px(580.0))
                 .flex()
                 .flex_col()
                 .bg(rgb(0x201f24))
@@ -51,7 +55,7 @@ pub fn settings_modal(
                                         .text_base()
                                         .font_weight(FontWeight::BOLD)
                                         .text_color(rgb(0xe6e1e9))
-                                        .child("Preferences & Sync"),
+                                        .child("Preferences & Keybindings"),
                                 ),
                         )
                         .child(
@@ -77,12 +81,16 @@ pub fn settings_modal(
                         ),
                 )
                 .child(
-                    // Body
+                    // Body (Scrollable)
                     div()
+                        .id("settings-modal-scroll-body")
                         .flex()
                         .flex_col()
                         .p_6()
                         .gap_4()
+                        .overflow_y_scroll()
+                        // 1. General & Storage
+                        .child(section_title("STORAGE & SYNC"))
                         .child(setting_item(
                             "Sync Server Endpoint",
                             "Local or self-hosted TNotes server URL",
@@ -93,13 +101,92 @@ pub fn settings_modal(
                             "High-performance local SQLite database with FTS5",
                             "~/.local/share/tnotes/tnotes.db",
                         ))
-                        .child(setting_item(
-                            "Theme & Display",
-                            "Material Design 3 Dark Theme with Lucide Vector SVGs",
-                            "Dark Mode (Default)",
-                        )),
+                        // 2. Keyboard Shortcuts Section
+                        .child(section_title("KEYBOARD SHORTCUTS"))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1p5()
+                                .p_3()
+                                .rounded_lg()
+                                .bg(rgb(0x141318))
+                                .border_1()
+                                .border_color(rgb(0x302e36))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_between()
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_color(rgb(0xe6e1e9))
+                                                .child("Custom Keymap Config File"),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(FontWeight::MEDIUM)
+                                                .text_color(rgb(0xa6e3a1))
+                                                .child(keymap_path_display),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(0x79747e))
+                                        .child("Edit your keymap.json to customize shortcuts. Overrides are automatically merged on launch."),
+                                )
+                                .child(div().h_px().bg(rgb(0x302e36)).my_1())
+                                .children(REGISTERED_ACTIONS.iter().map(|action| {
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_between()
+                                        .py_1()
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .child(
+                                                    div()
+                                                        .text_xs()
+                                                        .font_weight(FontWeight::MEDIUM)
+                                                        .text_color(rgb(0xe6e1e9))
+                                                        .child(action.label),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .text_size(px(10.0))
+                                                        .text_color(rgb(0x79747e))
+                                                        .child(action.id),
+                                                ),
+                                        )
+                                        .child(
+                                            div()
+                                                .px_2()
+                                                .py_0p5()
+                                                .rounded_sm()
+                                                .bg(rgb(0x2a2930))
+                                                .text_xs()
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .text_color(rgb(0xcabeff))
+                                                .child(action.default_shortcut),
+                                        )
+                                })),
+                        ),
                 ),
         )
+}
+
+fn section_title(label: &'static str) -> impl IntoElement {
+    div()
+        .text_xs()
+        .font_weight(FontWeight::BOLD)
+        .text_color(rgb(0x79747e))
+        .child(label)
 }
 
 fn setting_item(
