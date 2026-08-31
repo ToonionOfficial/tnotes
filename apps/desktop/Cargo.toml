@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 tnotes-core = { path = "../../crates/tnotes-core" }
+tnotes-document = { path = "../../crates/tnotes-document" }
 
 gpui = { git = "https://github.com/zed-industries/zed" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["wayland", "x11", "font-kit"] }

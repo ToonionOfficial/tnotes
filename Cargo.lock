@@ -6245,6 +6245,7 @@ dependencies = [
  "gpui",
  "gpui_platform",
  "tnotes-core",
+ "tnotes-document",
 ]
 
 [[package]]
