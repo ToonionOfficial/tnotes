@@ -1,5 +1,8 @@
 pub mod editor;
-pub mod login;
-pub mod note_list;
-pub mod settings;
+pub mod modals;
 pub mod sidebar;
+pub mod workspace;
+
+pub use workspace::{
+    CloseModal, CreateNewNote, TNotesWorkspace, ToggleCommandPalette, ToggleSettingsModal,
+};

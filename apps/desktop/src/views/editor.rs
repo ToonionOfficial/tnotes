@@ -1,31 +1,45 @@
+use crate::state::NoteStore;
 use gpui::*;
-use tnotes_document::{Block, Document, RichText};
+use tnotes_document::{Block, Document, ListItem, RichText, SubList, TaskItem};
 
 pub struct EditorView {
-    pub title: String,
-    pub document: Document,
+    pub note_store: Entity<NoteStore>,
 }
 
 impl EditorView {
-    pub fn new(title: String, html_content: &str) -> Self {
-        let document = Document::from_html(html_content).unwrap_or(Document { blocks: vec![] });
-        Self { title, document }
-    }
+    pub fn new(note_store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+        // Automatically re-render when note_store changes
+        cx.observe(&note_store, |_this, _note_store, cx| {
+            cx.notify();
+        })
+        .detach();
 
-    pub fn set_note(&mut self, title: String, html_content: &str) {
-        self.title = title;
-        self.document = Document::from_html(html_content).unwrap_or(Document { blocks: vec![] });
+        Self { note_store }
     }
 }
 
 impl Render for EditorView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let note_store = self.note_store.read(cx);
+        let selected_note = note_store.selected_note();
+
+        let (title, html_body) = if let Some(note) = selected_note {
+            (note.title.clone(), note.body.clone())
+        } else {
+            (
+                "No Note Selected".to_string(),
+                "<p>Select or create a note from the sidebar.</p>".to_string(),
+            )
+        };
+
+        let document = Document::from_html(&html_body).unwrap_or(Document { blocks: vec![] });
+
         div()
             .id("editor-view-container")
             .flex()
             .flex_col()
             .size_full()
-            .bg(rgb(0x141318)) // Match background
+            .bg(rgb(0x141318)) // Theme background
             .p_8()
             .overflow_y_scroll()
             .gap_4()
@@ -34,11 +48,11 @@ impl Render for EditorView {
                 div()
                     .text_2xl()
                     .font_weight(FontWeight::BOLD)
-                    .text_color(rgb(0xe6e1e9)) // Foreground
-                    .child(self.title.clone()),
+                    .text_color(rgb(0xe6e1e9))
+                    .child(title),
             )
             .child(
-                // Divider
+                // Subtle Divider
                 div().h_px().bg(rgb(0x302e36)),
             )
             .child(
@@ -47,7 +61,7 @@ impl Render for EditorView {
                     .flex()
                     .flex_col()
                     .gap_3()
-                    .children(self.document.blocks.iter().map(render_block)),
+                    .children(document.blocks.iter().map(render_block)),
             )
     }
 }
@@ -58,144 +72,221 @@ fn render_block(block: &Block) -> AnyElement {
         Block::Heading { level, content } => {
             let (size, weight, color) = match level {
                 1 => (24.0, FontWeight::BOLD, rgb(0xe6e1e9)),
-                2 => (20.0, FontWeight::SEMIBOLD, rgb(0xe6e1e9)),
-                _ => (17.0, FontWeight::SEMIBOLD, rgb(0xe6e1e9)),
+                2 => (20.0, FontWeight::BOLD, rgb(0xe6e1e9)),
+                3 => (18.0, FontWeight::SEMIBOLD, rgb(0xe6e1e9)),
+                _ => (16.0, FontWeight::SEMIBOLD, rgb(0xe6e1e9)),
             };
             div()
+                .text_size(px(size))
                 .font_weight(weight)
+                .text_color(color)
                 .child(render_rich_text(content, size, color))
                 .into_any_element()
         }
         Block::Quote(rt) => div()
-            .pl_3()
-            .border_l_2()
-            .border_color(rgb(0xcabeff)) // Primary accent
-            .child(render_rich_text(rt, 15.0, rgb(0xc6c2cd)))
+            .border_l_4()
+            .border_color(rgb(0xcabeff))
+            .bg(rgb(0x201f24))
+            .rounded_r_md()
+            .px_4()
+            .py_2()
+            .text_color(rgb(0x938f99))
+            .child(render_rich_text(rt, 15.0, rgb(0xcabeff)))
             .into_any_element(),
         Block::CodeBlock { language, code } => div()
-            .p_3()
-            .rounded_xl()
-            .bg(rgb(0x201f24)) // Card bg
+            .bg(rgb(0x201f24))
             .border_1()
             .border_color(rgb(0x302e36))
+            .rounded_lg()
+            .p_4()
+            .flex()
+            .flex_col()
+            .gap_1()
             .child(
                 div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .pb_1()
                     .text_xs()
-                    .text_color(rgb(0x938f99))
+                    .font_weight(FontWeight::BOLD)
+                    .text_color(rgb(0x79747e))
                     .child(language.clone().unwrap_or_else(|| "code".to_string())),
             )
             .child(
                 div()
-                    .font_family("monospace")
-                    .text_xs()
-                    .text_color(rgb(0xcabeff))
+                    .font_family(".SystemUIFont")
+                    .text_sm()
+                    .text_color(rgb(0xa6e3a1))
                     .child(code.clone()),
             )
             .into_any_element(),
-        Block::Divider => div().h_px().bg(rgb(0x302e36)).my_2().into_any_element(),
         Block::BulletList(items) => div()
             .flex()
             .flex_col()
             .gap_1p5()
-            .children(items.iter().map(|item| {
-                div()
-                    .flex()
-                    .items_start()
-                    .gap_2()
-                    .child(div().text_sm().text_color(rgb(0xcabeff)).child("•"))
-                    .child(render_rich_text(&item.content, 15.0, rgb(0xe6e1e9)))
-            }))
+            .pl_4()
+            .children(items.iter().map(render_bullet_item))
             .into_any_element(),
         Block::OrderedList(items) => div()
             .flex()
             .flex_col()
             .gap_1p5()
+            .pl_4()
             .children(items.iter().enumerate().map(|(idx, item)| {
                 div()
                     .flex()
-                    .items_start()
-                    .gap_2()
+                    .flex_col()
+                    .gap_1()
                     .child(
                         div()
-                            .text_xs()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgb(0x938f99))
-                            .child(format!("{}.", idx + 1)),
+                            .flex()
+                            .flex_row()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_color(rgb(0xcabeff))
+                                    .child(format!("{}.", idx + 1)),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .child(render_rich_text(&item.content, 16.0, rgb(0xe6e1e9))),
+                            ),
                     )
-                    .child(render_rich_text(&item.content, 15.0, rgb(0xe6e1e9)))
+                    .children(item.sub_list.as_ref().map(|sub| render_sub_list(sub)))
             }))
             .into_any_element(),
         Block::TaskList(items) => div()
             .flex()
             .flex_col()
             .gap_2()
-            .children(items.iter().map(|item| {
-                let checkbox_bg = if item.checked {
-                    rgb(0xcabeff) // Primary purple
-                } else {
-                    rgb(0x201f24) // Card
-                };
-                let check_mark = if item.checked { "✓" } else { "" };
-                let text_color = if item.checked {
-                    rgb(0x938f99) // Muted strike
-                } else {
-                    rgb(0xe6e1e9)
-                };
+            .children(items.iter().map(render_task_item))
+            .into_any_element(),
+        Block::Divider => div().my_2().h_px().bg(rgb(0x302e36)).into_any_element(),
+    }
+}
 
+fn render_bullet_item(item: &ListItem) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_col()
+        .gap_1()
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .gap_2()
+                .child(div().text_color(rgb(0xcabeff)).child("•"))
+                .child(
+                    div()
+                        .flex_1()
+                        .child(render_rich_text(&item.content, 16.0, rgb(0xe6e1e9))),
+                ),
+        )
+        .children(item.sub_list.as_ref().map(|sub| render_sub_list(sub)))
+}
+
+fn render_sub_list(sub: &SubList) -> impl IntoElement {
+    match sub {
+        SubList::Bullet(items) => div()
+            .pl_4()
+            .flex()
+            .flex_col()
+            .gap_1p5()
+            .children(items.iter().map(render_bullet_item))
+            .into_any_element(),
+        SubList::Ordered(items) => div()
+            .pl_4()
+            .flex()
+            .flex_col()
+            .gap_1p5()
+            .children(items.iter().enumerate().map(|(idx, item)| {
                 div()
                     .flex()
-                    .items_center()
-                    .gap_2p5()
+                    .flex_row()
+                    .gap_2()
                     .child(
                         div()
-                            .w_4()
-                            .h_4()
-                            .rounded_sm()
-                            .bg(checkbox_bg)
-                            .border_1()
-                            .border_color(rgb(0xcabeff))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .text_xs()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(rgb(0x32285f))
-                            .child(check_mark),
+                            .text_color(rgb(0xcabeff))
+                            .child(format!("{}.", idx + 1)),
                     )
-                    .child(render_rich_text(&item.content, 15.0, text_color))
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(render_rich_text(&item.content, 16.0, rgb(0xe6e1e9))),
+                    )
             }))
             .into_any_element(),
     }
 }
 
-fn render_rich_text(rt: &RichText, _font_size: f32, default_color: Rgba) -> impl IntoElement {
-    div().flex().flex_wrap().gap_0p5().children(rt.spans.iter().map(|span| {
-        let color = if span.link.is_some() || span.marks.code {
-            rgb(0xcabeff)
-        } else {
-            default_color
-        };
+fn render_task_item(item: &TaskItem) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_row()
+        .items_start()
+        .gap_2p5()
+        .child(
+            div()
+                .w_4()
+                .h_4()
+                .mt_0p5()
+                .rounded_sm()
+                .border_1()
+                .border_color(if item.checked {
+                    rgb(0xa6e3a1)
+                } else {
+                    rgb(0x79747e)
+                })
+                .bg(if item.checked {
+                    rgb(0x2d4f3e)
+                } else {
+                    rgb(0x201f24)
+                })
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(if item.checked {
+                    div().text_xs().text_color(rgb(0xa6e3a1)).child("✓")
+                } else {
+                    div().child("")
+                }),
+        )
+        .child(
+            div()
+                .flex_1()
+                .child(render_rich_text(&item.content, 16.0, rgb(0xe6e1e9))),
+        )
+}
 
-        let weight = if span.marks.bold {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        };
+fn render_rich_text(rt: &RichText, base_size: f32, default_color: Rgba) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .items_baseline()
+        .text_size(px(base_size))
+        .children(rt.spans.iter().map(|span| {
+            let mut el = div().child(span.text.clone());
 
-        let mut el = div()
-            .text_sm()
-            .font_weight(weight)
-            .text_color(color)
-            .child(span.text.clone());
+            if span.marks.bold {
+                el = el.font_weight(FontWeight::BOLD);
+            }
+            if span.marks.italic {
+                el = el.italic();
+            }
+            if span.marks.code {
+                el = el
+                    .bg(rgb(0x201f24))
+                    .px_1()
+                    .rounded_sm()
+                    .text_color(rgb(0xa6e3a1));
+            } else if span.link.is_some() {
+                el = el
+                    .text_color(rgb(0xcabeff))
+                    .cursor_pointer()
+                    .hover(|s| s.underline());
+            } else {
+                el = el.text_color(default_color);
+            }
 
-        if span.marks.code {
-            el = el.px_1().rounded_sm().bg(rgb(0x201f24));
-        }
-
-        el
-    }))
+            el
+        }))
 }

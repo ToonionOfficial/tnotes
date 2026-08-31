@@ -4,6 +4,7 @@ use gpui::*;
 pub fn sidebar_footer(
     username: impl Into<SharedString>,
     sync_status: impl Into<SharedString>,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
     let username = username.into();
     let sync_status = sync_status.into();
@@ -18,6 +19,7 @@ pub fn sidebar_footer(
         .rounded_lg()
         .hover(|s| s.bg(rgb(0x201f24)))
         .cursor_pointer()
+        .on_click(on_click)
         .child(
             // User Account Info
             div()

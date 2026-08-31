@@ -1,138 +1,38 @@
 use crate::components::*;
+use crate::state::AppState;
 use gpui::*;
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct FolderItem {
-    pub id: String,
-    pub name: String,
-    pub count: usize,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct NoteItem {
-    pub id: String,
-    pub title: String,
-    pub folder_id: Option<String>,
-    pub html_content: String,
-}
-
-#[allow(dead_code)]
 pub struct SidebarView {
-    pub folders: Vec<FolderItem>,
-    pub notes: Vec<NoteItem>,
-    pub selected_item_id: Option<String>,
-    pub search_query: String,
+    pub app_state: Entity<AppState>,
 }
 
 impl SidebarView {
-    pub fn new() -> Self {
-        let folders = vec![
-            FolderItem {
-                id: "f-1".to_string(),
-                name: "Work".to_string(),
-                count: 6,
-            },
-            FolderItem {
-                id: "f-2".to_string(),
-                name: "Personal".to_string(),
-                count: 4,
-            },
-            FolderItem {
-                id: "f-3".to_string(),
-                name: "Research".to_string(),
-                count: 4,
-            },
-            FolderItem {
-                id: "f-4".to_string(),
-                name: "Studio".to_string(),
-                count: 2,
-            },
-        ];
+    pub fn new(app_state: Entity<AppState>, cx: &mut Context<Self>) -> Self {
+        // Observe changes to app_state, note_store, and folder_store
+        let note_store = app_state.read(cx).note_store.clone();
+        let folder_store = app_state.read(cx).folder_store.clone();
 
-        let notes = vec![
-            NoteItem {
-                id: "n-1".to_string(),
-                title: "Welcome to TNotes".to_string(),
-                folder_id: None,
-                html_content: "<h1>Welcome to TNotes</h1><p>TNotes is a fast, minimal, native note-taking app with instant sync across desktop, mobile, and web.</p><blockquote><p>Simplicity is prerequisite for reliability.</p></blockquote><ul data-type=\"taskList\"><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>HTML parser & serializer</p></div></li><li data-type=\"taskItem\" data-checked=\"false\"><label><input type=\"checkbox\"><span></span></label><div><p>GPUI Desktop UI</p></div></li></ul>".to_string(),
-            },
-            NoteItem {
-                id: "n-2".to_string(),
-                title: "Architecture & Document AST".to_string(),
-                folder_id: None,
-                html_content: "<h2>Architecture & Document AST</h2><p>The document model in <code>tnotes-document</code> provides editor-independent AST representation for rich text.</p><pre><code class=\"language-rust\">let doc = Document::from_html(html)?;\nlet out = doc.to_html();</code></pre>".to_string(),
-            },
-            NoteItem {
-                id: "n-3".to_string(),
-                title: "Bevy Engine Exploration".to_string(),
-                folder_id: None,
-                html_content: "<h2>Bevy Engine Exploration</h2><p>ECS architecture notes and rendering pipeline ideas.</p>".to_string(),
-            },
-            NoteItem {
-                id: "n-4".to_string(),
-                title: "Neovim Shortcuts".to_string(),
-                folder_id: None,
-                html_content: "<h2>Neovim Shortcuts</h2><p>Keybindings reference for custom workflow.</p>".to_string(),
-            },
-            NoteItem {
-                id: "n-5".to_string(),
-                title: "Release Checklist".to_string(),
-                folder_id: None,
-                html_content: "<h2>Release Checklist</h2><ul data-type=\"taskList\"><li data-type=\"taskItem\" data-checked=\"true\"><label><input type=\"checkbox\" checked=\"checked\"><span></span></label><div><p>Verify SQLite migrations</p></div></li><li data-type=\"taskItem\" data-checked=\"false\"><label><input type=\"checkbox\"><span></span></label><div><p>Publish desktop build</p></div></li></ul>".to_string(),
-            },
-            NoteItem {
-                id: "n-6".to_string(),
-                title: "Untitled".to_string(),
-                folder_id: None,
-                html_content: "<p></p>".to_string(),
-            },
-        ];
+        cx.observe(&app_state, |_this, _app_state, cx| cx.notify()).detach();
+        cx.observe(&note_store, |_this, _note_store, cx| cx.notify()).detach();
+        cx.observe(&folder_store, |_this, _folder_store, cx| cx.notify()).detach();
 
-        let selected_item_id = notes.first().map(|n| n.id.clone());
-
-        Self {
-            folders,
-            notes,
-            selected_item_id,
-            search_query: String::new(),
-        }
-    }
-
-    pub fn selected_note(&self) -> Option<&NoteItem> {
-        let sel_id = self.selected_item_id.as_ref()?;
-        self.notes.iter().find(|n| &n.id == sel_id)
-    }
-
-    pub fn select_item(&mut self, id: String, cx: &mut Context<Self>) {
-        self.selected_item_id = Some(id);
-        cx.notify();
-    }
-
-    pub fn add_note(&mut self, cx: &mut Context<Self>) {
-        let id = format!("n-{}", self.notes.len() + 1);
-        let new_note = NoteItem {
-            id: id.clone(),
-            title: "Untitled Note".to_string(),
-            folder_id: None,
-            html_content: "<h1>Untitled Note</h1><p></p>".to_string(),
-        };
-        self.notes.insert(0, new_note);
-        self.selected_item_id = Some(id);
-        cx.notify();
-    }
-}
-
-impl Default for SidebarView {
-    fn default() -> Self {
-        Self::new()
+        Self { app_state }
     }
 }
 
 impl Render for SidebarView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let selected_id = self.selected_item_id.clone();
+        let app_state_read = self.app_state.read(cx);
+        let note_store_entity = app_state_read.note_store.clone();
+        let folder_store_entity = app_state_read.folder_store.clone();
+        let app_state_entity = self.app_state.clone();
+
+        let note_store = note_store_entity.read(cx);
+        let folder_store = folder_store_entity.read(cx);
+
+        let notes = note_store.notes.clone();
+        let selected_id = note_store.selected_note_id.clone();
+        let folders = folder_store.folders.clone();
 
         div()
             .flex()
@@ -142,50 +42,59 @@ impl Render for SidebarView {
             .border_r_1()
             .border_color(rgb(0x302e36)) // Theme border
             .p_2p5()
-            .gap_3()
+            .gap_2p5()
             // 1. Header
             .child(sidebar_header(
                 "TNotes",
-                cx.listener(|this, _, _window, cx| {
-                    this.add_note(cx);
+                cx.listener({
+                    let note_store = note_store_entity.clone();
+                    move |_this, _, _window, cx| {
+                        note_store.update(cx, |store, cx| {
+                            store.create_note("Untitled Note", "<p></p>", None, cx);
+                        });
+                    }
                 }),
             ))
             // 2. Search Bar
             .child(search_bar())
-            // 3. Scrollable Tree: Folders & Notes
+            // 3. Unified Scrollable Tree: Folders and Notes together
             .child(
                 div()
                     .id("sidebar-tree-scroll")
                     .flex()
                     .flex_col()
-                    .gap_3()
                     .flex_1()
+                    .min_h_0()
+                    .w_full()
                     .overflow_y_scroll()
+                    .gap_3()
                     .child(
                         div()
                             .flex()
                             .flex_col()
                             .gap_0p5()
-                            .child(section_header("NOTES"))
-                            // Folders list
-                            .children(self.folders.iter().enumerate().map(|(idx, folder)| {
-                                folder_row(idx as u64, folder.name.clone(), folder.count)
+                            // FOLDERS Section
+                            .child(section_header("FOLDERS"))
+                            .children(folders.iter().enumerate().map(|(idx, folder)| {
+                                folder_row(idx as u64, folder.name.clone(), 0)
                             }))
-                            // Root Notes list
-                            .children(self.notes.iter().enumerate().map(|(idx, note)| {
+                            // NOTES Section (unified in same tree)
+                            .child(section_header("NOTES"))
+                            .children(notes.iter().enumerate().map(|(idx, note)| {
                                 let is_selected = selected_id.as_deref() == Some(&note.id);
                                 let note_id = note.id.clone();
+                                let store = note_store_entity.clone();
 
                                 note_row(
                                     idx as u64,
                                     note.title.clone(),
                                     is_selected,
-                                    cx.listener({
+                                    move |_event, _window, cx| {
                                         let note_id = note_id.clone();
-                                        move |this, _, _window, cx| {
-                                            this.select_item(note_id.clone(), cx);
-                                        }
-                                    }),
+                                        store.update(cx, |store, cx| {
+                                            store.select_note(note_id, cx);
+                                        });
+                                    },
                                 )
                             })),
                     ),
@@ -193,7 +102,18 @@ impl Render for SidebarView {
             // 4. Pinned SYSTEM Section at Bottom
             .child(system_section())
             // 5. Pinned Profile & Settings Footer
-            .child(sidebar_footer("Local Account", "Synced with server"))
+            .child(sidebar_footer(
+                "Local Account",
+                "Synced with local SQLite",
+                cx.listener({
+                    let app_state = app_state_entity.clone();
+                    move |_this, _, _window, cx| {
+                        app_state.update(cx, |state, cx| {
+                            state.toggle_settings(cx);
+                        });
+                    }
+                }),
+            ))
     }
 }
 
