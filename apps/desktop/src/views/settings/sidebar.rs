@@ -137,6 +137,18 @@ pub fn settings_sidebar(
                     },
                 )),
         )
+        .child(
+            div()
+                .id("settings-sidebar-version")
+                .flex()
+                .items_center()
+                .justify_center()
+                .py_2()
+                .text_xs()
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(rgb(0x79747e))
+                .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
+        )
 }
 
 fn settings_nav_row(
