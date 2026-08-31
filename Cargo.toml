@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/tnotes-core", "apps/server", "apps/desktop"]
+members = ["crates/tnotes-core", "apps/server", "apps/desktop", "crates/tnotes-document"]
 resolver = "3"
 
 [profile.release]
