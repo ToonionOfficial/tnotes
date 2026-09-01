@@ -11,6 +11,13 @@ pub enum ActiveScreen {
     Auth,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WorkspaceViewMode {
+    #[default]
+    Dashboard,
+    Editor,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActiveModal {
     None,
@@ -33,6 +40,7 @@ pub enum SettingsTab {
 #[allow(dead_code)]
 pub struct AppState {
     pub active_screen: ActiveScreen,
+    pub workspace_mode: WorkspaceViewMode,
     pub active_modal: ActiveModal,
     pub settings_tab: SettingsTab,
     pub note_store: Entity<NoteStore>,
@@ -50,6 +58,7 @@ impl AppState {
     ) -> Self {
         Self {
             active_screen: ActiveScreen::Workspace,
+            workspace_mode: WorkspaceViewMode::Dashboard,
             active_modal: ActiveModal::None,
             settings_tab: SettingsTab::Account,
             note_store,
@@ -57,6 +66,22 @@ impl AppState {
             auth_store,
             sync_store,
         }
+    }
+
+    pub fn open_note(&mut self, note_id: String, cx: &mut Context<Self>) {
+        self.note_store.update(cx, |store, cx| {
+            store.select_note(note_id, cx);
+        });
+        self.workspace_mode = WorkspaceViewMode::Editor;
+        cx.notify();
+    }
+
+    pub fn navigate_to_folder(&mut self, folder_id: Option<String>, cx: &mut Context<Self>) {
+        self.folder_store.update(cx, |store, cx| {
+            store.select_folder(folder_id, cx);
+        });
+        self.workspace_mode = WorkspaceViewMode::Dashboard;
+        cx.notify();
     }
 
     pub fn set_screen(&mut self, screen: ActiveScreen, cx: &mut Context<Self>) {

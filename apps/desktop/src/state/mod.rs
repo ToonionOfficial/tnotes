@@ -4,7 +4,7 @@ pub mod folder_store;
 pub mod note_store;
 pub mod sync_store;
 
-pub use app_state::{ActiveModal, ActiveScreen, AppState, SettingsTab};
+pub use app_state::{ActiveModal, ActiveScreen, AppState, SettingsTab, WorkspaceViewMode};
 pub use auth_store::{AuthStatus, AuthStore};
 pub use folder_store::FolderStore;
 pub use note_store::NoteStore;

@@ -28,6 +28,27 @@ impl NoteStore {
         self.notes.iter().find(|n| &n.id == sel_id)
     }
 
+    pub fn notes_in_folder(&self, folder_id: Option<&str>) -> Vec<Note> {
+        self.notes
+            .iter()
+            .filter(|n| match folder_id {
+                Some(fid) => n.folder_id.as_deref() == Some(fid),
+                None => true,
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn count_in_folder(&self, folder_id: Option<&str>) -> usize {
+        self.notes
+            .iter()
+            .filter(|n| match folder_id {
+                Some(fid) => n.folder_id.as_deref() == Some(fid),
+                None => true,
+            })
+            .count()
+    }
+
     #[allow(dead_code)]
     pub fn filtered_notes(&self) -> Vec<&Note> {
         if self.search_query.trim().is_empty() {

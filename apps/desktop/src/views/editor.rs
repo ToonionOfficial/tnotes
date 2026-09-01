@@ -1,33 +1,52 @@
-use crate::state::NoteStore;
+use crate::state::AppState;
 use gpui::*;
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    h_flex, Icon, IconName, Sizable,
+};
 use tnotes_document::{Block, Document, ListItem, RichText, SubList, TaskItem};
 
 pub struct EditorView {
-    pub note_store: Entity<NoteStore>,
+    pub app_state: Entity<AppState>,
 }
 
 impl EditorView {
-    pub fn new(note_store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+    pub fn new(app_state: Entity<AppState>, cx: &mut Context<Self>) -> Self {
+        let note_store = app_state.read(cx).note_store.clone();
         cx.observe(&note_store, |_this, _note_store, cx| {
             cx.notify();
         })
         .detach();
+        cx.observe(&app_state, |_this, _app_state, cx| {
+            cx.notify();
+        })
+        .detach();
 
-        Self { note_store }
+        Self { app_state }
     }
 }
 
 impl Render for EditorView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let note_store = self.note_store.read(cx);
+        let app_state_read = self.app_state.read(cx);
+        let note_store = app_state_read.note_store.read(cx);
+        let folder_store = app_state_read.folder_store.read(cx);
         let selected_note = note_store.selected_note();
+        let app_state_entity = self.app_state.clone();
+
+        let current_folder_id = folder_store.selected_folder_id.clone();
+        let current_folder_name = current_folder_id
+            .as_deref()
+            .and_then(|id| folder_store.folder_by_id(id))
+            .map(|f| f.name.clone())
+            .unwrap_or_else(|| "All Notes".to_string());
 
         let (title, html_body) = if let Some(note) = selected_note {
             (note.title.clone(), note.body.clone())
         } else {
             (
                 "No Note Selected".to_string(),
-                "<p>Select or create a note from the sidebar.</p>".to_string(),
+                "<p>Select or create a note from the dashboard.</p>".to_string(),
             )
         };
 
@@ -49,6 +68,28 @@ impl Render for EditorView {
                     .flex()
                     .flex_col()
                     .gap_4()
+                    .child(
+                        h_flex()
+                            .items_center()
+                            .justify_between()
+                            .w_full()
+                            .child(
+                                Button::new("editor-back-btn")
+                                    .ghost()
+                                    .small()
+                                    .icon(Icon::new(IconName::ArrowLeft).size_4())
+                                    .label(format!("Back to {current_folder_name}"))
+                                    .on_click(cx.listener({
+                                        let app_state = app_state_entity.clone();
+                                        move |_this, _, _window, cx| {
+                                            app_state.update(cx, |state, cx| {
+                                                state.workspace_mode = crate::state::WorkspaceViewMode::Dashboard;
+                                                cx.notify();
+                                            });
+                                        }
+                                    })),
+                            ),
+                    )
                     .child(
                         div()
                             .text_2xl()

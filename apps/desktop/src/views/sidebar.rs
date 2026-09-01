@@ -38,9 +38,13 @@ impl Render for SidebarView {
         let note_store = note_store_entity.read(cx);
         let folder_store = folder_store_entity.read(cx);
 
-        let notes = note_store.notes.clone();
-        let selected_id = note_store.selected_note_id.clone();
-        let folders = folder_store.folders.clone();
+        let selected_folder_id = folder_store.selected_folder_id.clone();
+        let total_notes_count = note_store.notes.len();
+        let root_folders = folder_store.root_folders();
+
+        let active_root_id = selected_folder_id
+            .as_deref()
+            .and_then(|id| folder_store.root_ancestor_id(id));
 
         Sidebar::new("tnotes-sidebar")
             .w(px(280.))
@@ -71,9 +75,11 @@ impl Render for SidebarView {
                                     .icon(Icon::new(IconName::Plus).size_4())
                                     .on_click(cx.listener({
                                         let note_store = note_store_entity.clone();
+                                        let folder_store = folder_store_entity.clone();
                                         move |_this, _, _window, cx| {
+                                            let current_folder_id = folder_store.read(cx).selected_folder_id.clone();
                                             note_store.update(cx, |store, cx| {
-                                                store.create_note("Untitled Note", "<p></p>", None, cx);
+                                                store.create_note("Untitled Note", "<p></p>", current_folder_id, cx);
                                             });
                                         }
                                     })),
@@ -82,53 +88,71 @@ impl Render for SidebarView {
             )
             .child(
                 SidebarGroup::new("NAVIGATION").child(
-                    SidebarMenu::new().child(
-                        SidebarMenuItem::new("Search")
-                            .icon(IconName::Search)
-                            .suffix(|_, _| {
-                                div()
-                                    .px_1p5()
-                                    .py_0p5()
-                                    .rounded_sm()
-                                    .bg(rgb(0x201f24))
-                                    .text_xs()
-                                    .text_color(rgb(0x938f99))
-                                    .child("⌘P")
-                            })
-                            .on_click({
-                                let app_state = app_state_entity.clone();
-                                move |_, _, cx| {
-                                    app_state.update(cx, |state, cx| {
-                                        state.toggle_command_palette(cx);
-                                    });
-                                }
-                            }),
-                    ),
+                    SidebarMenu::new()
+                        .child(
+                            SidebarMenuItem::new("Search")
+                                .icon(IconName::Search)
+                                .suffix(|_, _| {
+                                    div()
+                                        .px_1p5()
+                                        .py_0p5()
+                                        .rounded_sm()
+                                        .bg(rgb(0x201f24))
+                                        .text_xs()
+                                        .text_color(rgb(0x938f99))
+                                        .child("⌘P")
+                                })
+                                .on_click({
+                                    let app_state = app_state_entity.clone();
+                                    move |_, _, cx| {
+                                        app_state.update(cx, |state, cx| {
+                                            state.toggle_command_palette(cx);
+                                        });
+                                    }
+                                }),
+                        )
+                        .child(
+                            SidebarMenuItem::new("All Notes")
+                                .icon(IconName::BookOpen)
+                                .active(selected_folder_id.is_none())
+                                .suffix(move |_, _| {
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(0x938f99))
+                                        .child(format!("{total_notes_count}"))
+                                })
+                                .on_click({
+                                    let folder_store = folder_store_entity.clone();
+                                    move |_, _, cx| {
+                                        folder_store.update(cx, |store, cx| {
+                                            store.select_folder(None, cx);
+                                        });
+                                    }
+                                }),
+                        ),
                 ),
             )
             .child(
                 SidebarGroup::new("FOLDERS").child(
-                    SidebarMenu::new().children(folders.iter().enumerate().map(|(_idx, folder)| {
+                    SidebarMenu::new().children(root_folders.into_iter().enumerate().map(|(_idx, folder)| {
+                        let folder_id = folder.id.clone();
+                        let is_active = active_root_id.as_deref() == Some(&folder.id);
+                        let store = folder_store_entity.clone();
+                        let note_count = note_store.count_in_folder(Some(&folder.id));
+
                         SidebarMenuItem::new(folder.name.clone())
                             .icon(IconName::Folder)
-                            .suffix(|_, _| div().text_xs().text_color(rgb(0x938f99)).child("0"))
-                    })),
-                ),
-            )
-            .child(
-                SidebarGroup::new("NOTES").child(
-                    SidebarMenu::new().children(notes.iter().enumerate().map(|(_idx, note)| {
-                        let note_id = note.id.clone();
-                        let store = note_store_entity.clone();
-                        let is_selected = selected_id.as_deref() == Some(&note.id);
-
-                        SidebarMenuItem::new(note.title.clone())
-                            .icon(IconName::FileText)
-                            .active(is_selected)
+                            .active(is_active)
+                            .suffix(move |_, _| {
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(0x938f99))
+                                    .child(format!("{note_count}"))
+                            })
                             .on_click(move |_, _, cx| {
-                                let note_id = note_id.clone();
+                                let folder_id = folder_id.clone();
                                 store.update(cx, |store, cx| {
-                                    store.select_note(note_id, cx);
+                                    store.select_folder(Some(folder_id), cx);
                                 });
                             })
                     })),

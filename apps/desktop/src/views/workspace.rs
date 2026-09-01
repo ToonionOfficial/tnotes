@@ -1,6 +1,7 @@
 use crate::components::fps_overlay::{fps_overlay, FpsTracker, ToggleFps, ToggleStressTest};
-use crate::state::{ActiveModal, ActiveScreen, AppState};
+use crate::state::{ActiveModal, ActiveScreen, AppState, WorkspaceViewMode};
 use crate::views::editor::EditorView;
+use crate::views::folder_dashboard::FolderDashboardView;
 use crate::views::modals::command_palette_modal;
 use crate::views::settings::SettingsView;
 use crate::views::sidebar::SidebarView;
@@ -20,6 +21,7 @@ actions!(
 pub struct TNotesWorkspace {
     pub app_state: Entity<AppState>,
     pub sidebar: Entity<SidebarView>,
+    pub dashboard: Entity<FolderDashboardView>,
     pub editor: Entity<EditorView>,
     pub settings: Entity<SettingsView>,
     pub fps_tracker: FpsTracker,
@@ -28,10 +30,9 @@ pub struct TNotesWorkspace {
 
 impl TNotesWorkspace {
     pub fn new(app_state: Entity<AppState>, cx: &mut Context<Self>) -> Self {
-        let note_store = app_state.read(cx).note_store.clone();
-
         let sidebar = cx.new(|cx| SidebarView::new(app_state.clone(), cx));
-        let editor = cx.new(|cx| EditorView::new(note_store, cx));
+        let dashboard = cx.new(|cx| FolderDashboardView::new(app_state.clone(), cx));
+        let editor = cx.new(|cx| EditorView::new(app_state.clone(), cx));
         let settings = cx.new(|cx| SettingsView::new(app_state.clone(), cx));
         let focus_handle = cx.focus_handle();
 
@@ -43,6 +44,7 @@ impl TNotesWorkspace {
         Self {
             app_state,
             sidebar,
+            dashboard,
             editor,
             settings,
             fps_tracker: FpsTracker::new(),
@@ -133,18 +135,28 @@ impl Render for TNotesWorkspace {
             }))
             .child(match active_screen {
                 ActiveScreen::Settings => self.settings.clone().into_any_element(),
-                ActiveScreen::Workspace | ActiveScreen::Auth => div()
-                    .flex()
-                    .flex_row()
-                    .size_full()
-                    .child(self.sidebar.clone())
-                    .child(
-                        div()
-                            .flex_1()
-                            .h_full()
-                            .child(self.editor.clone()),
-                    )
-                    .into_any_element(),
+                ActiveScreen::Workspace | ActiveScreen::Auth => {
+                    let workspace_mode = app_state_read.workspace_mode;
+                    div()
+                        .flex()
+                        .flex_row()
+                        .size_full()
+                        .child(self.sidebar.clone())
+                        .child(
+                            div()
+                                .flex_1()
+                                .h_full()
+                                .child(match workspace_mode {
+                                    WorkspaceViewMode::Dashboard => {
+                                        self.dashboard.clone().into_any_element()
+                                    }
+                                    WorkspaceViewMode::Editor => {
+                                        self.editor.clone().into_any_element()
+                                    }
+                                }),
+                        )
+                        .into_any_element()
+                }
             })
             .children(if is_visible {
                 Some(fps_overlay(
