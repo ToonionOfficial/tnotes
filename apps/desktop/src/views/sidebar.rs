@@ -1,6 +1,15 @@
-use crate::components::*;
+use crate::components::app_logo;
 use crate::state::AppState;
 use gpui::*;
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    h_flex,
+    sidebar::{
+        Sidebar, SidebarFooter, SidebarGroup, SidebarHeader, SidebarItem, SidebarMenu,
+        SidebarMenuItem,
+    },
+    v_flex, Icon, IconName, Sizable,
+};
 
 pub struct SidebarView {
     pub app_state: Entity<AppState>,
@@ -33,89 +42,192 @@ impl Render for SidebarView {
         let selected_id = note_store.selected_note_id.clone();
         let folders = folder_store.folders.clone();
 
-        div()
-            .flex()
-            .flex_col()
-            .size_full()
-            .bg(rgb(0x141318))
-            .border_r_1()
-            .border_color(rgb(0x302e36))
-            .p_2p5()
-            .gap_2p5()
-            .child(sidebar_header(
-                "TNotes",
-                cx.listener({
-                    let note_store = note_store_entity.clone();
-                    move |_this, _, _window, cx| {
-                        note_store.update(cx, |store, cx| {
-                            store.create_note("Untitled Note", "<p></p>", None, cx);
-                        });
-                    }
-                }),
-            ))
-            .child(search_bar())
-            .child(
-                div()
-                    .id("sidebar-tree-scroll")
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .w_full()
-                    .overflow_y_scroll()
-                    .gap_3()
+        Sidebar::new("tnotes-sidebar")
+            .w(px(280.))
+            .header(
+                SidebarHeader::new()
                     .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_0p5()
-                            .child(section_header("FOLDERS"))
-                            .children(folders.iter().enumerate().map(|(idx, folder)| {
-                                folder_row(idx as u64, folder.name.clone(), 0)
-                            }))
-                            .child(section_header("NOTES"))
-                            .children(notes.iter().enumerate().map(|(idx, note)| {
-                                let is_selected = selected_id.as_deref() == Some(&note.id);
-                                let note_id = note.id.clone();
-                                let store = note_store_entity.clone();
-
-                                note_row(
-                                    idx as u64,
-                                    note.title.clone(),
-                                    is_selected,
-                                    move |_event, _window, cx| {
-                                        let note_id = note_id.clone();
-                                        store.update(cx, |store, cx| {
-                                            store.select_note(note_id, cx);
-                                        });
-                                    },
-                                )
-                            })),
+                        h_flex()
+                            .items_center()
+                            .justify_between()
+                            .w_full()
+                            .child(
+                                h_flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(app_logo().size_6().rounded_md())
+                                    .child(
+                                        div()
+                                            .text_base()
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(rgb(0xe6e1e9))
+                                            .child("TNotes"),
+                                    ),
+                            )
+                            .child(
+                                Button::new("sidebar-btn-new-note")
+                                    .ghost()
+                                    .small()
+                                    .icon(Icon::new(IconName::Plus).size_4())
+                                    .on_click(cx.listener({
+                                        let note_store = note_store_entity.clone();
+                                        move |_this, _, _window, cx| {
+                                            note_store.update(cx, |store, cx| {
+                                                store.create_note("Untitled Note", "<p></p>", None, cx);
+                                            });
+                                        }
+                                    })),
+                            ),
                     ),
             )
-            .child(system_section())
-            .child(sidebar_footer(
-                "Local Account",
-                "Synced with local SQLite",
-                cx.listener({
-                    let app_state = app_state_entity.clone();
-                    move |_this, _, _window, cx| {
-                        app_state.update(cx, |state, cx| {
-                            state.toggle_settings(cx);
-                        });
-                    }
-                }),
-            ))
-    }
-}
+            .child(
+                SidebarGroup::new("NAVIGATION").child(
+                    SidebarMenu::new().child(
+                        SidebarMenuItem::new("Search")
+                            .icon(IconName::Search)
+                            .suffix(|_, _| {
+                                div()
+                                    .px_1p5()
+                                    .py_0p5()
+                                    .rounded_sm()
+                                    .bg(rgb(0x201f24))
+                                    .text_xs()
+                                    .text_color(rgb(0x938f99))
+                                    .child("⌘P")
+                            })
+                            .on_click({
+                                let app_state = app_state_entity.clone();
+                                move |_, _, cx| {
+                                    app_state.update(cx, |state, cx| {
+                                        state.toggle_command_palette(cx);
+                                    });
+                                }
+                            }),
+                    ),
+                ),
+            )
+            .child(
+                SidebarGroup::new("FOLDERS").child(
+                    SidebarMenu::new().children(folders.iter().enumerate().map(|(_idx, folder)| {
+                        SidebarMenuItem::new(folder.name.clone())
+                            .icon(IconName::Folder)
+                            .suffix(|_, _| div().text_xs().text_color(rgb(0x938f99)).child("0"))
+                    })),
+                ),
+            )
+            .child(
+                SidebarGroup::new("NOTES").child(
+                    SidebarMenu::new().children(notes.iter().enumerate().map(|(_idx, note)| {
+                        let note_id = note.id.clone();
+                        let store = note_store_entity.clone();
+                        let is_selected = selected_id.as_deref() == Some(&note.id);
 
-fn section_header(label: &'static str) -> impl IntoElement {
-    div()
-        .px_2()
-        .pt_2()
-        .pb_1()
-        .text_xs()
-        .font_weight(FontWeight::BOLD)
-        .text_color(rgb(0x79747e))
-        .child(label)
+                        SidebarMenuItem::new(note.title.clone())
+                            .icon(IconName::FileText)
+                            .active(is_selected)
+                            .on_click(move |_, _, cx| {
+                                let note_id = note_id.clone();
+                                store.update(cx, |store, cx| {
+                                    store.select_note(note_id, cx);
+                                });
+                            })
+                    })),
+                ),
+            )
+            .footer(
+                v_flex()
+                    .w_full()
+                    .gap_1()
+                    .child(
+                        SidebarGroup::new("SYSTEM")
+                            .child(
+                                SidebarMenu::new()
+                                    .child(SidebarMenuItem::new("Archive").icon(IconName::Inbox))
+                                    .child(
+                                        SidebarMenuItem::new("Trash")
+                                            .icon(IconName::Delete)
+                                            .suffix(|_, _| {
+                                                div().text_xs().text_color(rgb(0x938f99)).child("0")
+                                            }),
+                                    )
+                                    .child(SidebarMenuItem::new("Assets").icon(IconName::File)),
+                            )
+                            .render("system-group", _window, cx),
+                    )
+                    .child(
+                        SidebarFooter::new().child(
+                            h_flex()
+                                .id("sidebar-profile-footer")
+                                .items_center()
+                                .justify_between()
+                                .w_full()
+                                .cursor_pointer()
+                                .on_click(cx.listener({
+                                    let app_state = app_state_entity.clone();
+                                    move |_this, _, _window, cx| {
+                                        app_state.update(cx, |state, cx| {
+                                            state.toggle_settings(cx);
+                                        });
+                                    }
+                                }))
+                                    .child(
+                                        h_flex()
+                                            .items_center()
+                                            .gap_2p5()
+                                            .child(
+                                                div()
+                                                    .w_7()
+                                                    .h_7()
+                                                    .rounded_full()
+                                                    .bg(rgb(0x2a2930))
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .child(
+                                                        Icon::new(IconName::User)
+                                                            .size_4()
+                                                            .text_color(rgb(0xcabeff)),
+                                                    ),
+                                            )
+                                            .child(
+                                                v_flex()
+                                                    .child(
+                                                        div()
+                                                            .text_xs()
+                                                            .font_weight(FontWeight::SEMIBOLD)
+                                                            .child("Local Account"),
+                                                    )
+                                                    .child(
+                                                        h_flex()
+                                                            .items_center()
+                                                            .gap_1()
+                                                            .child(
+                                                                div()
+                                                                    .w_1p5()
+                                                                    .h_1p5()
+                                                                    .rounded_full()
+                                                                    .bg(rgb(0xa6e3a1)),
+                                                            )
+                                                            .child(
+                                                                div()
+                                                                    .text_xs()
+                                                                    .text_color(rgb(0x938f99))
+                                                                    .child("Synced with local SQLite"),
+                                                            ),
+                                                    ),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .p_1()
+                                            .child(
+                                                Icon::new(IconName::Settings)
+                                                    .size_4()
+                                                    .text_color(rgb(0xc6c2cd)),
+                                            ),
+                                    ),
+                            ),
+                    ),
+            )
+    }
 }

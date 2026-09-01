@@ -137,13 +137,7 @@ impl Render for TNotesWorkspace {
                     .flex()
                     .flex_row()
                     .size_full()
-                    .child(
-                        div()
-                            .w_80()
-                            .h_full()
-                            .flex_shrink_0()
-                            .child(self.sidebar.clone()),
-                    )
+                    .child(self.sidebar.clone())
                     .child(
                         div()
                             .flex_1()

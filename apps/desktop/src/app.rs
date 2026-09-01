@@ -3,6 +3,7 @@ use crate::keymap;
 use crate::state::{AppState, AuthStore, FolderStore, NoteStore, SyncStore};
 use crate::views::TNotesWorkspace;
 use gpui::*;
+use gpui_component::{Theme, ThemeMode};
 
 pub fn run_app() {
     let db = AppDb::init().unwrap_or_else(|err| {
@@ -11,7 +12,11 @@ pub fn run_app() {
     });
 
     let platform = gpui_platform::current_platform(false);
-    Application::with_platform(platform).run(move |cx: &mut App| {
+    Application::with_platform(platform)
+        .with_assets(gpui_component_assets::Assets)
+        .run(move |cx: &mut App| {
+        gpui_component::init(cx);
+        Theme::change(ThemeMode::Dark, None, cx);
         keymap::init_keymap(cx);
 
         let note_store = cx.new(|_cx| NoteStore::new(db.clone()));
@@ -48,7 +53,7 @@ fn open_main_window(app_state: Entity<AppState>, cx: &mut App) {
         let workspace = cx.new(|cx| TNotesWorkspace::new(app_state, cx));
         let focus_handle = workspace.read(cx).focus_handle.clone();
         window.focus(&focus_handle, cx);
-        workspace
+        cx.new(|cx| gpui_component::Root::new(workspace, window, cx))
     })
     .unwrap();
 }
