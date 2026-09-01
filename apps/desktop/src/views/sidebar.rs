@@ -4,10 +4,7 @@ use gpui::*;
 use gpui_component::{
     button::{Button, ButtonVariants},
     h_flex,
-    sidebar::{
-        Sidebar, SidebarFooter, SidebarGroup, SidebarHeader, SidebarItem, SidebarMenu,
-        SidebarMenuItem,
-    },
+    sidebar::{Sidebar, SidebarFooter, SidebarGroup, SidebarItem, SidebarMenu, SidebarMenuItem},
     v_flex, Icon, IconName, Sizable,
 };
 
@@ -49,41 +46,39 @@ impl Render for SidebarView {
         Sidebar::new("tnotes-sidebar")
             .w(px(280.))
             .header(
-                SidebarHeader::new()
+                h_flex()
+                    .p_2()
+                    .items_center()
+                    .justify_between()
+                    .w_full()
                     .child(
                         h_flex()
                             .items_center()
-                            .justify_between()
-                            .w_full()
+                            .gap_2()
+                            .child(app_logo().size_6().rounded_md())
                             .child(
-                                h_flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(app_logo().size_6().rounded_md())
-                                    .child(
-                                        div()
-                                            .text_base()
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_color(rgb(0xe6e1e9))
-                                            .child("TNotes"),
-                                    ),
-                            )
-                            .child(
-                                Button::new("sidebar-btn-new-note")
-                                    .ghost()
-                                    .small()
-                                    .icon(Icon::new(IconName::Plus).size_4())
-                                    .on_click(cx.listener({
-                                        let note_store = note_store_entity.clone();
-                                        let folder_store = folder_store_entity.clone();
-                                        move |_this, _, _window, cx| {
-                                            let current_folder_id = folder_store.read(cx).selected_folder_id.clone();
-                                            note_store.update(cx, |store, cx| {
-                                                store.create_note("Untitled Note", "<p></p>", current_folder_id, cx);
-                                            });
-                                        }
-                                    })),
+                                div()
+                                    .text_base()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(rgb(0xe6e1e9))
+                                    .child("TNotes"),
                             ),
+                    )
+                    .child(
+                        Button::new("sidebar-btn-new-note")
+                            .ghost()
+                            .small()
+                            .icon(Icon::new(IconName::Plus).size_4())
+                            .on_click(cx.listener({
+                                let note_store = note_store_entity.clone();
+                                let folder_store = folder_store_entity.clone();
+                                move |_this, _, _window, cx| {
+                                    let current_folder_id = folder_store.read(cx).selected_folder_id.clone();
+                                    note_store.update(cx, |store, cx| {
+                                        store.create_note("Untitled Note", "<p></p>", current_folder_id, cx);
+                                    });
+                                }
+                            })),
                     ),
             )
             .child(
