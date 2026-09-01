@@ -51,7 +51,7 @@ impl TNotesWorkspace {
             editor,
             settings,
             fps_monitor,
-            show_fps: true,
+            show_fps: false,
             focus_handle,
         }
     }
@@ -121,19 +121,12 @@ impl Render for TNotesWorkspace {
                         .flex_row()
                         .size_full()
                         .child(self.sidebar.clone())
-                        .child(
-                            div()
-                                .flex_1()
-                                .h_full()
-                                .child(match workspace_mode {
-                                    WorkspaceViewMode::Dashboard => {
-                                        self.dashboard.clone().into_any_element()
-                                    }
-                                    WorkspaceViewMode::Editor => {
-                                        self.editor.clone().into_any_element()
-                                    }
-                                }),
-                        )
+                        .child(div().flex_1().h_full().child(match workspace_mode {
+                            WorkspaceViewMode::Dashboard => {
+                                self.dashboard.clone().into_any_element()
+                            }
+                            WorkspaceViewMode::Editor => self.editor.clone().into_any_element(),
+                        }))
                         .into_any_element()
                 }
             })
