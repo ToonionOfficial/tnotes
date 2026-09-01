@@ -4,7 +4,9 @@ use gpui::*;
 use gpui_component::{
     breadcrumb::{Breadcrumb, BreadcrumbItem},
     button::{Button, ButtonVariants},
-    h_flex, v_flex, Icon, IconName, Sizable,
+    h_flex,
+    scroll::ScrollableElement as _,
+    v_flex, Icon, IconName, Sizable,
 };
 use std::ops::Range;
 use tnotes_core::models::folder::Folder;
@@ -249,6 +251,8 @@ impl Render for FolderDashboardView {
                                 let note_count = notes.len();
                                 this.child(
                                     div()
+                                        .id("notes-list-scroll-wrapper")
+                                        .relative()
                                         .flex_1()
                                         .min_h_0()
                                         .child(
@@ -285,7 +289,8 @@ impl Render for FolderDashboardView {
                                             )
                                             .track_scroll(&self.scroll_handle)
                                             .size_full(),
-                                        ),
+                                        )
+                                        .vertical_scrollbar(&self.scroll_handle),
                                 )
                             }),
                     ),
