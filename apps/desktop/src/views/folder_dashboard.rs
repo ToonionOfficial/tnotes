@@ -348,41 +348,45 @@ fn render_note_card(
     };
 
     div()
-        .id(ElementId::NamedInteger("dash-note-card".into(), id_index))
         .w_full()
-        .my_1()
-        .p_3()
-        .rounded_lg()
-        .bg(rgb(0x201f24))
-        .border_1()
-        .border_color(rgb(0x302e36))
-        .hover(|s| s.bg(rgb(0x2a2930)).border_color(rgb(0x3f3d47)))
-        .cursor_pointer()
-        .on_click(on_click)
+        .pb_2()
         .child(
-            v_flex()
-                .gap_1()
+            div()
+                .id(ElementId::NamedInteger("dash-note-card".into(), id_index))
+                .w_full()
+                .p_3()
+                .rounded_lg()
+                .bg(rgb(0x201f24))
+                .border_1()
+                .border_color(rgb(0x302e36))
+                .hover(|s| s.bg(rgb(0x2a2930)).border_color(rgb(0x3f3d47)))
+                .cursor_pointer()
+                .on_click(on_click)
                 .child(
-                    h_flex()
-                        .items_center()
-                        .gap_2()
-                        .child(Icon::new(IconName::FileText).size_4().text_color(rgb(0x938f99)))
+                    v_flex()
+                        .gap_1()
+                        .child(
+                            h_flex()
+                                .items_center()
+                                .gap_2()
+                                .child(Icon::new(IconName::FileText).size_4().text_color(rgb(0x938f99)))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(rgb(0xe6e1e9))
+                                        .child(note.title),
+                                ),
+                        )
                         .child(
                             div()
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgb(0xe6e1e9))
-                                .child(note.title),
+                                .text_xs()
+                                .text_color(rgb(0x938f99))
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .line_clamp(1)
+                                .child(preview),
                         ),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(0x938f99))
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .line_clamp(1)
-                        .child(preview),
                 ),
         )
 }
