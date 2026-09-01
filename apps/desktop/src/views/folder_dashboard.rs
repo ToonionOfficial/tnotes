@@ -4,15 +4,15 @@ use gpui::*;
 use gpui_component::{
     breadcrumb::{Breadcrumb, BreadcrumbItem},
     button::{Button, ButtonVariants},
-    h_flex, v_flex, v_virtual_list, Icon, IconName, Sizable, VirtualListScrollHandle,
+    h_flex, v_flex, Icon, IconName, Sizable,
 };
-use std::rc::Rc;
+use std::ops::Range;
 use tnotes_core::models::folder::Folder;
 use tnotes_core::models::note::Note;
 
 pub struct FolderDashboardView {
     pub app_state: Entity<AppState>,
-    pub scroll_handle: VirtualListScrollHandle,
+    pub scroll_handle: UniformListScrollHandle,
 }
 
 impl FolderDashboardView {
@@ -26,7 +26,7 @@ impl FolderDashboardView {
 
         Self {
             app_state,
-            scroll_handle: VirtualListScrollHandle::new(),
+            scroll_handle: UniformListScrollHandle::new(),
         }
     }
 }
@@ -247,18 +247,15 @@ impl Render for FolderDashboardView {
                             })
                             .when(!notes.is_empty(), |this| {
                                 let note_count = notes.len();
-                                let sizes = Rc::new(vec![size(px(840.), px(68.)); note_count]);
-
                                 this.child(
                                     div()
                                         .flex_1()
                                         .min_h_0()
                                         .child(
-                                            v_virtual_list(
-                                                cx.entity(),
-                                                "folder-dashboard-virtual-notes",
-                                                sizes,
-                                                |view, range, _, cx| {
+                                            uniform_list(
+                                                "folder-dashboard-uniform-notes",
+                                                note_count,
+                                                cx.processor(move |view: &mut FolderDashboardView, visible_range: Range<usize>, _window, cx| {
                                                     let app_state_read = view.app_state.read(cx);
                                                     let note_store = app_state_read.note_store.read(cx);
                                                     let folder_store = app_state_read.folder_store.read(cx);
@@ -266,7 +263,7 @@ impl Render for FolderDashboardView {
                                                     let notes = note_store.notes_in_folder(selected_folder_id.as_deref());
                                                     let app_state = view.app_state.clone();
 
-                                                    range
+                                                    visible_range
                                                         .filter_map(|ix| {
                                                             let note = notes.get(ix)?.clone();
                                                             let note_id = note.id.clone();
@@ -283,8 +280,8 @@ impl Render for FolderDashboardView {
                                                                 },
                                                             ))
                                                         })
-                                                        .collect()
-                                                },
+                                                        .collect::<Vec<_>>()
+                                                }),
                                             )
                                             .track_scroll(&self.scroll_handle)
                                             .size_full(),
@@ -353,7 +350,7 @@ fn render_note_card(
     div()
         .id(ElementId::NamedInteger("dash-note-card".into(), id_index))
         .w_full()
-        .h(px(60.))
+        .my_1()
         .p_3()
         .rounded_lg()
         .bg(rgb(0x201f24))
