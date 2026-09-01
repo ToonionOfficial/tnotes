@@ -1,5 +1,4 @@
-use crate::components::fps_overlay::{ToggleFps, ToggleStressTest};
-use crate::views::{CloseModal, CreateNewNote, ToggleCommandPalette, ToggleSettings};
+use crate::views::{CloseModal, CreateNewNote, ToggleCommandPalette, ToggleFps, ToggleSettings};
 use gpui::KeyBinding;
 
 #[derive(Debug, Clone)]
@@ -41,12 +40,6 @@ pub const REGISTERED_ACTIONS: &[ActionMetadata] = &[
         category: "Developer",
         default_shortcut: "f3",
     },
-    ActionMetadata {
-        id: "fps::toggle_stress_test",
-        label: "Toggle 144Hz Frame Stress Test",
-        category: "Developer",
-        default_shortcut: "shift-f3",
-    },
 ];
 
 pub fn build_key_binding(key: &str, action_name: &str, context: Option<&str>) -> Option<KeyBinding> {
@@ -56,7 +49,6 @@ pub fn build_key_binding(key: &str, action_name: &str, context: Option<&str>) ->
         "workspace::toggle_settings" => Some(KeyBinding::new(key, ToggleSettings, context)),
         "workspace::close_modal" => Some(KeyBinding::new(key, CloseModal, context)),
         "fps::toggle_fps" => Some(KeyBinding::new(key, ToggleFps, context)),
-        "fps::toggle_stress_test" => Some(KeyBinding::new(key, ToggleStressTest, context)),
         _ => {
             eprintln!("Unknown action in keymap: {action_name}");
             None

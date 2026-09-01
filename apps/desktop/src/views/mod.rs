@@ -8,5 +8,5 @@ pub mod workspace;
 #[allow(unused_imports)]
 pub use folder_dashboard::FolderDashboardView;
 pub use workspace::{
-    CloseModal, CreateNewNote, TNotesWorkspace, ToggleCommandPalette, ToggleSettings,
+    CloseModal, CreateNewNote, TNotesWorkspace, ToggleCommandPalette, ToggleFps, ToggleSettings,
 };

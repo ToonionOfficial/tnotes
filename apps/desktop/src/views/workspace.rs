@@ -1,12 +1,12 @@
-use crate::components::fps_overlay::{fps_overlay, FpsTracker, ToggleFps, ToggleStressTest};
 use crate::state::{ActiveModal, ActiveScreen, AppState, WorkspaceViewMode};
 use crate::views::editor::EditorView;
 use crate::views::folder_dashboard::FolderDashboardView;
 use crate::views::modals::command_palette_modal;
 use crate::views::settings::SettingsView;
 use crate::views::sidebar::SidebarView;
+use gpui::prelude::FluentBuilder as _;
 use gpui::*;
-use std::time::Duration;
+use gpui_fps::{FpsMonitor, FpsOverlay};
 
 actions!(
     tnotes,
@@ -14,7 +14,8 @@ actions!(
         ToggleCommandPalette,
         ToggleSettings,
         CreateNewNote,
-        CloseModal
+        CloseModal,
+        ToggleFps
     ]
 );
 
@@ -24,16 +25,18 @@ pub struct TNotesWorkspace {
     pub dashboard: Entity<FolderDashboardView>,
     pub editor: Entity<EditorView>,
     pub settings: Entity<SettingsView>,
-    pub fps_tracker: FpsTracker,
+    pub fps_monitor: Entity<FpsMonitor>,
+    pub show_fps: bool,
     pub focus_handle: FocusHandle,
 }
 
 impl TNotesWorkspace {
-    pub fn new(app_state: Entity<AppState>, cx: &mut Context<Self>) -> Self {
+    pub fn new(app_state: Entity<AppState>, window: &Window, cx: &mut Context<Self>) -> Self {
         let sidebar = cx.new(|cx| SidebarView::new(app_state.clone(), cx));
         let dashboard = cx.new(|cx| FolderDashboardView::new(app_state.clone(), cx));
         let editor = cx.new(|cx| EditorView::new(app_state.clone(), cx));
         let settings = cx.new(|cx| SettingsView::new(app_state.clone(), cx));
+        let fps_monitor = cx.new(|cx| FpsMonitor::new(window, cx).continuous(true));
         let focus_handle = cx.focus_handle();
 
         cx.observe(&app_state, |_this, _app_state, cx| {
@@ -47,32 +50,14 @@ impl TNotesWorkspace {
             dashboard,
             editor,
             settings,
-            fps_tracker: FpsTracker::new(),
+            fps_monitor,
+            show_fps: true,
             focus_handle,
         }
     }
 
     pub fn toggle_fps(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        self.fps_tracker.toggle_visibility();
-        cx.notify();
-    }
-
-    pub fn toggle_stress_test(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        self.fps_tracker.toggle_stress_test();
-        if self.fps_tracker.is_stress_testing {
-            let view = cx.entity().clone();
-            cx.spawn(async move |_, cx| {
-                while cx.update(|cx| view.read(cx).fps_tracker.is_stress_testing) {
-                    cx.background_executor().timer(Duration::from_micros(6500)).await;
-                    cx.update(|cx| {
-                        view.update(cx, |_this, cx| {
-                            cx.notify();
-                        });
-                    });
-                }
-            })
-            .detach();
-        }
+        self.show_fps = !self.show_fps;
         cx.notify();
     }
 }
@@ -83,9 +68,6 @@ impl Render for TNotesWorkspace {
             window.focus(&self.focus_handle, cx);
         }
 
-        let metrics = self.fps_tracker.tick().clone();
-        let is_visible = self.fps_tracker.is_visible;
-        let is_stress_testing = self.fps_tracker.is_stress_testing;
         let app_state_read = self.app_state.read(cx);
         let active_screen = app_state_read.active_screen;
         let active_modal = app_state_read.active_modal;
@@ -103,9 +85,6 @@ impl Render for TNotesWorkspace {
             .text_color(rgb(0xe6e1e9))
             .on_action(cx.listener(|this, _: &ToggleFps, window, cx| {
                 this.toggle_fps(window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &ToggleStressTest, window, cx| {
-                this.toggle_stress_test(window, cx);
             }))
             .on_action(cx.listener(|this, _: &ToggleCommandPalette, _window, cx| {
                 this.app_state.update(cx, |state, cx| {
@@ -158,17 +137,8 @@ impl Render for TNotesWorkspace {
                         .into_any_element()
                 }
             })
-            .children(if is_visible {
-                Some(fps_overlay(
-                    &self.fps_tracker,
-                    &metrics,
-                    is_stress_testing,
-                    cx.listener(|this, _, window, cx| {
-                        this.toggle_stress_test(window, cx);
-                    }),
-                ))
-            } else {
-                None
+            .when(self.show_fps, |this| {
+                this.child(FpsOverlay::new(&self.fps_monitor))
             })
             .children(match active_modal {
                 ActiveModal::CommandPalette => Some(

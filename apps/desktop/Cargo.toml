@@ -10,7 +10,11 @@ tnotes-document = { path = "../../crates/tnotes-document" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-gpui = { git = "https://github.com/zed-industries/zed" }
+gpui = { git = "https://github.com/zed-industries/zed", features = ["profiler"] }
 gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["wayland", "x11", "font-kit"] }
 gpui-component = { git = "https://github.com/longbridge/gpui-component" }
 gpui-component-assets = { git = "https://github.com/longbridge/gpui-component" }
+gpui-fps = { git = "https://github.com/longbridge/gpui-component" }
+
+[dev-dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", features = ["test-support", "profiler"] }

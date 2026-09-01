@@ -50,7 +50,7 @@ fn open_main_window(app_state: Entity<AppState>, cx: &mut App) {
     };
 
     cx.open_window(options, |window, cx| {
-        let workspace = cx.new(|cx| TNotesWorkspace::new(app_state, cx));
+        let workspace = cx.new(|cx| TNotesWorkspace::new(app_state, window, cx));
         let focus_handle = workspace.read(cx).focus_handle.clone();
         window.focus(&focus_handle, cx);
         cx.new(|cx| gpui_component::Root::new(workspace, window, cx))

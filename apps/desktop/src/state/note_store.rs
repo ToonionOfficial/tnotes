@@ -28,6 +28,25 @@ impl NoteStore {
         self.notes.iter().find(|n| &n.id == sel_id)
     }
 
+    pub fn note_indices_in_folder(&self, folder_id: Option<&str>) -> Vec<usize> {
+        match folder_id {
+            None => (0..self.notes.len()).collect(),
+            Some(fid) => self
+                .notes
+                .iter()
+                .enumerate()
+                .filter_map(|(ix, n)| {
+                    if n.folder_id.as_deref() == Some(fid) {
+                        Some(ix)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn notes_in_folder(&self, folder_id: Option<&str>) -> Vec<Note> {
         self.notes
             .iter()

@@ -10,7 +10,6 @@ use gpui_component::{
 };
 use std::ops::Range;
 use tnotes_core::models::folder::Folder;
-use tnotes_core::models::note::Note;
 
 pub struct FolderDashboardView {
     pub app_state: Entity<AppState>,
@@ -58,9 +57,7 @@ impl Render for FolderDashboardView {
             .unwrap_or_default();
 
         let subfolders = folder_store.subfolders_of(selected_folder_id.as_deref());
-        let notes = note_store.notes_in_folder(selected_folder_id.as_deref());
-
-        let total_notes_count = notes.len();
+        let total_notes_count = note_store.count_in_folder(selected_folder_id.as_deref());
         let subfolders_count = subfolders.len();
 
         let app_state_for_root = app_state_entity.clone();
@@ -229,7 +226,7 @@ impl Render for FolderDashboardView {
                                     .text_color(rgb(0x79747e))
                                     .child("NOTES"),
                             )
-                            .when(notes.is_empty(), |this| {
+                            .when(total_notes_count == 0, |this| {
                                 this.child(
                                     div()
                                         .p_8()
@@ -247,8 +244,7 @@ impl Render for FolderDashboardView {
                                         ),
                                 )
                             })
-                            .when(!notes.is_empty(), |this| {
-                                let note_count = notes.len();
+                            .when(total_notes_count > 0, |this| {
                                 this.child(
                                     div()
                                         .id("notes-list-scroll-wrapper")
@@ -258,24 +254,34 @@ impl Render for FolderDashboardView {
                                         .child(
                                             uniform_list(
                                                 "folder-dashboard-uniform-notes",
-                                                note_count,
+                                                total_notes_count,
                                                 cx.processor(move |view: &mut FolderDashboardView, visible_range: Range<usize>, _window, cx| {
                                                     let app_state_read = view.app_state.read(cx);
                                                     let note_store = app_state_read.note_store.read(cx);
                                                     let folder_store = app_state_read.folder_store.read(cx);
-                                                    let selected_folder_id = folder_store.selected_folder_id.clone();
-                                                    let notes = note_store.notes_in_folder(selected_folder_id.as_deref());
+                                                    let selected_folder_id = folder_store.selected_folder_id.as_deref();
                                                     let app_state = view.app_state.clone();
+
+                                                    let indices = selected_folder_id.map(|fid| note_store.note_indices_in_folder(Some(fid)));
 
                                                     visible_range
                                                         .filter_map(|ix| {
-                                                            let note = notes.get(ix)?.clone();
+                                                            let note = match &indices {
+                                                                Some(indices) => {
+                                                                    let note_idx = *indices.get(ix)?;
+                                                                    note_store.notes.get(note_idx)?
+                                                                }
+                                                                None => note_store.notes.get(ix)?,
+                                                            };
                                                             let note_id = note.id.clone();
+                                                            let title = note.title.clone();
+                                                            let body = note.body.clone();
                                                             let app_state = app_state.clone();
 
                                                             Some(render_note_card(
                                                                 ix as u64,
-                                                                note,
+                                                                title,
+                                                                body,
                                                                 move |_, _, cx| {
                                                                     let note_id = note_id.clone();
                                                                     app_state.update(cx, |state, cx| {
@@ -342,10 +348,11 @@ fn render_subfolder_card(
 
 fn render_note_card(
     id_index: u64,
-    note: Note,
+    title: String,
+    body: String,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
-    let snippet = strip_html_tags(&note.body);
+    let snippet = strip_html_tags(&body);
     let preview = if snippet.is_empty() {
         "Empty note".to_string()
     } else {
@@ -380,7 +387,7 @@ fn render_note_card(
                                         .text_sm()
                                         .font_weight(FontWeight::SEMIBOLD)
                                         .text_color(rgb(0xe6e1e9))
-                                        .child(note.title),
+                                        .child(title),
                                 ),
                         )
                         .child(
@@ -397,15 +404,20 @@ fn render_note_card(
 }
 
 fn strip_html_tags(html: &str) -> String {
-    let mut result = String::new();
+    let limit = html.len().min(300);
+    let slice = &html[..limit];
+    let mut result = String::with_capacity(128);
     let mut inside_tag = false;
-    for c in html.chars() {
+    for c in slice.chars() {
         if c == '<' {
             inside_tag = true;
         } else if c == '>' {
             inside_tag = false;
         } else if !inside_tag {
             result.push(c);
+            if result.len() >= 120 {
+                break;
+            }
         }
     }
     let decoded = result
