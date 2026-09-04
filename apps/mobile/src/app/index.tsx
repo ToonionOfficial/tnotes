@@ -1,35 +1,29 @@
+import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Trash2 } from "lucide-react-native"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { ActivityIndicator, Alert, Pressable, Text, useWindowDimensions, View } from "react-native"
 import { Drawer } from "react-native-drawer-layout"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderActionSheet, type FolderActionSheetRef } from "@/components/FolderActionSheet"
 import { FolderIcon } from "@/components/FolderIcon"
+import { FolderRow } from "@/components/FolderRow"
 import { HomeHeader } from "@/components/HomeHeader"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { SideDrawerContent } from "@/components/SideDrawerContent"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
+import { moveIdInList } from "@/db/queries"
 import type { Folder } from "@/db/schema"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import {
   useBatchDeleteFolders,
   useDeleteFolder,
+  useFrequentFolders,
   useInfiniteFolders,
-  useReorderFolders,
+  useReorderFrequentFolders,
 } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 import { useSyncState } from "@/hooks/useSyncState"
@@ -51,14 +45,22 @@ export default function FoldersScreen() {
   )
   const deleteFolder = useDeleteFolder()
   const batchDeleteFolders = useBatchDeleteFolders()
-  const reorderFolders = useReorderFolders()
+  const reorderFrequent = useReorderFrequentFolders()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
   const { data: syncStatus } = useSyncState()
+  const { data: frequentFolders = [] } = useFrequentFolders()
 
-  const [folders, setFolders] = useState<Folder[]>(foldersList)
-  useEffect(() => {
-    setFolders(foldersList)
-  }, [foldersList])
+  // The main list stays static (never draggable): manual drag-reorder of
+  // 100s of rows is what killed the app, and ordering lives in the
+  // 5-row "Frequently Used" section instead.
+  const frequentIds = useMemo(
+    () => new Set(frequentFolders.map((folder) => folder.id)),
+    [frequentFolders],
+  )
+  const mainFolders = useMemo(
+    () => foldersList.filter((folder) => !frequentIds.has(folder.id)),
+    [foldersList, frequentIds],
+  )
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const folderActionSheetRef = useRef<FolderActionSheetRef>(null)
@@ -82,8 +84,8 @@ export default function FoldersScreen() {
 
   const handleSelectAllFolders = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    setSelectedFolderIds(new Set(folders.map((f) => f.id)))
-  }, [folders])
+    setSelectedFolderIds(new Set(foldersList.map((f) => f.id)))
+  }, [foldersList])
 
   const handleDeselectAllFolders = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -146,30 +148,22 @@ export default function FoldersScreen() {
     sheetRef.current?.open(folder)
   }, [])
 
-  const handleReorder = useCallback(
+  const handleReorderFrequent = useCallback(
     (fromIndex: number, toIndex: number) => {
-      setFolders((prev) => {
-        const next = [...prev]
-        const [moved] = next.splice(fromIndex, 1)
-        next.splice(toIndex, 0, moved)
-        reorderFolders.mutate(next.map((f) => f.id))
-        return next
-      })
+      // Persist only the device-local order list — the optimistic order
+      // comes from useReorderFrequentFolders' onMutate cache patch.
+      const moved = frequentFolders[fromIndex]
+      if (!moved || fromIndex === toIndex) return
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      reorderFrequent.mutate(
+        moveIdInList(
+          frequentFolders.map((folder) => folder.id),
+          moved.id,
+          toIndex,
+        ),
+      )
     },
-    [reorderFolders],
-  )
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent
-      const paddingToBottom = 300
-      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-        if (hasNextPage && !isFetchingNextPage) {
-          fetchNextPage()
-        }
-      }
-    },
-    [fetchNextPage, hasNextPage, isFetchingNextPage],
+    [frequentFolders, reorderFrequent],
   )
 
   const getFolderCount = useCallback(
@@ -182,7 +176,52 @@ export default function FoldersScreen() {
     [counts],
   )
 
-  const isAllSelected = selectedFolderIds.size === folders.length && folders.length > 0
+  const handlePressFolder = useCallback(
+    (folderId: string) => router.push(`/folders/${folderId}` as const),
+    [router],
+  )
+
+  const renderFolderRow = useCallback(
+    ({ item, index }: { item: Folder; index: number }) => (
+      <FolderRow
+        folder={item}
+        isFirst={index === 0}
+        isLast={index === mainFolders.length - 1}
+        isOnly={mainFolders.length === 1}
+        isEditing={isEditing}
+        isSelected={selectedFolderIds.has(item.id)}
+        noteCount={getFolderCount(item.id)}
+        onToggleSelect={toggleSelectFolder}
+        onPressFolder={handlePressFolder}
+        onLongPressFolder={handleLongPressFolder}
+        onDeleteFolder={handleDeleteFolder}
+      />
+    ),
+    [
+      mainFolders.length,
+      isEditing,
+      selectedFolderIds,
+      getFolderCount,
+      toggleSelectFolder,
+      handlePressFolder,
+      handleLongPressFolder,
+      handleDeleteFolder,
+    ],
+  )
+
+  const folderKeyExtractor = useCallback((item: Folder) => item.id, [])
+
+  const legendListExtraData = useMemo(
+    () => ({
+      isEditing,
+      selectedFolderIds,
+      folderCount: mainFolders.length,
+      counts,
+    }),
+    [isEditing, selectedFolderIds, mainFolders.length, counts],
+  )
+
+  const isAllSelected = selectedFolderIds.size === foldersList.length && foldersList.length > 0
   const isSelected = selectedFolderIds.size > 0
 
   return (
@@ -250,46 +289,75 @@ export default function FoldersScreen() {
           </Text>
         </View>
 
-        <ScrollView
+        <LegendList
           className="flex-1"
+          data={mainFolders}
+          renderItem={renderFolderRow}
+          keyExtractor={folderKeyExtractor}
+          extraData={legendListExtraData}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          onScroll={handleScroll}
-          scrollEventThrottle={100}
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 6,
             paddingBottom: 110,
           }}
-        >
-          <VirtualFolderCard
-            title="All Notes"
-            icon={
-              <FolderIcon name="folder" size={20} color={colors.primary} fill={colors.primary} />
+          ListHeaderComponent={
+            <>
+              <VirtualFolderCard
+                title="All Notes"
+                icon={
+                  <FolderIcon
+                    name="folder"
+                    size={20}
+                    color={colors.primary}
+                    fill={colors.primary}
+                  />
+                }
+                count={getFolderCount(null)}
+                isEditing={isEditing}
+                onPress={() => router.push("/folders/all" as const)}
+              />
+
+              {frequentFolders.length > 0 && (
+                <View>
+                  <View className="mt-5 px-1">
+                    <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                      Frequently Used
+                    </Text>
+                  </View>
+                  {/* Pull up to tighten the label-to-card gap (card brings its own mt-5). */}
+                  <View className="-mt-2">
+                    <DraggableFolderSection
+                      folders={frequentFolders}
+                      isEditing={isEditing}
+                      selectedFolderIds={selectedFolderIds}
+                      getFolderCount={getFolderCount}
+                      onToggleSelect={toggleSelectFolder}
+                      onPressFolder={handlePressFolder}
+                      onLongPressFolder={handleLongPressFolder}
+                      onDeleteFolder={handleDeleteFolder}
+                      onReorder={handleReorderFrequent}
+                    />
+                  </View>
+                </View>
+              )}
+            </>
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage()
             }
-            count={getFolderCount(null)}
-            isEditing={isEditing}
-            onPress={() => router.push("/folders/all" as const)}
-          />
-
-          <DraggableFolderSection
-            folders={folders}
-            isEditing={isEditing}
-            selectedFolderIds={selectedFolderIds}
-            getFolderCount={getFolderCount}
-            onToggleSelect={toggleSelectFolder}
-            onPressFolder={(folderId) => router.push(`/folders/${folderId}` as const)}
-            onLongPressFolder={handleLongPressFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onReorder={handleReorder}
-          />
-
-          {isFetchingNextPage && (
-            <View className="py-4 items-center justify-center">
-              <ActivityIndicator size="small" color="#CABEFF" />
-            </View>
-          )}
-        </ScrollView>
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View className="py-4 items-center justify-center">
+                <ActivityIndicator size="small" color="#CABEFF" />
+              </View>
+            ) : null
+          }
+        />
 
         {isEditing ? (
           <View

@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  type QueryClient,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import {
   batchDeleteNotesPermanently,
   batchMoveNotes,
@@ -33,6 +39,25 @@ export const noteKeys = {
 }
 
 const NOTES_PAGE_SIZE = 50
+
+/**
+ * Matches the "Frequently Used" home-section query key (["folders",
+ * "frequent"], see folderKeys in useFolders). Every note write changes
+ * folder activity, so every note mutation must refresh it.
+ */
+export function isFrequentFoldersQueryKey(queryKey: readonly unknown[]): boolean {
+  return queryKey[0] === "folders" && queryKey[1] === "frequent"
+}
+
+/**
+ * Refreshes the frequent section after a note write. Predicate form (not a
+ * folderKeys import): useFolders already imports noteKeys from this module,
+ * so importing folderKeys back would create an import cycle.
+ */
+function invalidateFrequentFolders(queryClient: QueryClient): void {
+  queryClient.invalidateQueries({ predicate: (query) => isFrequentFoldersQueryKey(query.queryKey) })
+}
+
 const NOTES_QUERY_OPTIONS = {
   staleTime: 1000 * 60 * 5,
   gcTime: 1000 * 60 * 5,
@@ -115,6 +140,7 @@ export function useCreateNote() {
     onSuccess: (newNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       queryClient.setQueryData(noteKeys.detail(newNote.id), newNote)
       triggerBackgroundSyncIfConnected()
     },
@@ -138,11 +164,23 @@ export function useDeleteBenchmarkNotes() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: deleteBenchmarkNotes,
+    onMutate: async () => {
+      // Stop concurrent readers from hitting SQLite while bulk delete runs.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: noteKeys.all }),
+        queryClient.cancelQueries({ queryKey: ["folders"] }),
+        queryClient.cancelQueries({ queryKey: statsKeys.all }),
+      ])
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
-      triggerBackgroundSyncIfConnected()
+      // Let list invalidations settle before kicking network sync over
+      // thousands of tombstoned local_changes rows.
+      setTimeout(() => {
+        triggerBackgroundSyncIfConnected()
+      }, 1500)
     },
   })
 }
@@ -165,6 +203,7 @@ export function useUpdateNote() {
     onSuccess: (updatedNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
       triggerBackgroundSyncIfConnected()
     },
@@ -177,6 +216,7 @@ export function useTogglePinNote() {
     mutationFn: async (id: string) => togglePinNote(id),
     onSuccess: (updatedNote) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
+      invalidateFrequentFolders(queryClient)
       queryClient.setQueryData(noteKeys.detail(updatedNote.id), updatedNote)
       triggerBackgroundSyncIfConnected()
     },
@@ -192,6 +232,7 @@ export function useTrashNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -206,6 +247,7 @@ export function useRestoreNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -220,6 +262,7 @@ export function useDeleteNotePermanently() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -234,6 +277,7 @@ export function useBatchTrashNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -248,6 +292,7 @@ export function useBatchDeleteNotesPermanently() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -262,6 +307,7 @@ export function useBatchMoveNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
@@ -276,6 +322,7 @@ export function useBatchRestoreNotes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
+      invalidateFrequentFolders(queryClient)
       triggerBackgroundSyncIfConnected()
     },
   })
