@@ -14,7 +14,7 @@ import { NoteListItem } from "@/components/NoteListItem"
 import NoteSectionHeader from "@/components/NoteSectionHeader"
 import { NotesEditBottomBar } from "@/components/NotesEditBottomBar"
 import type { SearchResult } from "@/db/queries"
-import type { Note } from "@/db/schema"
+import type { Folder, Note } from "@/db/schema"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { useDebouncedValue } from "@/hooks/useDebouncedValue"
 import {
@@ -169,6 +169,52 @@ export default function FolderNotesScreen() {
       return !prev
     })
   }, [])
+
+  const getSubfolderCount = useCallback(
+    (subId: string | null) => (subId ? (counts.byFolder[subId] ?? 0) : 0),
+    [counts],
+  )
+
+  const handlePressSubfolder = useCallback(
+    (subId: string) => router.push(`/folders/${subId}` as const),
+    [router],
+  )
+
+  const handleLongPressSubfolder = useCallback((subFolder: Folder) => {
+    folderActionSheetRef.current?.open(subFolder)
+  }, [])
+
+  const handleDeleteSubfolder = useCallback(
+    (subFolder: Folder) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+      Alert.alert(`Delete "${subFolder.name}"?`, "All notes inside will be moved to the Trash.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteFolderMutation.mutate(subFolder.id),
+        },
+      ])
+    },
+    [deleteFolderMutation],
+  )
+
+  const handleReorderSubfolders = useCallback(
+    (fromIdx: number, toIdx: number) => {
+      // Persist only — the optimistic order comes from useReorderFolders'
+      // onMutate patching the infinite query cache.
+      const moved = subfoldersList[fromIdx]
+      if (!moved || fromIdx === toIdx) return
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      reorderFoldersMutation.mutate({
+        folderId: moved.id,
+        fromIndex: fromIdx,
+        toIndex: toIdx,
+        parentId: folderId ?? null,
+      })
+    },
+    [subfoldersList, reorderFoldersMutation, folderId],
+  )
 
   const handleBatchDeleteItems = useCallback(() => {
     const noteIds = Array.from(selectedNoteIds)
@@ -472,30 +518,12 @@ export default function FolderNotesScreen() {
                     folders={subfoldersList}
                     isEditing={isEditing}
                     selectedFolderIds={selectedFolderIds}
-                    getFolderCount={(subId) => (subId ? (counts.byFolder[subId] ?? 0) : 0)}
+                    getFolderCount={getSubfolderCount}
                     onToggleSelect={toggleSelectFolder}
-                    onPressFolder={(subId) => router.push(`/folders/${subId}` as const)}
-                    onLongPressFolder={(subFolder) => folderActionSheetRef.current?.open(subFolder)}
-                    onDeleteFolder={(subFolder) => {
-                      Alert.alert(
-                        `Delete "${subFolder.name}"?`,
-                        "All notes inside will be moved to the Trash.",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Delete",
-                            style: "destructive",
-                            onPress: () => deleteFolderMutation.mutate(subFolder.id),
-                          },
-                        ],
-                      )
-                    }}
-                    onReorder={(fromIdx, toIdx) => {
-                      const next = [...subfoldersList]
-                      const [moved] = next.splice(fromIdx, 1)
-                      next.splice(toIdx, 0, moved)
-                      reorderFoldersMutation.mutate(next.map((f) => f.id))
-                    }}
+                    onPressFolder={handlePressSubfolder}
+                    onLongPressFolder={handleLongPressSubfolder}
+                    onDeleteFolder={handleDeleteSubfolder}
+                    onReorder={handleReorderSubfolders}
                   />
                 </View>
               )}

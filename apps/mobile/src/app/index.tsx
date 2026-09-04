@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Trash2 } from "lucide-react-native"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -55,11 +55,6 @@ export default function FoldersScreen() {
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
   const { data: syncStatus } = useSyncState()
 
-  const [folders, setFolders] = useState<Folder[]>(foldersList)
-  useEffect(() => {
-    setFolders(foldersList)
-  }, [foldersList])
-
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const folderActionSheetRef = useRef<FolderActionSheetRef>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -82,8 +77,8 @@ export default function FoldersScreen() {
 
   const handleSelectAllFolders = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    setSelectedFolderIds(new Set(folders.map((f) => f.id)))
-  }, [folders])
+    setSelectedFolderIds(new Set(foldersList.map((f) => f.id)))
+  }, [foldersList])
 
   const handleDeselectAllFolders = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -148,15 +143,15 @@ export default function FoldersScreen() {
 
   const handleReorder = useCallback(
     (fromIndex: number, toIndex: number) => {
-      setFolders((prev) => {
-        const next = [...prev]
-        const [moved] = next.splice(fromIndex, 1)
-        next.splice(toIndex, 0, moved)
-        reorderFolders.mutate(next.map((f) => f.id))
-        return next
-      })
+      // Persist only — the optimistic order comes from useReorderFolders'
+      // onMutate patching the infinite query cache. Never mutate inside a
+      // setState updater (StrictMode double-invokes updaters).
+      const moved = foldersList[fromIndex]
+      if (!moved || fromIndex === toIndex) return
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      reorderFolders.mutate({ folderId: moved.id, fromIndex, toIndex, parentId: null })
     },
-    [reorderFolders],
+    [foldersList, reorderFolders],
   )
 
   const handleScroll = useCallback(
@@ -182,7 +177,12 @@ export default function FoldersScreen() {
     [counts],
   )
 
-  const isAllSelected = selectedFolderIds.size === folders.length && folders.length > 0
+  const handlePressFolder = useCallback(
+    (folderId: string) => router.push(`/folders/${folderId}` as const),
+    [router],
+  )
+
+  const isAllSelected = selectedFolderIds.size === foldersList.length && foldersList.length > 0
   const isSelected = selectedFolderIds.size > 0
 
   return (
@@ -273,12 +273,12 @@ export default function FoldersScreen() {
           />
 
           <DraggableFolderSection
-            folders={folders}
+            folders={foldersList}
             isEditing={isEditing}
             selectedFolderIds={selectedFolderIds}
             getFolderCount={getFolderCount}
             onToggleSelect={toggleSelectFolder}
-            onPressFolder={(folderId) => router.push(`/folders/${folderId}` as const)}
+            onPressFolder={handlePressFolder}
             onLongPressFolder={handleLongPressFolder}
             onDeleteFolder={handleDeleteFolder}
             onReorder={handleReorder}

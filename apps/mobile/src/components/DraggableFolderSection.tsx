@@ -20,6 +20,24 @@ import { useAppTheme } from "@/hooks/useAppTheme"
 
 const ROW_HEIGHT = 58
 
+/**
+ * O(1) slot math for drag-and-drop: given the dragged row (`active`) and its
+ * current target slot (`target`), returns the slot a row at `index` should
+ * occupy. Rows between the old and new position shift by exactly one; every
+ * other row stays put. Runs on the UI thread once per row per frame with no
+ * allocations — the previous implementation copied/looped an N-length array
+ * per frame and invalidated all N row worklets on every write, which is what
+ * killed the app with 100s of folders.
+ */
+function slotForIndex(index: number, active: number, target: number): number {
+  "worklet"
+  if (active === -1 || target === -1 || index === active) return index
+  if (active < target) {
+    return index > active && index <= target ? index - 1 : index
+  }
+  return index >= target && index < active ? index + 1 : index
+}
+
 interface DraggableFolderItemProps {
   folder: Folder
   originalIndex: number
@@ -27,12 +45,13 @@ interface DraggableFolderItemProps {
   isEditing: boolean
   isSelected: boolean
   noteCount: number
-  positions: SharedValue<number[]>
-  activeDragIndex: SharedValue<number>
+  activeIndex: SharedValue<number>
   dragTranslateY: SharedValue<number>
-  onPress: () => void
-  onLongPress?: (folder: Folder) => void
-  onDelete: () => void
+  targetSlot: SharedValue<number>
+  onToggleSelect: (folderId: string) => void
+  onPressFolder: (folderId: string) => void
+  onLongPressFolder?: (folder: Folder) => void
+  onDeleteFolder: (folder: Folder) => void
   onReorder: (fromIndex: number, toIndex: number) => void
 }
 
@@ -43,12 +62,13 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   isEditing,
   isSelected,
   noteCount,
-  positions,
-  activeDragIndex,
+  activeIndex,
   dragTranslateY,
-  onPress,
-  onLongPress,
-  onDelete,
+  targetSlot,
+  onToggleSelect,
+  onPressFolder,
+  onLongPressFolder,
+  onDeleteFolder,
   onReorder,
 }: DraggableFolderItemProps) {
   const { colors } = useAppTheme()
@@ -74,69 +94,42 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
   const panGesture = Gesture.Pan()
     .enabled(isEditing)
     .onStart(() => {
-      activeDragIndex.value = originalIndex
+      activeIndex.value = originalIndex
       dragTranslateY.value = 0
+      targetSlot.value = originalIndex
       scheduleOnRN(triggerLiftHaptic)
     })
     .onUpdate((event) => {
       dragTranslateY.value = event.translationY
       const rawSlot = originalIndex + event.translationY / ROW_HEIGHT
-      const targetSlot = Math.max(0, Math.min(totalCount - 1, Math.round(rawSlot)))
-
-      const currentSlots = [...positions.value]
-      const oldSlotOfActive = currentSlots[originalIndex]
-
-      if (targetSlot !== oldSlotOfActive) {
-        const nextSlots = new Array(totalCount).fill(0)
-        for (let i = 0; i < totalCount; i++) {
-          if (i === originalIndex) {
-            nextSlots[i] = targetSlot
-          } else {
-            let slot = i
-            if (originalIndex < targetSlot) {
-              if (i > originalIndex && i <= targetSlot) {
-                slot = i - 1
-              }
-            } else if (originalIndex > targetSlot) {
-              if (i >= targetSlot && i < originalIndex) {
-                slot = i + 1
-              }
-            }
-            nextSlots[i] = slot
-          }
-        }
-        positions.value = nextSlots
+      const clamped = Math.max(0, Math.min(totalCount - 1, Math.round(rawSlot)))
+      if (clamped !== targetSlot.value) {
+        targetSlot.value = clamped
         scheduleOnRN(triggerHoverHaptic)
       }
     })
     .onEnd(() => {
-      const finalSlot = positions.value[originalIndex]
-      const targetY = (finalSlot - originalIndex) * ROW_HEIGHT
-
-      dragTranslateY.value = withTiming(
-        targetY,
-        {
-          duration: 200,
-          easing: Easing.bezier(0.2, 0, 0, 1),
-        },
-        (finished) => {
-          if (finished) {
-            activeDragIndex.value = -1
-            dragTranslateY.value = 0
-            if (finalSlot !== originalIndex) {
-              scheduleOnRN(() => {
-                onReorder(originalIndex, finalSlot)
-              })
-            }
-          }
-        },
-      )
+      const from = originalIndex
+      const to = targetSlot.value
+      if (to !== -1 && to !== from) {
+        // Parent re-render (new order) releases the drag pose via the
+        // section's reset effect — no withTiming settle fighting it.
+        scheduleOnRN(() => {
+          onReorder(from, to)
+        })
+      } else {
+        activeIndex.value = -1
+        dragTranslateY.value = 0
+        targetSlot.value = -1
+      }
       scheduleOnRN(triggerDropHaptic)
     })
 
   const rowAnimatedStyle = useAnimatedStyle(() => {
-    const isDragging = activeDragIndex.value === originalIndex
-    const currentSlot = positions.value[originalIndex] ?? originalIndex
+    const active = activeIndex.value
+    const dragY = dragTranslateY.value
+    const target = targetSlot.value
+    const isDragging = active === originalIndex
 
     if (isDragging) {
       return {
@@ -145,10 +138,7 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
         left: 0,
         right: 0,
         height: ROW_HEIGHT,
-        transform: [
-          { translateY: originalIndex * ROW_HEIGHT + dragTranslateY.value },
-          { scale: 1.03 },
-        ],
+        transform: [{ translateY: originalIndex * ROW_HEIGHT + dragY }, { scale: 1.03 }],
         backgroundColor: colors.card,
         zIndex: 999,
         shadowColor: "#000000",
@@ -159,21 +149,18 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       }
     }
 
+    // Direct mapping, no withTiming: withTiming inside useAnimatedStyle
+    // re-creates an animation object on every frame for every row, which
+    // thrashed the UI thread with 100s of rows mounted.
+    const slot = slotForIndex(originalIndex, active, target)
+
     return {
       position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       height: ROW_HEIGHT,
-      transform: [
-        {
-          translateY: withTiming(currentSlot * ROW_HEIGHT, {
-            duration: 160,
-            easing: Easing.bezier(0.2, 0, 0, 1),
-          }),
-        },
-        { scale: 1 },
-      ],
+      transform: [{ translateY: slot * ROW_HEIGHT }, { scale: 1 }],
       backgroundColor: "transparent",
       zIndex: 1,
     }
@@ -198,6 +185,24 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
     transform: [{ scale: interpolate(editProgress.value, [0, 1], [1, 0.8]) }],
   }))
 
+  const handlePress = () => {
+    if (isEditing) {
+      onToggleSelect(folder.id)
+    } else {
+      onPressFolder(folder.id)
+    }
+  }
+
+  const handleLongPress = () => {
+    if (!isEditing && onLongPressFolder) {
+      onLongPressFolder(folder)
+    }
+  }
+
+  const handleDelete = () => {
+    onDeleteFolder(folder)
+  }
+
   return (
     <Animated.View style={rowAnimatedStyle} className="overflow-hidden">
       {originalIndex > 0 && <View className="ml-15 h-[0.5px] bg-border" />}
@@ -207,16 +212,12 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
           label: "Delete",
           color: "#D94C5C",
           icon: <Trash2 size={20} color="#FFFFFF" />,
-          onPress: onDelete,
+          onPress: handleDelete,
         }}
       >
         <Pressable
-          onPress={onPress}
-          onLongPress={() => {
-            if (!isEditing && onLongPress) {
-              onLongPress(folder)
-            }
-          }}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
           delayLongPress={260}
           className="flex-row items-center justify-between px-4 py-3.5 active:bg-accent"
           style={{ height: ROW_HEIGHT }}
@@ -289,13 +290,18 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
   onDeleteFolder,
   onReorder,
 }: DraggableFolderSectionProps) {
-  const activeDragIndex = useSharedValue(-1)
+  const activeIndex = useSharedValue(-1)
   const dragTranslateY = useSharedValue(0)
-  const positions = useSharedValue<number[]>(folders.map((_, i) => i))
+  const targetSlot = useSharedValue(-1)
 
+  // A new order from the parent (drop committed, refetch, or background
+  // change) releases any in-flight drag pose so rows reconcile to props.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: folders is an unread change signal; shared values are stable refs.
   useEffect(() => {
-    positions.value = folders.map((_, i) => i)
-  }, [folders, positions])
+    activeIndex.value = -1
+    dragTranslateY.value = 0
+    targetSlot.value = -1
+  }, [folders, activeIndex, dragTranslateY, targetSlot])
 
   if (folders.length === 0) return null
 
@@ -313,18 +319,13 @@ export const DraggableFolderSection = memo(function DraggableFolderSection({
           isEditing={isEditing}
           isSelected={selectedFolderIds.has(folder.id)}
           noteCount={getFolderCount(folder.id)}
-          positions={positions}
-          activeDragIndex={activeDragIndex}
+          activeIndex={activeIndex}
           dragTranslateY={dragTranslateY}
-          onPress={() => {
-            if (isEditing) {
-              onToggleSelect(folder.id)
-            } else {
-              onPressFolder(folder.id)
-            }
-          }}
-          onLongPress={onLongPressFolder}
-          onDelete={() => onDeleteFolder(folder)}
+          targetSlot={targetSlot}
+          onToggleSelect={onToggleSelect}
+          onPressFolder={onPressFolder}
+          onLongPressFolder={onLongPressFolder}
+          onDeleteFolder={onDeleteFolder}
           onReorder={onReorder}
         />
       ))}

@@ -6,7 +6,8 @@ import {
   type FolderFilters,
   getFolderByIdAsync,
   getFoldersPageAsync,
-  reorderFolders,
+  moveFolderToIndex,
+  moveIdInList,
   restoreFolder,
   updateFolder,
 } from "@/db/queries"
@@ -150,32 +151,68 @@ export function useRestoreFolder() {
   })
 }
 
+export interface FolderMoveInput {
+  folderId: string
+  fromIndex: number
+  toIndex: number
+  parentId?: string | null
+}
+
+interface InfiniteFoldersData {
+  pages: Array<{ folders: Folder[]; nextOffset?: number }>
+  pageParams: unknown[]
+}
+
 export function useReorderFolders() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (folderIds: string[]) => {
-      reorderFolders(folderIds)
+    mutationFn: async (input: FolderMoveInput) => {
+      moveFolderToIndex({
+        folderId: input.folderId,
+        toIndex: input.toIndex,
+        parentId: input.parentId,
+      })
     },
-    onMutate: async (folderIds: string[]) => {
-      await queryClient.cancelQueries({ queryKey: folderKeys.lists() })
-      const prevFolders = queryClient.getQueryData<Folder[]>(folderKeys.list())
-      if (prevFolders) {
-        const folderMap = new Map(prevFolders.map((f) => [f.id, f]))
+    onMutate: async (input: FolderMoveInput) => {
+      await queryClient.cancelQueries({ queryKey: folderKeys.all })
+      // Optimistically patch every cached infinite folder list containing
+      // the moved id. Cached pages may hold a subset of the full sibling
+      // order (pagination), so the target is clamped to what is loaded —
+      // onSettled refetches the authoritative order from SQLite.
+      const previous = queryClient.getQueriesData({
+        queryKey: folderKeys.all,
+        predicate: (query) => query.queryKey[1] === "infinite",
+      })
+      for (const [key, data] of previous) {
+        const pages = (data as InfiniteFoldersData | undefined)?.pages
+        if (!pages) continue
+        const flat = pages.flatMap((page) => page.folders)
+        if (!flat.some((folder) => folder.id === input.folderId)) continue
+        const movedIds = moveIdInList(
+          flat.map((folder) => folder.id),
+          input.folderId,
+          input.toIndex,
+        )
+        const byId = new Map(flat.map((folder) => [folder.id, folder]))
         const reordered: Folder[] = []
-        folderIds.forEach((id, index) => {
-          const f = folderMap.get(id)
-          if (f) {
-            reordered.push({ ...f, sortOrder: index })
-          }
+        movedIds.forEach((id, index) => {
+          const folder = byId.get(id)
+          if (folder) reordered.push({ ...folder, sortOrder: index })
         })
-        queryClient.setQueryData(folderKeys.list(), reordered)
+        let offset = 0
+        const nextPages = pages.map((page) => {
+          const slice = reordered.slice(offset, offset + page.folders.length)
+          offset += page.folders.length
+          return { ...page, folders: slice }
+        })
+        queryClient.setQueryData(key, { ...(data as object), pages: nextPages })
       }
-      return { prevFolders }
+      return { previous }
     },
-    onError: (_err, _folderIds, context) => {
-      if (context?.prevFolders) {
-        queryClient.setQueryData(folderKeys.list(), context.prevFolders)
-      }
+    onError: (_err, _input, context) => {
+      context?.previous.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data)
+      })
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
