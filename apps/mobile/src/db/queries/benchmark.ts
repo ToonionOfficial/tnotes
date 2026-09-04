@@ -6,6 +6,28 @@ import { getCurrentUserId, getOrCreateDeviceId } from "./sync"
 export const BENCHMARK_NOTE_MARKER = "__tnotes_benchmark_note_v1__:"
 export const BENCHMARK_FOLDER_MARKER = "__tnotes_benchmark_folder_v1__:"
 
+/**
+ * Benchmark rows are local-only load-test data: they must never reach the
+ * server, otherwise they pollute note/folder counts shown by connected
+ * clients (e.g. the web dashboard). Markers live in the content itself, so
+ * both the push side (`executeSyncAsync`) and the pull side
+ * (`applyRemoteChangesAsync`) can drop them. Tombstones carry an empty '{}'
+ * payload and intentionally pass through so server copies synced before this
+ * rule existed still get cleaned up.
+ */
+export function isBenchmarkSyncPayload(
+  entityType: string,
+  payload: Record<string, unknown>,
+): boolean {
+  if (entityType === "note") {
+    return typeof payload.body === "string" && payload.body.startsWith(BENCHMARK_NOTE_MARKER)
+  }
+  if (entityType === "folder") {
+    return typeof payload.name === "string" && payload.name.startsWith(BENCHMARK_FOLDER_MARKER)
+  }
+  return false
+}
+
 export interface BenchmarkResult {
   noteCount: number
   folderCount: number
@@ -28,8 +50,9 @@ function toSqlString(value: string): string {
 }
 
 /**
- * Inserts benchmark data into SQLite tables, FTS index, and local_changes so benchmark data
- * syncs seamlessly to the server and connected devices.
+ * Inserts benchmark data into SQLite tables and the FTS index. Benchmark rows
+ * stay on this device: nothing is written to local_changes, so benchmark
+ * notes/folders are never synced to the server or counted by other clients.
  */
 export async function createBenchmarkNotes(noteCount: number): Promise<BenchmarkResult> {
   const userId = getCurrentUserId()
@@ -53,31 +76,12 @@ export async function createBenchmarkNotes(noteCount: number): Promise<Benchmark
   for (let index = 0; index < folderCount; index++) {
     const folderId = folderIds[index]
     const folderName = `${BENCHMARK_FOLDER_MARKER}${batchId}:${index + 1}`
-    const folderPayload = {
-      id: folderId,
-      user_id: userId,
-      parent_id: null,
-      name: folderName,
-      icon: "folder",
-      sort_order: index,
-      version: 1,
-      updated_at: now,
-      created_at: now,
-      deleted_at: null,
-      device_id: deviceId,
-    }
 
     statements.push(`INSERT INTO folders (
       id, user_id, parent_id, name, icon, sort_order, version, updated_at, created_at, deleted_at, device_id
     ) VALUES (
       ${toSqlString(folderId)}, ${toSqlString(userId)}, NULL, ${toSqlString(folderName)}, 'folder',
       ${index}, 1, ${now}, ${now}, NULL, ${toSqlString(deviceId)}
-    )`)
-
-    statements.push(`INSERT INTO local_changes (
-      entity_type, entity_id, version, updated_at, tombstone, payload, created_at
-    ) VALUES (
-      'folder', ${toSqlString(folderId)}, 1, ${now}, 0, ${toSqlString(JSON.stringify(folderPayload))}, ${now}
     )`)
   }
 
@@ -88,34 +92,12 @@ export async function createBenchmarkNotes(noteCount: number): Promise<Benchmark
     const body = `${BENCHMARK_NOTE_MARKER}${batchId}:${index + 1}`
     const checksum = computeChecksum(body)
 
-    const notePayload = {
-      id: noteId,
-      user_id: userId,
-      folder_id: folderId,
-      title,
-      body,
-      pinned: false,
-      trashed: false,
-      version: 1,
-      updated_at: now,
-      created_at: now,
-      deleted_at: null,
-      device_id: deviceId,
-      checksum,
-    }
-
     statements.push(`INSERT INTO notes (
       id, user_id, folder_id, title, body, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
     ) VALUES (
       ${toSqlString(noteId)}, ${toSqlString(userId)}, ${toSqlString(folderId)},
       ${toSqlString(title)}, ${toSqlString(body)}, 0, 0, 1, ${now}, ${now}, NULL,
       ${toSqlString(deviceId)}, ${toSqlString(checksum)}
-    )`)
-
-    statements.push(`INSERT INTO local_changes (
-      entity_type, entity_id, version, updated_at, tombstone, payload, created_at
-    ) VALUES (
-      'note', ${toSqlString(noteId)}, 1, ${now}, 0, ${toSqlString(JSON.stringify(notePayload))}, ${now}
     )`)
   }
 
@@ -128,6 +110,10 @@ export async function createBenchmarkNotes(noteCount: number): Promise<Benchmark
 }
 
 /** Permanently removes only rows created by createBenchmarkNotes, including its test folders, and logs tombstones to sync.
+ *
+ * The tombstones still sync on purpose: they delete server copies that were
+ * uploaded before benchmark data became local-only. Tombstone payloads are
+ * '{}', so they pass the benchmark push/pull filter.
  *
  * Single set-based `execAsync` on purpose: one `BEGIN; 4 statements; COMMIT`
  * in a single native round-trip — the same pattern as `createBenchmarkNotes`

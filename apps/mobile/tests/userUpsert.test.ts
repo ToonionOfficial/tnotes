@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { syncMeta, users } from "../src/db/schema"
 import { dumpTable, fakeDb, resetFakeDb } from "./fakes/inMemoryDb"
 
-vi.mock("../src/db/index", () => ({ db: fakeDb, expo: {} }))
+vi.mock("../src/db/index", async () => {
+  const fake = await import("./fakes/inMemoryDb")
+  return { db: fake.fakeDb, expo: {} }
+})
 
 import { pairWithServerAsync } from "../src/db/queries/pairing"
 import { ensureUser, getSyncMeta, setSyncMeta, upsertUser } from "../src/db/queries/sync"

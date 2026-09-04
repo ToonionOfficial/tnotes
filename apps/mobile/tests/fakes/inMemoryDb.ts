@@ -31,19 +31,22 @@ function jsKeyFor(table: object, column: Column): string | null {
 }
 
 /**
- * Evaluates the simple `eq(column, literal)` conditions our query layer uses
- * against `users` / `sync_meta`. Anything else matches everything; tables
- * other than those two are stubbed empty by the builders below.
+ * Evaluates the simple `eq(column, literal)` / `inArray(column, literals)`
+ * conditions our query layer uses against `users` / `sync_meta` /
+ * `local_changes`. Anything else matches everything; other tables are stubbed
+ * empty by the builders below.
  */
 function matches(table: object, cond: unknown, row: Row): boolean {
   const chunks = (cond as SQL | null)?.queryChunks
   if (!Array.isArray(chunks)) return true
   const column = chunks.find((chunk): chunk is Column => chunk instanceof Column)
-  const param = chunks.find((chunk): chunk is Param => chunk instanceof Param)
-  if (!column || !param) return true
+  const values = chunks
+    .filter((chunk): chunk is Param => chunk instanceof Param)
+    .map((param) => (param as unknown as { value: unknown }).value)
+  if (!column || values.length === 0) return true
   const jsKey = jsKeyFor(table, column)
   if (!jsKey) return false
-  return row[jsKey] === (param as unknown as { value: unknown }).value
+  return values.includes(row[jsKey])
 }
 
 /**
@@ -88,7 +91,12 @@ function insertRow(table: object, values: Row, ignoreConflicts: boolean): void {
     if (ignoreConflicts) return
     throw new Error(`UNIQUE constraint failed: ${getTableName(table as never)}`)
   }
-  rows.push({ ...values })
+  const stored = { ...values }
+  if (stored.id === undefined) {
+    // Mirrors INTEGER PRIMARY KEY AUTOINCREMENT (local_changes.id).
+    stored.id = rows.reduce((max, row) => Math.max(max, Number(row.id ?? 0)), 0) + 1
+  }
+  rows.push(stored)
 }
 
 function updateRows(table: object, patch: Row, cond: unknown): void {
@@ -123,7 +131,7 @@ export const fakeDb = {
         get: () => getRows(table).find((row) => matches(table, cond, row)) ?? null,
         all: () => getRows(table).filter((row) => matches(table, cond, row)),
       }),
-      orderBy: () => ({ all: () => [] as Row[] }),
+      orderBy: () => ({ all: () => [...getRows(table)] }),
       all: () => [...getRows(table)],
       get: () => getRows(table)[0] ?? null,
     }),

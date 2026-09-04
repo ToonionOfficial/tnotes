@@ -1,4 +1,5 @@
 import { expo } from "@/db"
+import { isBenchmarkSyncPayload } from "@/db/queries/benchmark"
 import type { SyncChange } from "./types"
 
 function toSqlString(val: unknown): string {
@@ -21,6 +22,11 @@ export async function applyRemoteChangesAsync(changes: SyncChange[]): Promise<nu
 
   for (const change of changes) {
     const { entity_type, entity_id, version, updated_at, tombstone, payload } = change
+
+    // Benchmark rows are local-only: never materialize copies the server may
+    // still hold from before they stopped syncing. Tombstones ('{}' payloads)
+    // pass through so those server copies get deleted locally too.
+    if (!tombstone && isBenchmarkSyncPayload(entity_type, payload)) continue
 
     if (entity_type === "folder") {
       const userId = String(payload.user_id ?? "default_user")
