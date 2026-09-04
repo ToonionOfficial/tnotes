@@ -1,18 +1,9 @@
+import { LegendList } from "@legendapp/list/react-native"
 import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
 import { Trash2 } from "lucide-react-native"
 import { useCallback, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native"
+import { ActivityIndicator, Alert, Pressable, Text, useWindowDimensions, View } from "react-native"
 import { Drawer } from "react-native-drawer-layout"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BottomBar } from "@/components/BottomBar"
@@ -175,19 +166,6 @@ export default function FoldersScreen() {
     [frequentFolders, reorderFrequent],
   )
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent
-      const paddingToBottom = 300
-      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-        if (hasNextPage && !isFetchingNextPage) {
-          fetchNextPage()
-        }
-      }
-    },
-    [fetchNextPage, hasNextPage, isFetchingNextPage],
-  )
-
   const getFolderCount = useCallback(
     (folderId: string | null) => {
       if (folderId === null) {
@@ -201,6 +179,46 @@ export default function FoldersScreen() {
   const handlePressFolder = useCallback(
     (folderId: string) => router.push(`/folders/${folderId}` as const),
     [router],
+  )
+
+  const renderFolderRow = useCallback(
+    ({ item, index }: { item: Folder; index: number }) => (
+      <FolderRow
+        folder={item}
+        isFirst={index === 0}
+        isLast={index === mainFolders.length - 1}
+        isOnly={mainFolders.length === 1}
+        isEditing={isEditing}
+        isSelected={selectedFolderIds.has(item.id)}
+        noteCount={getFolderCount(item.id)}
+        onToggleSelect={toggleSelectFolder}
+        onPressFolder={handlePressFolder}
+        onLongPressFolder={handleLongPressFolder}
+        onDeleteFolder={handleDeleteFolder}
+      />
+    ),
+    [
+      mainFolders.length,
+      isEditing,
+      selectedFolderIds,
+      getFolderCount,
+      toggleSelectFolder,
+      handlePressFolder,
+      handleLongPressFolder,
+      handleDeleteFolder,
+    ],
+  )
+
+  const folderKeyExtractor = useCallback((item: Folder) => item.id, [])
+
+  const legendListExtraData = useMemo(
+    () => ({
+      isEditing,
+      selectedFolderIds,
+      folderCount: mainFolders.length,
+      counts,
+    }),
+    [isEditing, selectedFolderIds, mainFolders.length, counts],
   )
 
   const isAllSelected = selectedFolderIds.size === foldersList.length && foldersList.length > 0
@@ -271,79 +289,75 @@ export default function FoldersScreen() {
           </Text>
         </View>
 
-        <ScrollView
+        <LegendList
           className="flex-1"
+          data={mainFolders}
+          renderItem={renderFolderRow}
+          keyExtractor={folderKeyExtractor}
+          extraData={legendListExtraData}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          onScroll={handleScroll}
-          scrollEventThrottle={100}
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 6,
             paddingBottom: 110,
           }}
-        >
-          <VirtualFolderCard
-            title="All Notes"
-            icon={
-              <FolderIcon name="folder" size={20} color={colors.primary} fill={colors.primary} />
-            }
-            count={getFolderCount(null)}
-            isEditing={isEditing}
-            onPress={() => router.push("/folders/all" as const)}
-          />
-
-          {frequentFolders.length > 0 && (
-            <View>
-              <View className="mb-1 mt-2 flex-row items-center justify-between px-1">
-                <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
-                  Frequently Used
-                </Text>
-                <Text className="text-[13px] text-muted-foreground/60">
-                  {frequentFolders.length} {frequentFolders.length === 1 ? "folder" : "folders"}
-                </Text>
-              </View>
-              <DraggableFolderSection
-                folders={frequentFolders}
+          ListHeaderComponent={
+            <>
+              <VirtualFolderCard
+                title="All Notes"
+                icon={
+                  <FolderIcon
+                    name="folder"
+                    size={20}
+                    color={colors.primary}
+                    fill={colors.primary}
+                  />
+                }
+                count={getFolderCount(null)}
                 isEditing={isEditing}
-                selectedFolderIds={selectedFolderIds}
-                getFolderCount={getFolderCount}
-                onToggleSelect={toggleSelectFolder}
-                onPressFolder={handlePressFolder}
-                onLongPressFolder={handleLongPressFolder}
-                onDeleteFolder={handleDeleteFolder}
-                onReorder={handleReorderFrequent}
+                onPress={() => router.push("/folders/all" as const)}
               />
-            </View>
-          )}
 
-          {mainFolders.length > 0 && (
-            <View className="mt-5 overflow-hidden rounded-3xl bg-card border border-border/40">
-              {mainFolders.map((folder, index) => (
-                <FolderRow
-                  key={folder.id}
-                  folder={folder}
-                  isFirst={index === 0}
-                  isLast={index === mainFolders.length - 1}
-                  isOnly={mainFolders.length === 1}
-                  isEditing={isEditing}
-                  isSelected={selectedFolderIds.has(folder.id)}
-                  noteCount={getFolderCount(folder.id)}
-                  onToggleSelect={toggleSelectFolder}
-                  onPressFolder={handlePressFolder}
-                  onLongPressFolder={handleLongPressFolder}
-                  onDeleteFolder={handleDeleteFolder}
-                />
-              ))}
-            </View>
-          )}
-
-          {isFetchingNextPage && (
-            <View className="py-4 items-center justify-center">
-              <ActivityIndicator size="small" color="#CABEFF" />
-            </View>
-          )}
-        </ScrollView>
+              {frequentFolders.length > 0 && (
+                <View>
+                  <View className="mb-1 mt-2 flex-row items-center justify-between px-1">
+                    <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                      Frequently Used
+                    </Text>
+                    <Text className="text-[13px] text-muted-foreground/60">
+                      {frequentFolders.length} {frequentFolders.length === 1 ? "folder" : "folders"}
+                    </Text>
+                  </View>
+                  <DraggableFolderSection
+                    folders={frequentFolders}
+                    isEditing={isEditing}
+                    selectedFolderIds={selectedFolderIds}
+                    getFolderCount={getFolderCount}
+                    onToggleSelect={toggleSelectFolder}
+                    onPressFolder={handlePressFolder}
+                    onLongPressFolder={handleLongPressFolder}
+                    onDeleteFolder={handleDeleteFolder}
+                    onReorder={handleReorderFrequent}
+                  />
+                </View>
+              )}
+            </>
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage()
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View className="py-4 items-center justify-center">
+                <ActivityIndicator size="small" color="#CABEFF" />
+              </View>
+            ) : null
+          }
+        />
 
         {isEditing ? (
           <View
