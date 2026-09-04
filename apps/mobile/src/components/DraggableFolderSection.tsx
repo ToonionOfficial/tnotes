@@ -6,6 +6,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, {
   Easing,
   interpolate,
+  runOnJS,
   type SharedValue,
   useAnimatedStyle,
   useDerivedValue,
@@ -114,9 +115,9 @@ const DraggableFolderRowItem = memo(function DraggableFolderRowItem({
       if (to !== -1 && to !== from) {
         // Parent re-render (new order) releases the drag pose via the
         // section's reset effect — no withTiming settle fighting it.
-        scheduleOnRN(() => {
-          onReorder(from, to)
-        })
+        // runOnJS (not scheduleOnRN): onReorder is a plain JS callback and
+        // worklets rejects locally-defined closures passed to scheduleOnRN.
+        runOnJS(onReorder)(from, to)
       } else {
         activeIndex.value = -1
         dragTranslateY.value = 0
