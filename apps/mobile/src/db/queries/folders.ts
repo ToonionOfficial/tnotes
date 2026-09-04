@@ -108,7 +108,7 @@ export async function getFrequentFoldersAsync(
     `SELECT f.id, f.user_id AS userId, f.parent_id AS parentId, f.name, f.icon,
       f.sort_order AS sortOrder, f.version, f.updated_at AS updatedAt,
       f.created_at AS createdAt, f.deleted_at AS deletedAt, f.device_id AS deviceId,
-      MAX(COALESCE(n.updated_at, f.updated_at, f.created_at)) AS activity
+      MAX(COALESCE(n.updated_at, 0), f.updated_at, f.created_at) AS activity
     FROM folders f LEFT JOIN notes n ON n.folder_id = f.id AND n.trashed = 0
     WHERE f.deleted_at IS NULL
       AND f.parent_id IS NULL
@@ -135,24 +135,20 @@ export async function getFrequentFoldersAsync(
 
 /**
  * Applies a user-arranged order (persisted id list) to freshly computed
- * frequent ids: stored ids that still exist keep their positions, new
- * arrivals append, deleted ids drop out. Pure — unit tested.
+ * frequent ids: never-arranged ids surface FIRST in activity order (so a
+ * just-used folder appears on top, not buried at the bottom), then stored
+ * ids that still exist keep their positions, and deleted ids drop out.
+ * Deterministic per input — pure, unit tested.
  */
 export function applyFrequentOrder(currentIds: string[], storedIds: string[]): string[] {
   const current = new Set(currentIds)
-  const seen = new Set<string>()
+  const stored = new Set(storedIds)
   const ordered: string[] = []
-  for (const id of storedIds) {
-    if (current.has(id) && !seen.has(id)) {
-      ordered.push(id)
-      seen.add(id)
-    }
-  }
   for (const id of currentIds) {
-    if (!seen.has(id)) {
-      ordered.push(id)
-      seen.add(id)
-    }
+    if (!stored.has(id)) ordered.push(id)
+  }
+  for (const id of storedIds) {
+    if (current.has(id) && !ordered.includes(id)) ordered.push(id)
   }
   return ordered
 }

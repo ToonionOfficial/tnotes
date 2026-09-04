@@ -23,8 +23,13 @@ describe("applyFrequentOrder", () => {
     expect(applyFrequentOrder(["a", "b", "c"], ["c", "a", "b"])).toEqual(["c", "a", "b"])
   })
 
-  it("appends new arrivals after the stored order", () => {
-    expect(applyFrequentOrder(["a", "b", "c", "d"], ["c", "a"])).toEqual(["c", "a", "b", "d"])
+  it("surfaces never-arranged ids first so just-used folders land on top", () => {
+    expect(applyFrequentOrder(["a", "b", "c", "d"], ["c", "a"])).toEqual(["b", "d", "c", "a"])
+  })
+
+  it("stays stable once every id has an arrangement (no refetch flapping)", () => {
+    const arranged = ["c", "a", "b"]
+    expect(applyFrequentOrder(["a", "b", "c"], arranged)).toEqual(arranged)
   })
 
   it("drops stored ids that no longer exist", () => {
@@ -41,9 +46,9 @@ describe("applyFrequentOrder", () => {
 })
 
 describe("orderFrequentFolders", () => {
-  it("orders rows by the stored arrangement", () => {
+  it("prepends unarranged rows, then follows the stored arrangement", () => {
     const folders = [makeFolder("a"), makeFolder("b"), makeFolder("c")]
-    expect(orderFrequentFolders(folders, ["c", "a"]).map((f) => f.id)).toEqual(["c", "a", "b"])
+    expect(orderFrequentFolders(folders, ["c", "a"]).map((f) => f.id)).toEqual(["b", "c", "a"])
   })
 
   it("skips stored ids with no matching row", () => {
