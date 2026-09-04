@@ -5,6 +5,7 @@ import {
   getSyncMeta,
   setSyncMeta,
 } from "@/db/queries"
+import { isBenchmarkSyncPayload } from "@/db/queries/benchmark"
 import { computeChecksum } from "@/utils/crypto"
 import { applyRemoteChangesAsync } from "./applyRemoteChanges"
 import type { SyncChange, SyncEnvelope, SyncResponse, SyncResult } from "./types"
@@ -107,11 +108,17 @@ export async function executeSyncAsync(): Promise<SyncResult> {
       const changes: SyncChange[] = []
 
       for (const row of currentBatch) {
+        // Always drain the queue entry, but never upload benchmark rows:
+        // they are local-only load-test data (see isBenchmarkSyncPayload).
+        // Tombstones carry an '{}' payload and pass through so server copies
+        // uploaded before this rule existed still get deleted.
         changeIds.push(row.id)
         let payload: Record<string, unknown> = {}
         try {
           payload = JSON.parse(row.payload)
         } catch {}
+
+        if (!row.tombstone && isBenchmarkSyncPayload(row.entityType, payload)) continue
 
         const normalizedPayload = normalizePayloadForSync(row.entityType, payload)
 

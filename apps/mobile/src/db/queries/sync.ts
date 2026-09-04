@@ -7,24 +7,43 @@ const DEFAULT_USER_ID = "default_user"
 const DEFAULT_USERNAME = "Local User"
 
 /**
+ * Inserts or updates a user row.
+ *
+ * `ON CONFLICT(id) DO UPDATE` alone cannot fix this: `users.username` is
+ * UNIQUE, so inserting a new id for an already-known username (e.g. the
+ * server database was reset and re-issued ids, leaving an orphaned row from
+ * an earlier pairing) fails with `UNIQUE constraint failed: users.username`.
+ * Resolve both shapes explicitly: same id -> refresh username, same username
+ * under a stale id -> drop the stale row so the insert cannot conflict.
+ */
+export function upsertUser(userId: string, username: string): void {
+  const byId = db.select().from(users).where(eq(users.id, userId)).get()
+  if (byId) {
+    if (byId.username !== username) {
+      db.update(users).set({ username }).where(eq(users.id, userId)).run()
+    }
+    return
+  }
+
+  const byUsername = db.select().from(users).where(eq(users.username, username)).get()
+  if (byUsername) {
+    db.delete(users).where(eq(users.id, byUsername.id)).run()
+  }
+
+  try {
+    db.insert(users).values({ id: userId, username, createdAt: Date.now() }).run()
+  } catch {
+    // Lost a race between the selects above and the insert: the row now
+    // exists, so fall back to an update.
+    db.update(users).set({ username }).where(eq(users.id, userId)).run()
+  }
+}
+
+/**
  * Ensures a default user exists in the local database.
  */
 export function ensureUser(userId = DEFAULT_USER_ID, username = DEFAULT_USERNAME): string {
-  const existing = db.select().from(users).where(eq(users.id, userId)).get()
-
-  if (!existing) {
-    db.insert(users)
-      .values({
-        id: userId,
-        username,
-        createdAt: Date.now(),
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: { username },
-      })
-      .run()
-  }
+  upsertUser(userId, username)
 
   // Ensure soft-deleted notes are properly flagged as trashed
   db.update(notes)
@@ -64,13 +83,10 @@ export function getSyncMeta(key: string): string | null {
 }
 
 export function setSyncMeta(key: string, value: string): void {
-  db.insert(syncMeta)
-    .values({ key, value })
-    .onConflictDoUpdate({
-      target: syncMeta.key,
-      set: { value },
-    })
-    .run()
+  // Insert-then-update: avoids `ON CONFLICT(<table-qualified column>)`, which
+  // older bundled SQLite versions reject in the conflict target.
+  db.insert(syncMeta).values({ key, value }).onConflictDoNothing().run()
+  db.update(syncMeta).set({ value }).where(eq(syncMeta.key, key)).run()
 }
 
 export function getSyncCredentials(): {

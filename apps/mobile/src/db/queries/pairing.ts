@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { db } from "../index"
-import { folders, localChanges, notes, syncMeta, users } from "../schema"
-import { getOrCreateDeviceId, getSyncMeta, setSyncMeta } from "./sync"
+import { folders, localChanges, notes, syncMeta } from "../schema"
+import { getOrCreateDeviceId, getSyncMeta, setSyncMeta, upsertUser } from "./sync"
 
 export interface QrPairPayload {
   v?: number
@@ -145,22 +145,7 @@ export async function pairWithServerAsync(payload: QrPairPayload): Promise<SyncS
   setSyncMeta("username", activeUsername)
   setSyncMeta("paired_at", String(Date.now()))
 
-  const existingUser = db.select().from(users).where(eq(users.id, activeUserId)).get()
-  if (!existingUser) {
-    db.insert(users)
-      .values({
-        id: activeUserId,
-        username: activeUsername,
-        createdAt: Date.now(),
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: { username: activeUsername },
-      })
-      .run()
-  } else {
-    db.update(users).set({ username: activeUsername }).where(eq(users.id, activeUserId)).run()
-  }
+  upsertUser(activeUserId, activeUsername)
 
   // If pairing to a DIFFERENT authenticated user account, wipe local cache so new account starts clean
   if (previousUserId && previousUserId !== "default_user" && previousUserId !== activeUserId) {
