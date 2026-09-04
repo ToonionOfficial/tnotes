@@ -21,8 +21,11 @@ export interface FolderRowProps {
   isEditing: boolean
   isSelected: boolean
   noteCount: number
-  onPress: () => void
-  onDelete: () => void
+  showDragHandle?: boolean
+  onToggleSelect: (folderId: string) => void
+  onPressFolder: (folderId: string) => void
+  onLongPressFolder?: (folder: Folder) => void
+  onDeleteFolder: (folder: Folder) => void
 }
 
 export const FolderRow = memo(function FolderRow({
@@ -33,8 +36,11 @@ export const FolderRow = memo(function FolderRow({
   isEditing,
   isSelected,
   noteCount,
-  onPress,
-  onDelete,
+  showDragHandle = false,
+  onToggleSelect,
+  onPressFolder,
+  onLongPressFolder,
+  onDeleteFolder,
 }: FolderRowProps) {
   const { colors } = useAppTheme()
   const editProgress = useSharedValue(isEditing ? 1 : 0)
@@ -73,6 +79,24 @@ export const FolderRow = memo(function FolderRow({
         ? "rounded-b-3xl"
         : ""
 
+  const handlePress = () => {
+    if (isEditing) {
+      onToggleSelect(folder.id)
+    } else {
+      onPressFolder(folder.id)
+    }
+  }
+
+  const handleLongPress = () => {
+    if (!isEditing && onLongPressFolder) {
+      onLongPressFolder(folder)
+    }
+  }
+
+  const handleDelete = () => {
+    onDeleteFolder(folder)
+  }
+
   return (
     <View
       className={`overflow-hidden bg-card border-x border-t border-border/40 ${roundingClass} ${
@@ -87,11 +111,13 @@ export const FolderRow = memo(function FolderRow({
           label: "Delete",
           color: "#D94C5C",
           icon: <Trash2 size={20} color="#FFFFFF" />,
-          onPress: onDelete,
+          onPress: handleDelete,
         }}
       >
         <Pressable
-          onPress={onPress}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={260}
           className={`flex-row items-center justify-between px-4 py-3.5 active:bg-accent ${roundingClass}`}
         >
           <View className="flex-1 flex-row items-center">
@@ -116,12 +142,16 @@ export const FolderRow = memo(function FolderRow({
           </View>
 
           <View className="items-end justify-center">
-            <Animated.View
-              style={[handleStyle, { position: "absolute", right: 0 }]}
-              pointerEvents={isEditing ? "auto" : "none"}
-            >
-              <GripVertical size={20} color={colors.mutedForeground} />
-            </Animated.View>
+            {showDragHandle ? (
+              <Animated.View
+                style={[handleStyle, { position: "absolute", right: 0 }]}
+                pointerEvents={isEditing ? "auto" : "none"}
+              >
+                <View className="p-2 -mr-2">
+                  <GripVertical size={20} color={colors.mutedForeground} />
+                </View>
+              </Animated.View>
+            ) : null}
             <Animated.View style={countStyle} pointerEvents={isEditing ? "none" : "auto"}>
               <View className="flex-row items-center gap-1.5">
                 <Text className="text-[15px] text-muted-foreground">{noteCount}</Text>

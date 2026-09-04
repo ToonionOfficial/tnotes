@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNotNull, isNull, min } from "drizzle-orm"
 import { ulid } from "@/utils/id"
 import { db, expo } from "../index"
 import { type Folder, folders, localChanges, type Note, notes } from "../schema"
+import { BENCHMARK_FOLDER_MARKER } from "./benchmark"
 import { getCurrentUserId, getOrCreateDeviceId, recordLocalChange } from "./sync"
 
 export interface FolderFilters {
@@ -76,6 +77,98 @@ export async function getFoldersPageAsync(filters: FolderFilters = {}): Promise<
     ORDER BY sort_order ASC, created_at DESC, id DESC LIMIT ? OFFSET ?`,
     params,
   )
+}
+
+export const FREQUENT_FOLDER_LIMIT = 5
+
+interface FrequentFolderRow {
+  id: string
+  userId: string
+  parentId: string | null
+  name: string
+  icon: string
+  sortOrder: number
+  version: number
+  updatedAt: number
+  createdAt: number
+  deletedAt: number | null
+  deviceId: string
+  activity: number
+}
+
+/**
+ * Top-level folders ranked by recent activity (latest note update, falling
+ * back to the folder itself so empty folders still rank). Powers the
+ * "Frequently Used" home section. Benchmark/dev folders are excluded.
+ */
+export async function getFrequentFoldersAsync(
+  limit: number = FREQUENT_FOLDER_LIMIT,
+): Promise<Folder[]> {
+  const rows = await expo.getAllAsync<FrequentFolderRow>(
+    `SELECT f.id, f.user_id AS userId, f.parent_id AS parentId, f.name, f.icon,
+      f.sort_order AS sortOrder, f.version, f.updated_at AS updatedAt,
+      f.created_at AS createdAt, f.deleted_at AS deletedAt, f.device_id AS deviceId,
+      MAX(COALESCE(n.updated_at, f.updated_at, f.created_at)) AS activity
+    FROM folders f LEFT JOIN notes n ON n.folder_id = f.id AND n.trashed = 0
+    WHERE f.deleted_at IS NULL
+      AND f.parent_id IS NULL
+      AND substr(f.name, 1, ${BENCHMARK_FOLDER_MARKER.length}) != ?
+    GROUP BY f.id
+    ORDER BY activity DESC, f.updated_at DESC, f.id DESC
+    LIMIT ?`,
+    [BENCHMARK_FOLDER_MARKER, limit],
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.userId,
+    parentId: row.parentId,
+    name: row.name,
+    icon: row.icon,
+    sortOrder: row.sortOrder,
+    version: row.version,
+    updatedAt: row.updatedAt,
+    createdAt: row.createdAt,
+    deletedAt: row.deletedAt,
+    deviceId: row.deviceId,
+  }))
+}
+
+/**
+ * Applies a user-arranged order (persisted id list) to freshly computed
+ * frequent ids: stored ids that still exist keep their positions, new
+ * arrivals append, deleted ids drop out. Pure — unit tested.
+ */
+export function applyFrequentOrder(currentIds: string[], storedIds: string[]): string[] {
+  const current = new Set(currentIds)
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const id of storedIds) {
+    if (current.has(id) && !seen.has(id)) {
+      ordered.push(id)
+      seen.add(id)
+    }
+  }
+  for (const id of currentIds) {
+    if (!seen.has(id)) {
+      ordered.push(id)
+      seen.add(id)
+    }
+  }
+  return ordered
+}
+
+/** Same as applyFrequentOrder but over Folder rows. */
+export function orderFrequentFolders(foldersList: Folder[], storedIds: string[]): Folder[] {
+  const byId = new Map(foldersList.map((folder) => [folder.id, folder]))
+  const ordered: Folder[] = []
+  for (const id of applyFrequentOrder(
+    foldersList.map((folder) => folder.id),
+    storedIds,
+  )) {
+    const folder = byId.get(id)
+    if (folder) ordered.push(folder)
+  }
+  return ordered
 }
 
 export function createFolder(input: {

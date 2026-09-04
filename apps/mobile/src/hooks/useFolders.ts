@@ -4,11 +4,16 @@ import {
   createFolder,
   deleteFolder,
   type FolderFilters,
+  FREQUENT_FOLDER_LIMIT,
   getFolderByIdAsync,
   getFoldersPageAsync,
+  getFrequentFolderOrder,
+  getFrequentFoldersAsync,
   moveFolderToIndex,
   moveIdInList,
+  orderFrequentFolders,
   restoreFolder,
+  setFrequentFolderOrder,
   updateFolder,
 } from "@/db/queries"
 import type { Folder } from "@/db/schema"
@@ -21,6 +26,7 @@ export const folderKeys = {
   lists: () => [...folderKeys.all, "list"] as const,
   list: (filters?: FolderFilters) => [...folderKeys.lists(), filters] as const,
   infinite: (filters?: FolderFilters) => [...folderKeys.all, "infinite", filters] as const,
+  frequent: () => [...folderKeys.all, "frequent"] as const,
   details: () => [...folderKeys.all, "detail"] as const,
   detail: (id: string) => [...folderKeys.details(), id] as const,
 }
@@ -218,6 +224,65 @@ export function useReorderFolders() {
       queryClient.invalidateQueries({ queryKey: folderKeys.all })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
       triggerBackgroundSyncIfConnected()
+    },
+  })
+}
+
+/**
+ * "Frequently Used" home section: top folders by recent activity with the
+ * user's local arrangement applied. Refetches on home entry (activity goes
+ * stale as notes change, and note mutations don't invalidate folder keys).
+ */
+export function useFrequentFolders(limit: number = FREQUENT_FOLDER_LIMIT, enabled = true) {
+  return useQuery({
+    queryKey: folderKeys.frequent(),
+    queryFn: async () => {
+      const folders = await getFrequentFoldersAsync(limit)
+      return orderFrequentFolders(folders, getFrequentFolderOrder())
+    },
+    enabled,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  })
+}
+
+/**
+ * Persists a drag-and-drop move inside the frequent section. Device-local
+ * only: rewrites the sync_meta id list — no folder row writes, no
+ * local_changes, and deliberately no background sync trigger.
+ */
+export function useReorderFrequentFolders() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      setFrequentFolderOrder(orderedIds)
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: folderKeys.frequent() })
+      const previous = queryClient.getQueryData<Folder[]>(folderKeys.frequent())
+      if (previous) {
+        const byId = new Map(previous.map((folder) => [folder.id, folder]))
+        const next: Folder[] = []
+        for (const id of orderedIds) {
+          const folder = byId.get(id)
+          if (folder) next.push(folder)
+        }
+        for (const folder of previous) {
+          if (!orderedIds.includes(folder.id)) next.push(folder)
+        }
+        queryClient.setQueryData(folderKeys.frequent(), next)
+      }
+      return { previous }
+    },
+    onError: (_err, _orderedIds, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(folderKeys.frequent(), context.previous)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.frequent() })
     },
   })
 }

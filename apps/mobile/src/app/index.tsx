@@ -19,17 +19,20 @@ import { BottomBar } from "@/components/BottomBar"
 import { DraggableFolderSection } from "@/components/DraggableFolderSection"
 import { FolderActionSheet, type FolderActionSheetRef } from "@/components/FolderActionSheet"
 import { FolderIcon } from "@/components/FolderIcon"
+import { FolderRow } from "@/components/FolderRow"
 import { HomeHeader } from "@/components/HomeHeader"
 import { NewFolderSheet, type NewFolderSheetRef } from "@/components/NewFolderForm"
 import { SideDrawerContent } from "@/components/SideDrawerContent"
 import { VirtualFolderCard } from "@/components/VirtualFolderCard"
+import { moveIdInList } from "@/db/queries"
 import type { Folder } from "@/db/schema"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import {
   useBatchDeleteFolders,
   useDeleteFolder,
+  useFrequentFolders,
   useInfiniteFolders,
-  useReorderFolders,
+  useReorderFrequentFolders,
 } from "@/hooks/useFolders"
 import { useFolderNoteCounts } from "@/hooks/useNotes"
 import { useSyncState } from "@/hooks/useSyncState"
@@ -51,9 +54,22 @@ export default function FoldersScreen() {
   )
   const deleteFolder = useDeleteFolder()
   const batchDeleteFolders = useBatchDeleteFolders()
-  const reorderFolders = useReorderFolders()
+  const reorderFrequent = useReorderFrequentFolders()
   const { data: counts = { total: 0, byFolder: {}, trash: 0 } } = useFolderNoteCounts()
   const { data: syncStatus } = useSyncState()
+  const { data: frequentFolders = [] } = useFrequentFolders()
+
+  // The main list stays static (never draggable): manual drag-reorder of
+  // 100s of rows is what killed the app, and ordering lives in the
+  // 5-row "Frequently Used" section instead.
+  const frequentIds = useMemo(
+    () => new Set(frequentFolders.map((folder) => folder.id)),
+    [frequentFolders],
+  )
+  const mainFolders = useMemo(
+    () => foldersList.filter((folder) => !frequentIds.has(folder.id)),
+    [foldersList, frequentIds],
+  )
 
   const sheetRef = useRef<NewFolderSheetRef>(null)
   const folderActionSheetRef = useRef<FolderActionSheetRef>(null)
@@ -141,17 +157,22 @@ export default function FoldersScreen() {
     sheetRef.current?.open(folder)
   }, [])
 
-  const handleReorder = useCallback(
+  const handleReorderFrequent = useCallback(
     (fromIndex: number, toIndex: number) => {
-      // Persist only — the optimistic order comes from useReorderFolders'
-      // onMutate patching the infinite query cache. Never mutate inside a
-      // setState updater (StrictMode double-invokes updaters).
-      const moved = foldersList[fromIndex]
+      // Persist only the device-local order list — the optimistic order
+      // comes from useReorderFrequentFolders' onMutate cache patch.
+      const moved = frequentFolders[fromIndex]
       if (!moved || fromIndex === toIndex) return
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      reorderFolders.mutate({ folderId: moved.id, fromIndex, toIndex, parentId: null })
+      reorderFrequent.mutate(
+        moveIdInList(
+          frequentFolders.map((folder) => folder.id),
+          moved.id,
+          toIndex,
+        ),
+      )
     },
-    [foldersList, reorderFolders],
+    [frequentFolders, reorderFrequent],
   )
 
   const handleScroll = useCallback(
@@ -272,17 +293,50 @@ export default function FoldersScreen() {
             onPress={() => router.push("/folders/all" as const)}
           />
 
-          <DraggableFolderSection
-            folders={foldersList}
-            isEditing={isEditing}
-            selectedFolderIds={selectedFolderIds}
-            getFolderCount={getFolderCount}
-            onToggleSelect={toggleSelectFolder}
-            onPressFolder={handlePressFolder}
-            onLongPressFolder={handleLongPressFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onReorder={handleReorder}
-          />
+          {frequentFolders.length > 0 && (
+            <View>
+              <View className="mb-1 mt-2 flex-row items-center justify-between px-1">
+                <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
+                  Frequently Used
+                </Text>
+                <Text className="text-[13px] text-muted-foreground/60">
+                  {frequentFolders.length} {frequentFolders.length === 1 ? "folder" : "folders"}
+                </Text>
+              </View>
+              <DraggableFolderSection
+                folders={frequentFolders}
+                isEditing={isEditing}
+                selectedFolderIds={selectedFolderIds}
+                getFolderCount={getFolderCount}
+                onToggleSelect={toggleSelectFolder}
+                onPressFolder={handlePressFolder}
+                onLongPressFolder={handleLongPressFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onReorder={handleReorderFrequent}
+              />
+            </View>
+          )}
+
+          {mainFolders.length > 0 && (
+            <View className="mt-5 overflow-hidden rounded-3xl bg-card border border-border/40">
+              {mainFolders.map((folder, index) => (
+                <FolderRow
+                  key={folder.id}
+                  folder={folder}
+                  isFirst={index === 0}
+                  isLast={index === mainFolders.length - 1}
+                  isOnly={mainFolders.length === 1}
+                  isEditing={isEditing}
+                  isSelected={selectedFolderIds.has(folder.id)}
+                  noteCount={getFolderCount(folder.id)}
+                  onToggleSelect={toggleSelectFolder}
+                  onPressFolder={handlePressFolder}
+                  onLongPressFolder={handleLongPressFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                />
+              ))}
+            </View>
+          )}
 
           {isFetchingNextPage && (
             <View className="py-4 items-center justify-center">
