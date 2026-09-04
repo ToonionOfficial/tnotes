@@ -1,7 +1,8 @@
-import { and, desc, eq, isNotNull, isNull, min } from "drizzle-orm"
+import { and, asc, desc, eq, isNotNull, isNull, min } from "drizzle-orm"
 import { ulid } from "@/utils/id"
 import { db, expo } from "../index"
-import { type Folder, folders, type Note, notes } from "../schema"
+import { type Folder, folders, localChanges, type Note, notes } from "../schema"
+import { BENCHMARK_FOLDER_MARKER } from "./benchmark"
 import { getCurrentUserId, getOrCreateDeviceId, recordLocalChange } from "./sync"
 
 export interface FolderFilters {
@@ -76,6 +77,116 @@ export async function getFoldersPageAsync(filters: FolderFilters = {}): Promise<
     ORDER BY sort_order ASC, created_at DESC, id DESC LIMIT ? OFFSET ?`,
     params,
   )
+}
+
+export const FREQUENT_FOLDER_LIMIT = 5
+
+interface FrequentFolderRow {
+  id: string
+  userId: string
+  parentId: string | null
+  name: string
+  icon: string
+  sortOrder: number
+  version: number
+  updatedAt: number
+  createdAt: number
+  deletedAt: number | null
+  deviceId: string
+  activity: number
+}
+
+/**
+ * Top-level folders ranked by recent activity, rolling up the whole subtree:
+ * a note edited in a grandchild (or the subfolder itself being touched)
+ * pushes its root parent up. Direct notes, subfolder edits and empty folders
+ * all count via each folder's own timestamps as fallback. Powers the
+ * "Frequently Used" home section. Benchmark/dev folders neither rank nor
+ * contribute. Single round trip (recursive CTE + one notes aggregation).
+ */
+export async function getFrequentFoldersAsync(
+  limit: number = FREQUENT_FOLDER_LIMIT,
+): Promise<Folder[]> {
+  const markerLength = BENCHMARK_FOLDER_MARKER.length
+  const rows = await expo.getAllAsync<FrequentFolderRow>(
+    `WITH RECURSIVE
+      subtree(root_id, folder_id) AS (
+        SELECT id, id FROM folders WHERE parent_id IS NULL AND deleted_at IS NULL
+        UNION
+        SELECT s.root_id, f.id FROM folders f
+        JOIN subtree s ON f.parent_id = s.folder_id
+        WHERE f.deleted_at IS NULL
+      ),
+      direct(folder_id, ts) AS (
+        SELECT f.id, MAX(COALESCE(n.updated_at, 0), f.updated_at, f.created_at)
+        FROM folders f LEFT JOIN notes n ON n.folder_id = f.id AND n.trashed = 0
+        WHERE f.deleted_at IS NULL
+          AND substr(f.name, 1, ${markerLength}) != ?
+        GROUP BY f.id
+      )
+    SELECT r.id, r.user_id AS userId, r.parent_id AS parentId, r.name, r.icon,
+      r.sort_order AS sortOrder, r.version, r.updated_at AS updatedAt,
+      r.created_at AS createdAt, r.deleted_at AS deletedAt, r.device_id AS deviceId,
+      MAX(d.ts) AS activity
+    FROM folders r
+    JOIN subtree s ON s.root_id = r.id
+    JOIN direct d ON d.folder_id = s.folder_id
+    WHERE r.deleted_at IS NULL
+      AND r.parent_id IS NULL
+      AND substr(r.name, 1, ${markerLength}) != ?
+    GROUP BY r.id
+    ORDER BY activity DESC, r.updated_at DESC, r.id DESC
+    LIMIT ?`,
+    [BENCHMARK_FOLDER_MARKER, BENCHMARK_FOLDER_MARKER, limit],
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.userId,
+    parentId: row.parentId,
+    name: row.name,
+    icon: row.icon,
+    sortOrder: row.sortOrder,
+    version: row.version,
+    updatedAt: row.updatedAt,
+    createdAt: row.createdAt,
+    deletedAt: row.deletedAt,
+    deviceId: row.deviceId,
+  }))
+}
+
+/**
+ * Applies the persisted order (the order last displayed — see
+ * useFrequentFolders, which writes it back on every change) to freshly
+ * computed frequent ids: ids absent from it surface FIRST in activity order
+ * (so a just-used folder appears on top, not buried at the bottom), then
+ * retained ids keep their sequence, and evicted ids drop out.
+ * Deterministic per input — pure, unit tested.
+ */
+export function applyFrequentOrder(currentIds: string[], storedIds: string[]): string[] {
+  const current = new Set(currentIds)
+  const stored = new Set(storedIds)
+  const ordered: string[] = []
+  for (const id of currentIds) {
+    if (!stored.has(id)) ordered.push(id)
+  }
+  for (const id of storedIds) {
+    if (current.has(id) && !ordered.includes(id)) ordered.push(id)
+  }
+  return ordered
+}
+
+/** Same as applyFrequentOrder but over Folder rows. */
+export function orderFrequentFolders(foldersList: Folder[], storedIds: string[]): Folder[] {
+  const byId = new Map(foldersList.map((folder) => [folder.id, folder]))
+  const ordered: Folder[] = []
+  for (const id of applyFrequentOrder(
+    foldersList.map((folder) => folder.id),
+    storedIds,
+  )) {
+    const folder = byId.get(id)
+    if (folder) ordered.push(folder)
+  }
+  return ordered
 }
 
 export function createFolder(input: {
@@ -160,35 +271,99 @@ export function updateFolder(
   return updatedFolder
 }
 
-export function reorderFolders(folderIds: string[]): void {
+/**
+ * Pure list surgery for folder drag-and-drop: moves one id within an ordered
+ * id list. Clamps out-of-range targets and returns the input unchanged when
+ * the id is missing or already at the target. Shared by the DB persist path
+ * and the React Query optimistic patch so both compute identical orders.
+ */
+export function moveIdInList(ids: string[], folderId: string, toIndex: number): string[] {
+  const fromIndex = ids.indexOf(folderId)
+  if (fromIndex === -1) return ids
+  const clamped = Math.max(0, Math.min(ids.length - 1, toIndex))
+  if (clamped === fromIndex) return ids
+  const next = [...ids]
+  const [moved] = next.splice(fromIndex, 1)
+  if (moved === undefined) return ids
+  next.splice(clamped, 0, moved)
+  return next
+}
+
+export interface FolderMoveResult {
+  moved: boolean
+  updatedCount: number
+}
+
+/**
+ * Persists a drag-and-drop move of one folder within its sibling list.
+ * Loads the FULL sibling order from SQLite in one query (never a paginated
+ * subset, which would corrupt sortOrders), then rewrites only the rows whose
+ * position actually changed — a single move touches just the range between
+ * the old and new index — inside one synchronous drizzle transaction.
+ */
+export function moveFolderToIndex(input: {
+  folderId: string
+  toIndex: number
+  parentId?: string | null
+}): FolderMoveResult {
+  const parentCondition =
+    input.parentId === undefined || input.parentId === null
+      ? isNull(folders.parentId)
+      : eq(folders.parentId, input.parentId)
+
+  // Same ordering as getFolders/getFoldersPageAsync so splice indices match
+  // what the UI rendered.
+  const siblings = db
+    .select()
+    .from(folders)
+    .where(and(isNull(folders.deletedAt), parentCondition))
+    .orderBy(asc(folders.sortOrder), desc(folders.createdAt), desc(folders.id))
+    .all()
+
+  const currentIds = siblings.map((sibling) => sibling.id)
+  const nextIds = moveIdInList(currentIds, input.folderId, input.toIndex)
+  if (nextIds === currentIds) return { moved: false, updatedCount: 0 }
+
   const deviceId = getOrCreateDeviceId()
   const now = Date.now()
+  const byId = new Map(siblings.map((sibling) => [sibling.id, sibling]))
 
-  folderIds.forEach((id, index) => {
-    const existing = getFolderById(id)
+  const updates: Array<{ id: string; sortOrder: number; version: number; snapshot: Folder }> = []
+  nextIds.forEach((id, index) => {
+    const existing = byId.get(id)
     if (!existing || existing.sortOrder === index) return
-
     const nextVersion = existing.version + 1
-    const updatedFolder: Folder = {
-      ...existing,
+    updates.push({
+      id,
       sortOrder: index,
       version: nextVersion,
-      updatedAt: now,
-      deviceId,
-    }
-
-    db.update(folders)
-      .set({
-        sortOrder: index,
-        version: nextVersion,
-        updatedAt: now,
-        deviceId,
-      })
-      .where(eq(folders.id, id))
-      .run()
-
-    recordLocalChange("folder", id, nextVersion, now, false, updatedFolder)
+      snapshot: { ...existing, sortOrder: index, version: nextVersion, updatedAt: now, deviceId },
+    })
   })
+
+  if (updates.length === 0) return { moved: false, updatedCount: 0 }
+
+  db.transaction((tx) => {
+    for (const update of updates) {
+      tx.update(folders)
+        .set({ sortOrder: update.sortOrder, version: update.version, updatedAt: now, deviceId })
+        .where(eq(folders.id, update.id))
+        .run()
+      tx.insert(localChanges)
+        .values({
+          entityType: "folder",
+          entityId: update.id,
+          version: update.version,
+          updatedAt: now,
+          tombstone: false,
+          payload: JSON.stringify(update.snapshot),
+          createdAt: now,
+        })
+        .run()
+    }
+  })
+
+  return { moved: true, updatedCount: updates.length }
 }
 
 export function deleteFolder(id: string): void {

@@ -128,3 +128,26 @@ export function clearLocalChanges(changeIds: number[]): void {
   if (changeIds.length === 0) return
   db.delete(localChanges).where(inArray(localChanges.id, changeIds)).run()
 }
+
+const FREQUENT_FOLDER_ORDER_KEY = "frequent_folder_order"
+
+/**
+ * Device-local user arrangement of the "Frequently Used" home section.
+ * Intentionally local-only (sync_meta, never local_changes): no migration,
+ * no sync payload, no server changes.
+ */
+export function getFrequentFolderOrder(): string[] {
+  const stored = getSyncMeta(FREQUENT_FOLDER_ORDER_KEY)
+  if (!stored) return []
+  try {
+    const parsed: unknown = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((id): id is string => typeof id === "string")
+  } catch {
+    return []
+  }
+}
+
+export function setFrequentFolderOrder(ids: string[]): void {
+  setSyncMeta(FREQUENT_FOLDER_ORDER_KEY, JSON.stringify(ids))
+}
