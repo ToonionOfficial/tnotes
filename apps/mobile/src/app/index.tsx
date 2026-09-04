@@ -321,25 +321,25 @@ export default function FoldersScreen() {
 
               {frequentFolders.length > 0 && (
                 <View>
-                  <View className="mb-1 mt-2 flex-row items-center justify-between px-1">
+                  <View className="mt-5 px-1">
                     <Text className="text-[13px] font-semibold tracking-wider text-muted-foreground/60 uppercase">
                       Frequently Used
                     </Text>
-                    <Text className="text-[13px] text-muted-foreground/60">
-                      {frequentFolders.length} {frequentFolders.length === 1 ? "folder" : "folders"}
-                    </Text>
                   </View>
-                  <DraggableFolderSection
-                    folders={frequentFolders}
-                    isEditing={isEditing}
-                    selectedFolderIds={selectedFolderIds}
-                    getFolderCount={getFolderCount}
-                    onToggleSelect={toggleSelectFolder}
-                    onPressFolder={handlePressFolder}
-                    onLongPressFolder={handleLongPressFolder}
-                    onDeleteFolder={handleDeleteFolder}
-                    onReorder={handleReorderFrequent}
-                  />
+                  {/* Pull up to tighten the label-to-card gap (card brings its own mt-5). */}
+                  <View className="-mt-2">
+                    <DraggableFolderSection
+                      folders={frequentFolders}
+                      isEditing={isEditing}
+                      selectedFolderIds={selectedFolderIds}
+                      getFolderCount={getFolderCount}
+                      onToggleSelect={toggleSelectFolder}
+                      onPressFolder={handlePressFolder}
+                      onLongPressFolder={handleLongPressFolder}
+                      onDeleteFolder={handleDeleteFolder}
+                      onReorder={handleReorderFrequent}
+                    />
+                  </View>
                 </View>
               )}
             </>
