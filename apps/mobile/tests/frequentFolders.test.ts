@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { applyFrequentOrder, orderFrequentFolders } from "../src/db/queries/folders"
 import type { Folder } from "../src/db/schema"
+import { folderKeys } from "../src/hooks/useFolders"
+import { isFrequentFoldersQueryKey } from "../src/hooks/useNotes"
 
 function makeFolder(id: string): Folder {
   return {
@@ -54,5 +56,17 @@ describe("orderFrequentFolders", () => {
   it("skips stored ids with no matching row", () => {
     const folders = [makeFolder("a")]
     expect(orderFrequentFolders(folders, ["gone", "a"]).map((f) => f.id)).toEqual(["a"])
+  })
+})
+
+describe("frequent query invalidation contract", () => {
+  it("predicate matches the frequent key and nothing else", () => {
+    expect(isFrequentFoldersQueryKey(folderKeys.frequent())).toBe(true)
+    expect(isFrequentFoldersQueryKey(folderKeys.all)).toBe(false)
+    expect(isFrequentFoldersQueryKey(folderKeys.lists())).toBe(false)
+    expect(isFrequentFoldersQueryKey(folderKeys.infinite({ parentId: null }))).toBe(false)
+    expect(isFrequentFoldersQueryKey(folderKeys.infinite())).toBe(false)
+    expect(isFrequentFoldersQueryKey(folderKeys.detail("x"))).toBe(false)
+    expect(isFrequentFoldersQueryKey(["notes", "infinite"])).toBe(false)
   })
 })
