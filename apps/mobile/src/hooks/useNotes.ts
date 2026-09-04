@@ -138,11 +138,23 @@ export function useDeleteBenchmarkNotes() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: deleteBenchmarkNotes,
+    onMutate: async () => {
+      // Stop concurrent readers from hitting SQLite while bulk delete runs.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: noteKeys.all }),
+        queryClient.cancelQueries({ queryKey: ["folders"] }),
+        queryClient.cancelQueries({ queryKey: statsKeys.all }),
+      ])
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: noteKeys.all })
       queryClient.invalidateQueries({ queryKey: ["folders"] })
       queryClient.invalidateQueries({ queryKey: statsKeys.all })
-      triggerBackgroundSyncIfConnected()
+      // Let list invalidations settle before kicking network sync over
+      // thousands of tombstoned local_changes rows.
+      setTimeout(() => {
+        triggerBackgroundSyncIfConnected()
+      }, 1500)
     },
   })
 }
