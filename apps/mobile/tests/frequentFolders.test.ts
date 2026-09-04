@@ -45,6 +45,25 @@ describe("applyFrequentOrder", () => {
   it("dedupes repeat stored ids", () => {
     expect(applyFrequentOrder(["a", "b"], ["b", "b", "a"])).toEqual(["b", "a"])
   })
+
+  it("re-entrant id prepends once evicted from the stored (last-displayed) order", () => {
+    // F was displayed long ago, dropped out (stored pruned on write-back),
+    // and is hot again: it must surface on top, not fossilize.
+    expect(applyFrequentOrder(["f", "a", "b", "c", "d"], ["a", "b", "c", "d"])).toEqual([
+      "f",
+      "a",
+      "b",
+      "c",
+      "d",
+    ])
+  })
+
+  it("stays put when current and stored already agree (write-back no-op)", () => {
+    const displayed = ["a", "b", "c"]
+    const resolved = applyFrequentOrder(["a", "b", "c"], displayed)
+    expect(resolved).toEqual(displayed)
+    expect(resolved.join()).toBe(displayed.join())
+  })
 })
 
 describe("orderFrequentFolders", () => {

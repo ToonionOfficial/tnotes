@@ -155,10 +155,11 @@ export async function getFrequentFoldersAsync(
 }
 
 /**
- * Applies a user-arranged order (persisted id list) to freshly computed
- * frequent ids: never-arranged ids surface FIRST in activity order (so a
- * just-used folder appears on top, not buried at the bottom), then stored
- * ids that still exist keep their positions, and deleted ids drop out.
+ * Applies the persisted order (the order last displayed — see
+ * useFrequentFolders, which writes it back on every change) to freshly
+ * computed frequent ids: ids absent from it surface FIRST in activity order
+ * (so a just-used folder appears on top, not buried at the bottom), then
+ * retained ids keep their sequence, and evicted ids drop out.
  * Deterministic per input — pure, unit tested.
  */
 export function applyFrequentOrder(currentIds: string[], storedIds: string[]): string[] {

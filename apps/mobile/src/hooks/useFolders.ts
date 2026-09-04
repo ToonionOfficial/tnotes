@@ -230,15 +230,28 @@ export function useReorderFolders() {
 
 /**
  * "Frequently Used" home section: top folders by recent activity with the
- * user's local arrangement applied. Refetches on home entry (activity goes
- * stale as notes change, and note mutations don't invalidate folder keys).
+ * user's local arrangement applied. Refreshed by note/folder invalidations
+ * plus a home-entry refetch.
+ *
+ * The stored id list means "order last displayed" (not "last dragged"): it
+ * is written back whenever a recompute differs, so evicted ids drop out and
+ * re-entering hot folders prepend instead of fossilizing. Ids continuously
+ * displayed keep their sequence, so edits never reshuffle and drags stick.
+ * Compare-and-write keeps idle refetches write-free; the write targets
+ * sync_meta (never the query cache), so it cannot loop invalidations.
  */
 export function useFrequentFolders(limit: number = FREQUENT_FOLDER_LIMIT, enabled = true) {
   return useQuery({
     queryKey: folderKeys.frequent(),
     queryFn: async () => {
       const folders = await getFrequentFoldersAsync(limit)
-      return orderFrequentFolders(folders, getFrequentFolderOrder())
+      const stored = getFrequentFolderOrder()
+      const ordered = orderFrequentFolders(folders, stored)
+      const orderedIds = ordered.map((folder) => folder.id)
+      if (orderedIds.join() !== stored.join()) {
+        setFrequentFolderOrder(orderedIds)
+      }
+      return ordered
     },
     enabled,
     staleTime: 1000 * 60,
