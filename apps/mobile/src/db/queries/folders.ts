@@ -97,26 +97,47 @@ interface FrequentFolderRow {
 }
 
 /**
- * Top-level folders ranked by recent activity (latest note update, falling
- * back to the folder itself so empty folders still rank). Powers the
- * "Frequently Used" home section. Benchmark/dev folders are excluded.
+ * Top-level folders ranked by recent activity, rolling up the whole subtree:
+ * a note edited in a grandchild (or the subfolder itself being touched)
+ * pushes its root parent up. Direct notes, subfolder edits and empty folders
+ * all count via each folder's own timestamps as fallback. Powers the
+ * "Frequently Used" home section. Benchmark/dev folders neither rank nor
+ * contribute. Single round trip (recursive CTE + one notes aggregation).
  */
 export async function getFrequentFoldersAsync(
   limit: number = FREQUENT_FOLDER_LIMIT,
 ): Promise<Folder[]> {
+  const markerLength = BENCHMARK_FOLDER_MARKER.length
   const rows = await expo.getAllAsync<FrequentFolderRow>(
-    `SELECT f.id, f.user_id AS userId, f.parent_id AS parentId, f.name, f.icon,
-      f.sort_order AS sortOrder, f.version, f.updated_at AS updatedAt,
-      f.created_at AS createdAt, f.deleted_at AS deletedAt, f.device_id AS deviceId,
-      MAX(COALESCE(n.updated_at, 0), f.updated_at, f.created_at) AS activity
-    FROM folders f LEFT JOIN notes n ON n.folder_id = f.id AND n.trashed = 0
-    WHERE f.deleted_at IS NULL
-      AND f.parent_id IS NULL
-      AND substr(f.name, 1, ${BENCHMARK_FOLDER_MARKER.length}) != ?
-    GROUP BY f.id
-    ORDER BY activity DESC, f.updated_at DESC, f.id DESC
+    `WITH RECURSIVE
+      subtree(root_id, folder_id) AS (
+        SELECT id, id FROM folders WHERE parent_id IS NULL AND deleted_at IS NULL
+        UNION
+        SELECT s.root_id, f.id FROM folders f
+        JOIN subtree s ON f.parent_id = s.folder_id
+        WHERE f.deleted_at IS NULL
+      ),
+      direct(folder_id, ts) AS (
+        SELECT f.id, MAX(COALESCE(n.updated_at, 0), f.updated_at, f.created_at)
+        FROM folders f LEFT JOIN notes n ON n.folder_id = f.id AND n.trashed = 0
+        WHERE f.deleted_at IS NULL
+          AND substr(f.name, 1, ${markerLength}) != ?
+        GROUP BY f.id
+      )
+    SELECT r.id, r.user_id AS userId, r.parent_id AS parentId, r.name, r.icon,
+      r.sort_order AS sortOrder, r.version, r.updated_at AS updatedAt,
+      r.created_at AS createdAt, r.deleted_at AS deletedAt, r.device_id AS deviceId,
+      MAX(d.ts) AS activity
+    FROM folders r
+    JOIN subtree s ON s.root_id = r.id
+    JOIN direct d ON d.folder_id = s.folder_id
+    WHERE r.deleted_at IS NULL
+      AND r.parent_id IS NULL
+      AND substr(r.name, 1, ${markerLength}) != ?
+    GROUP BY r.id
+    ORDER BY activity DESC, r.updated_at DESC, r.id DESC
     LIMIT ?`,
-    [BENCHMARK_FOLDER_MARKER, limit],
+    [BENCHMARK_FOLDER_MARKER, BENCHMARK_FOLDER_MARKER, limit],
   )
   return rows.map((row) => ({
     id: row.id,
