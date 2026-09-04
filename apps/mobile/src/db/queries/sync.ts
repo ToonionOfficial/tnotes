@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm"
+import { and, eq, inArray, isNotNull } from "drizzle-orm"
 import { ulid } from "@/utils/id"
 import { db } from "../index"
 import { type LocalChange, localChanges, notes, syncMeta, users } from "../schema"
@@ -126,5 +126,5 @@ export function getPendingLocalChanges(): LocalChange[] {
 
 export function clearLocalChanges(changeIds: number[]): void {
   if (changeIds.length === 0) return
-  db.delete(localChanges).where(sql`${localChanges.id} IN ${changeIds}`).run()
+  db.delete(localChanges).where(inArray(localChanges.id, changeIds)).run()
 }

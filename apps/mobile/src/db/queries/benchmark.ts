@@ -12,6 +12,17 @@ export interface BenchmarkResult {
   elapsedMs: number
 }
 
+/** Generic helper for bulk DB work: split large id sets so each transaction
+ * stays small and bind-param counts stay under SQLite limits. */
+export function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) throw new Error("chunk size must be > 0")
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+  return chunks
+}
+
 function toSqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`
 }
@@ -116,50 +127,47 @@ export async function createBenchmarkNotes(noteCount: number): Promise<Benchmark
   return { noteCount, folderCount, elapsedMs: Date.now() - startedAt }
 }
 
-/** Permanently removes only rows created by createBenchmarkNotes, including its test folders, and logs tombstones to sync. */
+/** Permanently removes only rows created by createBenchmarkNotes, including its test folders, and logs tombstones to sync.
+ *
+ * Single set-based `execAsync` on purpose: one `BEGIN; 4 statements; COMMIT`
+ * in a single native round-trip — the same pattern as `createBenchmarkNotes`
+ * and `applyRemoteChangesAsync`, both proven at 1k+ rows. A previous revision
+ * used one `withExclusiveTransactionAsync` per 200-row chunk and died
+ * deterministically after the first chunk commit, so per-chunk exclusive
+ * transactions are deliberately avoided here.
+ */
 export async function deleteBenchmarkNotes(): Promise<BenchmarkResult> {
   const startedAt = Date.now()
   const now = Date.now()
 
-  const noteRows =
-    (await expo.getAllAsync<{ id: string; version: number }>(
-      `SELECT id, version FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ?`,
-      BENCHMARK_NOTE_MARKER,
-    )) ?? []
+  const noteCountRow = await expo.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ?`,
+    BENCHMARK_NOTE_MARKER,
+  )
+  const folderCountRow = await expo.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ?`,
+    BENCHMARK_FOLDER_MARKER,
+  )
+  const noteCount = Number(noteCountRow?.count ?? 0)
+  const folderCount = Number(folderCountRow?.count ?? 0)
 
-  const folderRows =
-    (await expo.getAllAsync<{ id: string; version: number }>(
-      `SELECT id, version FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ?`,
-      BENCHMARK_FOLDER_MARKER,
-    )) ?? []
+  if (noteCount === 0 && folderCount === 0) {
+    return { noteCount, folderCount, elapsedMs: Date.now() - startedAt }
+  }
 
-  const noteCount = noteRows.length
-  const folderCount = folderRows.length
-
-  await expo.withExclusiveTransactionAsync(async (transaction) => {
-    for (const note of noteRows) {
-      await transaction.runAsync(
-        "INSERT INTO local_changes (entity_type, entity_id, version, updated_at, tombstone, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ["note", note.id, Number(note.version) + 1, now, 1, "{}", now],
-      )
-    }
-
-    for (const folder of folderRows) {
-      await transaction.runAsync(
-        "INSERT INTO local_changes (entity_type, entity_id, version, updated_at, tombstone, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ["folder", folder.id, Number(folder.version) + 1, now, 1, "{}", now],
-      )
-    }
-
-    await transaction.runAsync(
-      `DELETE FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ?`,
-      BENCHMARK_NOTE_MARKER,
-    )
-    await transaction.runAsync(
-      `DELETE FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ?`,
-      BENCHMARK_FOLDER_MARKER,
-    )
-  })
+  // Markers are compile-time constants and `now` is numeric: safe to inline,
+  // following the same convention as createBenchmarkNotes above.
+  // Notes first (FK: notes.folder_id ON DELETE SET NULL), then folders.
+  await expo.execAsync(`BEGIN IMMEDIATE;
+    INSERT INTO local_changes (entity_type, entity_id, version, updated_at, tombstone, payload, created_at)
+      SELECT 'note', id, version + 1, ${now}, 1, '{}', ${now} FROM notes
+      WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ${toSqlString(BENCHMARK_NOTE_MARKER)};
+    DELETE FROM notes WHERE substr(body, 1, ${BENCHMARK_NOTE_MARKER.length}) = ${toSqlString(BENCHMARK_NOTE_MARKER)};
+    INSERT INTO local_changes (entity_type, entity_id, version, updated_at, tombstone, payload, created_at)
+      SELECT 'folder', id, version + 1, ${now}, 1, '{}', ${now} FROM folders
+      WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ${toSqlString(BENCHMARK_FOLDER_MARKER)};
+    DELETE FROM folders WHERE substr(name, 1, ${BENCHMARK_FOLDER_MARKER.length}) = ${toSqlString(BENCHMARK_FOLDER_MARKER)};
+    COMMIT;`)
 
   return { noteCount, folderCount, elapsedMs: Date.now() - startedAt }
 }

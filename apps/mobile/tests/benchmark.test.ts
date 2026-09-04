@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { BENCHMARK_FOLDER_MARKER, BENCHMARK_NOTE_MARKER } from "../src/db/queries/benchmark"
+import {
+  BENCHMARK_FOLDER_MARKER,
+  BENCHMARK_NOTE_MARKER,
+  chunkArray,
+} from "../src/db/queries/benchmark"
 import { computeChecksum } from "../src/utils/crypto"
 
 describe("Benchmark Markers and Payload Structure", () => {
@@ -50,5 +54,27 @@ describe("Benchmark Markers and Payload Structure", () => {
     expect(parsed.name).toContain(BENCHMARK_FOLDER_MARKER)
     expect(parsed.sort_order).toBe(0)
     expect(parsed.version).toBe(1)
+  })
+})
+
+describe("Bulk chunking helper", () => {
+  it("splits ids into chunks of at most the given size", () => {
+    const ids = Array.from({ length: 1001 }, (_, i) => `id-${i}`)
+    const chunks = chunkArray(ids, 200)
+
+    expect(chunks).toHaveLength(6)
+    for (const chunk of chunks.slice(0, 5)) {
+      expect(chunk).toHaveLength(200)
+    }
+    expect(chunks[5]).toHaveLength(1)
+    expect(chunks.flat()).toEqual(ids)
+  })
+
+  it("returns no chunks for empty input", () => {
+    expect(chunkArray([], 200)).toEqual([])
+  })
+
+  it("rejects non-positive chunk sizes", () => {
+    expect(() => chunkArray([1, 2, 3], 0)).toThrow()
   })
 })
