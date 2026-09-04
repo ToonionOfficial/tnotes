@@ -20,7 +20,7 @@ export function FlagsSection() {
   const addNotes = (count: number) => {
     Alert.alert(
       `Add ${count.toLocaleString()} benchmark notes?`,
-      `This writes ${count.toLocaleString()} real notes across ${Math.ceil(count / 10).toLocaleString()} benchmark folders in SQLite and syncs them to your server.`,
+      `This writes ${count.toLocaleString()} real notes across ${Math.ceil(count / 10).toLocaleString()} benchmark folders in local SQLite. Benchmark notes stay on this device and are never synced.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -74,8 +74,8 @@ export function FlagsSection() {
           <Text className="text-[16px] font-semibold text-foreground">Performance Benchmark</Text>
         </View>
         <Text className="mt-1 text-[13px] leading-5 text-muted-foreground">
-          Generates real notes in randomized folders with ~10 notes per folder and syncs them to the
-          server.
+          Generates real notes in randomized folders with ~10 notes per folder for local performance
+          testing. Benchmark notes are never synced to the server.
         </Text>
 
         <View className="mt-4 flex-row gap-2">
