@@ -180,12 +180,26 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
             }
 
             Event::Start(Tag::List(first_num)) => {
+                if !inline_spans.is_empty() {
+                    if let Some(current_list) = list_stack.last_mut() {
+                        if let Some(current_item) = current_list.items.last_mut() {
+                            current_item.append_spans(&mut inline_spans);
+                        }
+                    }
+                }
                 list_stack.push(ListBuilder {
                     is_ordered: first_num.is_some(),
                     items: Vec::new(),
                 });
             }
             Event::Start(Tag::Item) => {
+                if !inline_spans.is_empty() {
+                    if let Some(current_list) = list_stack.last_mut() {
+                        if let Some(current_item) = current_list.items.last_mut() {
+                            current_item.append_spans(&mut inline_spans);
+                        }
+                    }
+                }
                 if let Some(current_list) = list_stack.last_mut() {
                     current_list.items.push(ListItemBuilder::Regular {
                         content: Vec::new(),

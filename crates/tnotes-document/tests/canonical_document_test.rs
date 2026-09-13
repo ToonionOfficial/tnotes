@@ -212,3 +212,91 @@ fn test_stable_block_ids() {
     assert!(u1.datetime() <= u2.datetime());
     assert!(u1 <= u2);
 }
+
+#[test]
+fn test_markdown_inline_formatting_combinations() {
+    let md = "Normal **bold** *italic* ~~strike~~ `code` [link](https://example.com)\n";
+    let doc = Document::from_markdown(md).expect("Markdown parsing failed");
+    assert_eq!(doc.blocks.len(), 1);
+
+    if let BlockKind::Paragraph(rt) = &doc.blocks[0].kind {
+        assert!(rt.spans.iter().any(|s| s.marks.bold && s.text == "bold"));
+        assert!(rt.spans.iter().any(|s| s.marks.italic && s.text == "italic"));
+        assert!(rt.spans.iter().any(|s| s.marks.strike && s.text == "strike"));
+        assert!(rt.spans.iter().any(|s| s.marks.code && s.text == "code"));
+        assert!(rt.spans.iter().any(|s| s.link == Some("https://example.com".to_string())));
+    } else {
+        panic!("Expected paragraph");
+    }
+}
+
+#[test]
+fn test_markdown_directives_roundtrip() {
+    let original = Document::new(vec![
+        Block::new(BlockKind::Drawing(DrawingData {
+            asset_id: Some("draw_123".to_string()),
+            strokes: vec![],
+        })),
+        Block::new(BlockKind::Audio(AudioData {
+            asset_id: "audio_456".to_string(),
+            duration_ms: 12000,
+            waveform: None,
+        })),
+    ]);
+
+    let md = original.to_markdown();
+    assert!(md.contains("<!-- tnotes:drawing asset_id=\"draw_123\" -->"));
+    assert!(md.contains("<!-- tnotes:audio asset_id=\"audio_456\" duration_ms=\"12000\" -->"));
+
+    let reparsed = Document::from_markdown(&md).expect("Directive parsing failed");
+    assert_eq!(reparsed.blocks.len(), 2);
+
+    match &reparsed.blocks[0].kind {
+        BlockKind::Drawing(d) => assert_eq!(d.asset_id.as_deref(), Some("draw_123")),
+        _ => panic!("Expected Drawing"),
+    }
+    match &reparsed.blocks[1].kind {
+        BlockKind::Audio(a) => {
+            assert_eq!(a.asset_id, "audio_456");
+            assert_eq!(a.duration_ms, 12000);
+        }
+        _ => panic!("Expected Audio"),
+    }
+}
+
+#[test]
+fn test_markdown_nested_lists() {
+    let md = "1. First\n   - Sub A\n   - Sub B\n2. Second\n";
+    let doc = Document::from_markdown(md).expect("Nested list parsing failed");
+    assert_eq!(doc.blocks.len(), 1);
+
+    if let BlockKind::OrderedList(items) = &doc.blocks[0].kind {
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].content.spans[0].text, "First");
+        assert!(items[0].sub_list.is_some());
+        assert_eq!(items[1].content.spans[0].text, "Second");
+    } else {
+        panic!("Expected OrderedList");
+    }
+}
+
+#[test]
+fn test_extract_text_deeply_nested() {
+    let doc = Document::new(vec![
+        Block::new(BlockKind::BulletList(vec![ListItem {
+            content: RichText::plain("Top level"),
+            sub_list: Some(Box::new(tnotes_document::SubList::Ordered(vec![ListItem {
+                content: RichText::plain("Nested level"),
+                sub_list: None,
+            }]))),
+        }])),
+        Block::new(BlockKind::CodeBlock {
+            language: Some("rust".to_string()),
+            code: "fn test() {}".to_string(),
+        }),
+    ]);
+
+    let text = doc.extract_text();
+    assert_eq!(text, "Top level Nested level fn test() {}");
+}
+
