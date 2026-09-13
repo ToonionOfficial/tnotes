@@ -23,10 +23,7 @@ impl Default for Document {
 
 impl Document {
     pub fn new(blocks: Vec<Block>) -> Self {
-        Self {
-            version: 1,
-            blocks,
-        }
+        Self { version: 1, blocks }
     }
 
     pub fn empty() -> Self {
@@ -66,12 +63,18 @@ impl Block {
 #[serde(tag = "type", content = "data")]
 pub enum BlockKind {
     Paragraph(RichText),
-    Heading { level: u8, content: RichText },
+    Heading {
+        level: u8,
+        content: RichText,
+    },
     BulletList(Vec<ListItem>),
     OrderedList(Vec<ListItem>),
     TaskList(Vec<TaskItem>),
     Quote(RichText),
-    CodeBlock { language: Option<String>, code: String },
+    CodeBlock {
+        language: Option<String>,
+        code: String,
+    },
     Divider,
     Table(TableData),
     Drawing(DrawingData),

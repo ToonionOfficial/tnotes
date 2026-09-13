@@ -221,10 +221,22 @@ fn test_markdown_inline_formatting_combinations() {
 
     if let BlockKind::Paragraph(rt) = &doc.blocks[0].kind {
         assert!(rt.spans.iter().any(|s| s.marks.bold && s.text == "bold"));
-        assert!(rt.spans.iter().any(|s| s.marks.italic && s.text == "italic"));
-        assert!(rt.spans.iter().any(|s| s.marks.strike && s.text == "strike"));
+        assert!(
+            rt.spans
+                .iter()
+                .any(|s| s.marks.italic && s.text == "italic")
+        );
+        assert!(
+            rt.spans
+                .iter()
+                .any(|s| s.marks.strike && s.text == "strike")
+        );
         assert!(rt.spans.iter().any(|s| s.marks.code && s.text == "code"));
-        assert!(rt.spans.iter().any(|s| s.link == Some("https://example.com".to_string())));
+        assert!(
+            rt.spans
+                .iter()
+                .any(|s| s.link == Some("https://example.com".to_string()))
+        );
     } else {
         panic!("Expected paragraph");
     }
@@ -285,10 +297,12 @@ fn test_extract_text_deeply_nested() {
     let doc = Document::new(vec![
         Block::new(BlockKind::BulletList(vec![ListItem {
             content: RichText::plain("Top level"),
-            sub_list: Some(Box::new(tnotes_document::SubList::Ordered(vec![ListItem {
-                content: RichText::plain("Nested level"),
-                sub_list: None,
-            }]))),
+            sub_list: Some(Box::new(tnotes_document::SubList::Ordered(vec![
+                ListItem {
+                    content: RichText::plain("Nested level"),
+                    sub_list: None,
+                },
+            ]))),
         }])),
         Block::new(BlockKind::CodeBlock {
             language: Some("rust".to_string()),
@@ -299,4 +313,3 @@ fn test_extract_text_deeply_nested() {
     let text = doc.extract_text();
     assert_eq!(text, "Top level Nested level fn test() {}");
 }
-

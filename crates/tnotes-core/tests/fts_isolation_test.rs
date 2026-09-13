@@ -54,7 +54,12 @@ fn test_fts_zero_json_token_false_positives() {
     assert_eq!(search_notes(&conn, &user.id, "data").unwrap().len(), 0);
     assert_eq!(search_notes(&conn, &user.id, "marks").unwrap().len(), 0);
     assert_eq!(search_notes(&conn, &user.id, "level").unwrap().len(), 0);
-    assert_eq!(search_notes(&conn, &user.id, "01J8ABC123XYZ0000000000001").unwrap().len(), 0);
+    assert_eq!(
+        search_notes(&conn, &user.id, "01J8ABC123XYZ0000000000001")
+            .unwrap()
+            .len(),
+        0
+    );
 
     let positive_title = search_notes(&conn, &user.id, "Roadmap").unwrap();
     assert_eq!(positive_title.len(), 1);

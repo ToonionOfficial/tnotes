@@ -79,10 +79,7 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                     quote_spans.append(&mut inline_spans);
                 } else if let Some((url, alt)) = current_image.take() {
                     if inline_spans.is_empty() {
-                        let asset_id = url
-                            .strip_prefix("asset://")
-                            .unwrap_or(&url)
-                            .to_string();
+                        let asset_id = url.strip_prefix("asset://").unwrap_or(&url).to_string();
                         blocks.push(Block::new(BlockKind::Image(ImageData {
                             asset_id,
                             alt: if alt.is_empty() { None } else { Some(alt) },
@@ -90,14 +87,15 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                             height: None,
                         })));
                     } else {
-                        let content = RichText::new(normalize_spans(std::mem::take(&mut inline_spans)));
+                        let content =
+                            RichText::new(normalize_spans(std::mem::take(&mut inline_spans)));
                         blocks.push(Block::new(BlockKind::Paragraph(content)));
                     }
                 } else if !list_stack.is_empty() {
-                    if let Some(current_list) = list_stack.last_mut() {
-                        if let Some(current_item) = current_list.items.last_mut() {
-                            current_item.append_spans(&mut inline_spans);
-                        }
+                    if let Some(current_list) = list_stack.last_mut()
+                        && let Some(current_item) = current_list.items.last_mut()
+                    {
+                        current_item.append_spans(&mut inline_spans);
                     }
                 } else if !inline_spans.is_empty() {
                     let content = RichText::new(normalize_spans(std::mem::take(&mut inline_spans)));
@@ -152,11 +150,11 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                 }
             }
             Event::End(TagEnd::TableRow) => {
-                if let Some(table) = &mut current_table {
-                    if !table.in_head {
-                        let row = std::mem::take(&mut table.current_row);
-                        table.rows.push(row);
-                    }
+                if let Some(table) = &mut current_table
+                    && !table.in_head
+                {
+                    let row = std::mem::take(&mut table.current_row);
+                    table.rows.push(row);
                 }
             }
             Event::Start(Tag::TableCell) => {
@@ -180,12 +178,11 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
             }
 
             Event::Start(Tag::List(first_num)) => {
-                if !inline_spans.is_empty() {
-                    if let Some(current_list) = list_stack.last_mut() {
-                        if let Some(current_item) = current_list.items.last_mut() {
-                            current_item.append_spans(&mut inline_spans);
-                        }
-                    }
+                if !inline_spans.is_empty()
+                    && let Some(current_list) = list_stack.last_mut()
+                    && let Some(current_item) = current_list.items.last_mut()
+                {
+                    current_item.append_spans(&mut inline_spans);
                 }
                 list_stack.push(ListBuilder {
                     is_ordered: first_num.is_some(),
@@ -193,12 +190,11 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                 });
             }
             Event::Start(Tag::Item) => {
-                if !inline_spans.is_empty() {
-                    if let Some(current_list) = list_stack.last_mut() {
-                        if let Some(current_item) = current_list.items.last_mut() {
-                            current_item.append_spans(&mut inline_spans);
-                        }
-                    }
+                if !inline_spans.is_empty()
+                    && let Some(current_list) = list_stack.last_mut()
+                    && let Some(current_item) = current_list.items.last_mut()
+                {
+                    current_item.append_spans(&mut inline_spans);
                 }
                 if let Some(current_list) = list_stack.last_mut() {
                     current_list.items.push(ListItemBuilder::Regular {
@@ -208,22 +204,21 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                 }
             }
             Event::TaskListMarker(checked) => {
-                if let Some(current_list) = list_stack.last_mut() {
-                    if let Some(item) = current_list.items.last_mut() {
-                        *item = ListItemBuilder::Task {
-                            checked,
-                            content: Vec::new(),
-                        };
-                    }
+                if let Some(current_list) = list_stack.last_mut()
+                    && let Some(item) = current_list.items.last_mut()
+                {
+                    *item = ListItemBuilder::Task {
+                        checked,
+                        content: Vec::new(),
+                    };
                 }
             }
             Event::End(TagEnd::Item) => {
-                if !inline_spans.is_empty() {
-                    if let Some(current_list) = list_stack.last_mut() {
-                        if let Some(current_item) = current_list.items.last_mut() {
-                            current_item.append_spans(&mut inline_spans);
-                        }
-                    }
+                if !inline_spans.is_empty()
+                    && let Some(current_list) = list_stack.last_mut()
+                    && let Some(current_item) = current_list.items.last_mut()
+                {
+                    current_item.append_spans(&mut inline_spans);
                 }
             }
             Event::End(TagEnd::List(_)) => {
@@ -239,12 +234,14 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                                 .items
                                 .into_iter()
                                 .map(|it| match it {
-                                    ListItemBuilder::Task { checked, content } => {
-                                        TaskItem::new(checked, RichText::new(normalize_spans(content)))
-                                    }
-                                    ListItemBuilder::Regular { content, .. } => {
-                                        TaskItem::new(false, RichText::new(normalize_spans(content)))
-                                    }
+                                    ListItemBuilder::Task { checked, content } => TaskItem::new(
+                                        checked,
+                                        RichText::new(normalize_spans(content)),
+                                    ),
+                                    ListItemBuilder::Regular { content, .. } => TaskItem::new(
+                                        false,
+                                        RichText::new(normalize_spans(content)),
+                                    ),
                                 })
                                 .collect();
                             blocks.push(Block::new(BlockKind::TaskList(tasks)));
@@ -282,14 +279,14 @@ pub fn parse_markdown(md: &str) -> Result<Document, ParseError> {
                             )
                         };
 
-                        if let Some(parent_list) = list_stack.last_mut() {
-                            if let Some(parent_item) = parent_list.items.last_mut() {
-                                match parent_item {
-                                    ListItemBuilder::Regular { sub_list: slot, .. } => {
-                                        *slot = Some(Box::new(sub_list));
-                                    }
-                                    ListItemBuilder::Task { .. } => {}
+                        if let Some(parent_list) = list_stack.last_mut()
+                            && let Some(parent_item) = parent_list.items.last_mut()
+                        {
+                            match parent_item {
+                                ListItemBuilder::Regular { sub_list: slot, .. } => {
+                                    *slot = Some(Box::new(sub_list));
                                 }
+                                ListItemBuilder::Task { .. } => {}
                             }
                         }
                     }
@@ -441,11 +438,12 @@ fn normalize_spans(raw_spans: Vec<Span>) -> Vec<Span> {
             continue;
         }
 
-        if let Some(last) = normalized.last_mut() {
-            if last.marks == span.marks && last.link == span.link {
-                last.text.push_str(&span.text);
-                continue;
-            }
+        if let Some(last) = normalized.last_mut()
+            && last.marks == span.marks
+            && last.link == span.link
+        {
+            last.text.push_str(&span.text);
+            continue;
         }
 
         normalized.push(span);

@@ -41,10 +41,10 @@ impl Document {
                     }
                 }
                 BlockKind::Image(img) => {
-                    if let Some(alt) = &img.alt {
-                        if !alt.trim().is_empty() {
-                            buffer.push(alt.trim().to_string());
-                        }
+                    if let Some(alt) = &img.alt
+                        && !alt.trim().is_empty()
+                    {
+                        buffer.push(alt.trim().to_string());
                     }
                 }
                 BlockKind::Divider | BlockKind::Drawing(_) | BlockKind::Audio(_) => {}
