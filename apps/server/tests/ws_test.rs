@@ -105,6 +105,7 @@ async fn test_websocket_realtime_broadcast() {
     let note = Note::new(
         "Test WS Note",
         "Realtime sync test",
+        "Searchable WS Test",
         None,
         "device_a",
         &user.id,

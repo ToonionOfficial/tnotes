@@ -94,6 +94,7 @@ async fn test_sync_api_flow() {
     let note1 = Note::new(
         "Rust Concurrency",
         "Fearless concurrency with Tokio",
+        "Searchable Concurrency",
         None,
         "device_desktop",
         &user.id,
@@ -234,6 +235,7 @@ async fn test_sync_api_pagination() {
         let note = Note::new(
             format!("Note {}", i),
             format!("Body {}", i),
+            format!("Searchable {}", i),
             None,
             "dev_page1",
             &user.id,
@@ -377,8 +379,8 @@ async fn test_stats_api() {
     assert_eq!(stats["devices_count"], 1);
 
     // 2. Sync 2 notes to server
-    let note1 = Note::new("Note 1", "Body 1", None, "dev_stats", &user.id);
-    let note2 = Note::new("Note 2", "Body 2", None, "dev_stats", &user.id);
+    let note1 = Note::new("Note 1", "Body 1", "Searchable 1", None, "dev_stats", &user.id);
+    let note2 = Note::new("Note 2", "Body 2", "Searchable 2", None, "dev_stats", &user.id);
 
     let envelope = SyncEnvelope {
         device_id: "dev_stats".into(),
