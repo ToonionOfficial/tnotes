@@ -12,6 +12,8 @@ pub struct Note {
     pub folder_id: Option<String>,
     pub title: String,
     pub body: String,
+    #[serde(alias = "searchableText", default)]
+    pub searchable_text: String,
     pub pinned: bool,
     pub trashed: bool,
     pub version: u64,
@@ -27,16 +29,17 @@ pub struct Note {
 }
 
 impl Note {
-    /// Creates a new note with version 1 and calculates its initial checksum
     pub fn new(
         title: impl Into<String>,
         body: impl Into<String>,
+        searchable_text: impl Into<String>,
         folder_id: Option<String>,
         device_id: impl Into<String>,
         user_id: impl Into<String>,
     ) -> Self {
         let title = title.into();
         let body = body.into();
+        let searchable_text = searchable_text.into();
         let device_id = device_id.into();
         let user_id = user_id.into();
         let now = current_time_ms();
@@ -48,6 +51,7 @@ impl Note {
             folder_id,
             title,
             body,
+            searchable_text,
             pinned: false,
             trashed: false,
             version: 1,
@@ -59,12 +63,11 @@ impl Note {
         }
     }
 
-    /// Updates title, body, and folder_id, automatically recalculating checksum,
-    /// bumping version, and updating timestamp.
     pub fn update(
         &mut self,
         title: impl Into<String>,
         body: impl Into<String>,
+        searchable_text: impl Into<String>,
         folder_id: Option<String>,
         device_id: impl Into<String>,
     ) {
@@ -72,13 +75,13 @@ impl Note {
         self.checksum = compute_checksum(&body);
         self.title = title.into();
         self.body = body;
+        self.searchable_text = searchable_text.into();
         self.folder_id = folder_id;
         self.device_id = device_id.into();
         self.version += 1;
         self.updated_at = current_time_ms();
     }
 
-    /// Moves the note to trash (soft delete)
     pub fn trash(&mut self, device_id: impl Into<String>) {
         let now = current_time_ms();
         self.trashed = true;
@@ -88,7 +91,6 @@ impl Note {
         self.version += 1;
     }
 
-    /// Restores the note from trash
     pub fn restore(&mut self, device_id: impl Into<String>) {
         let now = current_time_ms();
         self.trashed = false;
@@ -98,7 +100,6 @@ impl Note {
         self.version += 1;
     }
 
-    /// Toggles or updates the pinned status
     pub fn set_pinned(&mut self, pinned: bool, device_id: impl Into<String>) {
         self.pinned = pinned;
         self.updated_at = current_time_ms();

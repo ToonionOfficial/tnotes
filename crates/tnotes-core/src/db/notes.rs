@@ -8,6 +8,7 @@ pub fn row_to_note(row: &Row) -> Result<Note> {
         folder_id: row.get("folder_id")?,
         title: row.get("title")?,
         body: row.get("body")?,
+        searchable_text: row.get("searchable_text").unwrap_or_default(),
         pinned: row.get::<_, i64>("pinned")? != 0,
         trashed: row.get::<_, i64>("trashed")? != 0,
         version: row.get::<_, i64>("version")? as u64,
@@ -22,11 +23,11 @@ pub fn row_to_note(row: &Row) -> Result<Note> {
 pub fn insert_note(conn: &Connection, note: &Note) -> Result<()> {
     conn.execute(
         "INSERT INTO notes (
-            id, user_id, folder_id, title, body, pinned, trashed,
+            id, user_id, folder_id, title, body, searchable_text, pinned, trashed,
             version, updated_at, created_at, deleted_at,
             device_id, checksum
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
         )",
         params![
             note.id,
@@ -34,6 +35,7 @@ pub fn insert_note(conn: &Connection, note: &Note) -> Result<()> {
             note.folder_id,
             note.title,
             note.body,
+            note.searchable_text,
             note.pinned as i64,
             note.trashed as i64,
             note.version as i64,
@@ -50,17 +52,18 @@ pub fn insert_note(conn: &Connection, note: &Note) -> Result<()> {
 pub fn upsert_note(conn: &Connection, note: &Note) -> Result<()> {
     conn.execute(
         "INSERT INTO notes (
-            id, user_id, folder_id, title, body, pinned, trashed,
+            id, user_id, folder_id, title, body, searchable_text, pinned, trashed,
             version, updated_at, created_at, deleted_at,
             device_id, checksum
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
         )
         ON CONFLICT(id) DO UPDATE SET
             user_id = excluded.user_id,
             folder_id = excluded.folder_id,
             title = excluded.title,
             body = excluded.body,
+            searchable_text = excluded.searchable_text,
             pinned = excluded.pinned,
             trashed = excluded.trashed,
             version = excluded.version,
@@ -74,6 +77,7 @@ pub fn upsert_note(conn: &Connection, note: &Note) -> Result<()> {
             note.folder_id,
             note.title,
             note.body,
+            note.searchable_text,
             note.pinned as i64,
             note.trashed as i64,
             note.version as i64,
@@ -108,7 +112,6 @@ pub fn list_active_notes(conn: &Connection, user_id: &str) -> Result<Vec<Note>> 
     Ok(notes)
 }
 
-/// List active notes inside a specific folder (or root notes if `folder_id` is None)
 pub fn list_notes_by_folder(
     conn: &Connection,
     user_id: &str,
@@ -140,7 +143,6 @@ pub fn list_notes_by_folder(
     }
 }
 
-/// List all trashed notes for a specific user
 pub fn list_trashed_notes(conn: &Connection, user_id: &str) -> Result<Vec<Note>> {
     let mut stmt = conn.prepare(
         "SELECT * FROM notes
@@ -153,13 +155,11 @@ pub fn list_trashed_notes(conn: &Connection, user_id: &str) -> Result<Vec<Note>>
     Ok(notes)
 }
 
-/// Permanently delete a note (hard delete)
 pub fn delete_note_permanently(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
     Ok(())
 }
 
-/// Permanently delete all trashed notes older than `threshold_ms` (e.g. 30 days old)
 pub fn delete_trashed_older_than(conn: &Connection, threshold_ms: i64) -> Result<usize> {
     let count = conn.execute(
         "DELETE FROM notes WHERE trashed = 1 AND deleted_at IS NOT NULL AND deleted_at < ?1",
@@ -168,15 +168,12 @@ pub fn delete_trashed_older_than(conn: &Connection, threshold_ms: i64) -> Result
     Ok(count)
 }
 
-/// Full-Text Search across notes for a specific user using SQLite FTS5 index
 pub fn search_notes(conn: &Connection, user_id: &str, search_term: &str) -> Result<Vec<Note>> {
     let trimmed = search_term.trim();
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
 
-    // Safely tokenize and quote each word as a prefix match (e.g. "rust"* "metal"*)
-    // to prevent FTS5 syntax errors on special characters or operators
     let tokens: Vec<String> = trimmed
         .split_whitespace()
         .map(|word| format!("\"{}\"*", word.replace('"', "\"\"")))
@@ -197,7 +194,6 @@ pub fn search_notes(conn: &Connection, user_id: &str, search_term: &str) -> Resu
     Ok(notes)
 }
 
-/// Returns total non-trashed notes count for a user
 pub fn count_active_notes_for_user(conn: &Connection, user_id: &str) -> Result<usize> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM notes WHERE user_id = ?1 AND trashed = 0",

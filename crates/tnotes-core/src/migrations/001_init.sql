@@ -1,5 +1,3 @@
--- TNotes schema v1
-
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
     username        TEXT NOT NULL UNIQUE,
@@ -42,19 +40,20 @@ CREATE INDEX IF NOT EXISTS idx_folders_user ON folders(user_id);
 CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
 
 CREATE TABLE IF NOT EXISTS notes (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    folder_id   TEXT REFERENCES folders(id),
-    title       TEXT NOT NULL DEFAULT '',
-    body        TEXT NOT NULL DEFAULT '',
-    pinned      INTEGER NOT NULL DEFAULT 0,
-    trashed     INTEGER NOT NULL DEFAULT 0,
-    version     INTEGER NOT NULL DEFAULT 1,
-    updated_at  INTEGER NOT NULL,
-    created_at  INTEGER NOT NULL,
-    deleted_at  INTEGER,
-    device_id   TEXT NOT NULL,
-    checksum    TEXT NOT NULL
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    folder_id       TEXT REFERENCES folders(id),
+    title           TEXT NOT NULL DEFAULT '',
+    body            TEXT NOT NULL DEFAULT '{}',
+    searchable_text TEXT NOT NULL DEFAULT '',
+    pinned          INTEGER NOT NULL DEFAULT 0,
+    trashed         INTEGER NOT NULL DEFAULT 0,
+    version         INTEGER NOT NULL DEFAULT 1,
+    updated_at      INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    device_id       TEXT NOT NULL,
+    checksum        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_updated ON notes(user_id, updated_at);
@@ -62,18 +61,18 @@ CREATE INDEX IF NOT EXISTS idx_notes_folder  ON notes(folder_id);
 CREATE INDEX IF NOT EXISTS idx_notes_trashed ON notes(trashed);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-    title, body, content='notes', content_rowid='rowid'
+    title, searchable_text, content='notes', content_rowid='rowid'
 );
 
 CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
-    INSERT INTO notes_fts(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+    INSERT INTO notes_fts(rowid, title, searchable_text) VALUES (new.rowid, new.title, new.searchable_text);
 END;
 CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
-    INSERT INTO notes_fts(notes_fts, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+    INSERT INTO notes_fts(notes_fts, rowid, title, searchable_text) VALUES('delete', old.rowid, old.title, old.searchable_text);
 END;
 CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
-    INSERT INTO notes_fts(notes_fts, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
-    INSERT INTO notes_fts(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+    INSERT INTO notes_fts(notes_fts, rowid, title, searchable_text) VALUES('delete', old.rowid, old.title, old.searchable_text);
+    INSERT INTO notes_fts(rowid, title, searchable_text) VALUES (new.rowid, new.title, new.searchable_text);
 END;
 
 CREATE TABLE IF NOT EXISTS sync_meta (

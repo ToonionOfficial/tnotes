@@ -293,7 +293,7 @@ mod tests {
         create_user(&conn, &user).unwrap();
 
         // 1. Client A creates a note
-        let note_a = Note::new("Title A", "Body A", None, "dev_a", &user.id);
+        let note_a = Note::new("Title A", "Body A", "Searchable A", None, "dev_a", &user.id);
         let change_a = Change {
             entity_type: EntityType::Note,
             entity_id: note_a.id.clone(),
@@ -330,7 +330,13 @@ mod tests {
 
         // 3. Client B sends a newer version (version = 2)
         let mut new_note_b = note_a.clone();
-        new_note_b.update("Title B", "Updated Body B", None, "dev_b");
+        new_note_b.update(
+            "Title B",
+            "Updated Body B",
+            "Updated Searchable B",
+            None,
+            "dev_b",
+        );
         let change_new = Change {
             entity_type: EntityType::Note,
             entity_id: new_note_b.id.clone(),
@@ -364,7 +370,14 @@ mod tests {
         upsert_device(&conn, &dev_b).unwrap();
 
         // 1. Client dev_a syncs a new note to the server
-        let note_a = Note::new("Server Note", "From dev_a", None, "dev_a", &user.id);
+        let note_a = Note::new(
+            "Server Note",
+            "From dev_a",
+            "Searchable A",
+            None,
+            "dev_a",
+            &user.id,
+        );
         let envelope_a = SyncEnvelope {
             device_id: "dev_a".to_string(),
             last_seq: 0,
@@ -384,7 +397,14 @@ mod tests {
         assert_eq!(response_a.changes.len(), 0);
 
         // 2. Client dev_b connects with last_seq = 0 and pushes its own note
-        let note_b = Note::new("Client Note", "From dev_b", None, "dev_b", &user.id);
+        let note_b = Note::new(
+            "Client Note",
+            "From dev_b",
+            "Searchable B",
+            None,
+            "dev_b",
+            &user.id,
+        );
         let envelope_b = SyncEnvelope {
             device_id: "dev_b".to_string(),
             last_seq: 0,
@@ -515,7 +535,7 @@ mod tests {
         upsert_device(&conn, &sender).unwrap();
         upsert_device(&conn, &receiver).unwrap();
 
-        let mut note = Note::new("Deleted", "Body", None, &sender.id, &user.id);
+        let mut note = Note::new("Deleted", "Body", "Searchable", None, &sender.id, &user.id);
         note.deleted_at = Some(note.updated_at);
         let response = process_sync_envelope(
             &mut conn,
@@ -648,6 +668,7 @@ mod tests {
         let malicious_note = Note::new(
             "Attacker Note",
             "Body",
+            "Searchable",
             Some("f1".into()),
             &dev2.id,
             &user2.id,

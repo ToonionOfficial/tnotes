@@ -36,11 +36,25 @@ async fn test_housekeeping_task() {
     create_session(&conn, &expired_session).unwrap();
 
     // 2. Setup Notes: one recently trashed (5 days ago), one old trashed (35 days ago)
-    let mut recent_trashed = Note::new("Recent Note", "Body", None, "device_active", &user.id);
+    let mut recent_trashed = Note::new(
+        "Recent Note",
+        "Body",
+        "Recent Searchable",
+        None,
+        "device_active",
+        &user.id,
+    );
     recent_trashed.trashed = true;
     recent_trashed.deleted_at = Some(now - (5 * ms_per_day));
 
-    let mut old_trashed = Note::new("Old Note", "Body", None, "device_active", &user.id);
+    let mut old_trashed = Note::new(
+        "Old Note",
+        "Body",
+        "Old Searchable",
+        None,
+        "device_active",
+        &user.id,
+    );
     old_trashed.trashed = true;
     old_trashed.deleted_at = Some(now - (35 * ms_per_day));
 
