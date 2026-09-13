@@ -9,7 +9,6 @@ serde_json = "1.0"
 thiserror = "2.0.20"
 ulid = { version = "3.0", features = ["serde"] }
 pulldown-cmark = { version = "0.13", default-features = false, features = ["simd"] }
-tl = "0.7.8"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
