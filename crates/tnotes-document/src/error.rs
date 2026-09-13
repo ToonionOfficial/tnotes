@@ -10,4 +10,7 @@ pub enum ParseError {
 
     #[error("Malformed block attributes in <{tag}>: {reason}")]
     MalformedAttributes { tag: String, reason: String },
+
+    #[error("Failed to parse Markdown structure: {0}")]
+    InvalidMarkdown(String),
 }
