@@ -4,6 +4,8 @@ mod editor;
 mod theme;
 mod views;
 
+use app::Tnotes;
+
 fn main() {
-    println!("tnotes-desktop");
+    Tnotes::run_app();
 }

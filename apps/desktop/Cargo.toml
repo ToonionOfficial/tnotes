@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 tnotes-core = { path = "../../crates/tnotes-core" }
 
-gpui = { git = "https://github.com/zed-industries/zed" }
-gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["wayland", "x11", "font-kit"] }
+gpui = "0.2"
+twrite = "0.10.0"
