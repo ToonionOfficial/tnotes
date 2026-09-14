@@ -97,29 +97,25 @@ impl RenderOnce for FolderTreeItem {
             IconName::Folder
         });
 
-        let chevron_icon = if self.is_expanded {
-            IconName::ChevronDown
+        let chevron = if self.on_toggle.is_some() {
+            let chevron_icon = if self.is_expanded {
+                IconName::ChevronDown
+            } else {
+                IconName::ChevronRight
+            };
+            div()
+                .w(px(16.))
+                .h(px(16.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(Icon::new(chevron_icon).size(px(12.)).color(theme.muted_foreground))
         } else {
-            IconName::ChevronRight
+            div().w(px(16.)).h(px(16.))
         };
 
         let on_toggle = self.on_toggle;
-        let mut chevron = div()
-            .id((self.id.clone(), "chevron"))
-            .w(px(16.))
-            .h(px(16.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .cursor_pointer()
-            .hover(|s| s.text_color(theme.foreground))
-            .child(Icon::new(chevron_icon).size(px(12.)).color(theme.muted_foreground));
-
-        if let Some(on_toggle) = on_toggle {
-            chevron = chevron.on_click(move |ev, window, cx| {
-                on_toggle(ev, window, cx);
-            });
-        }
+        let on_select = self.on_select;
 
         let mut row = div()
             .id(self.id)
@@ -158,8 +154,15 @@ impl RenderOnce for FolderTreeItem {
             );
         }
 
-        if let Some(on_select) = self.on_select {
-            row = row.on_click(move |ev, window, cx| on_select(ev, window, cx));
+        if on_toggle.is_some() || on_select.is_some() {
+            row = row.on_click(move |ev, window, cx| {
+                if let Some(ref toggle) = on_toggle {
+                    toggle(ev, window, cx);
+                }
+                if let Some(ref select) = on_select {
+                    select(ev, window, cx);
+                }
+            });
         }
 
         row

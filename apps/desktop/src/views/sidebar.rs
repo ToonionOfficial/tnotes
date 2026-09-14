@@ -16,6 +16,7 @@ impl SidebarView {
     pub fn new() -> Self {
         let mut expanded_folders = HashSet::new();
         expanded_folders.insert("projects".to_string());
+        expanded_folders.insert("projects:architecture".to_string());
 
         Self {
             is_collapsed: false,
@@ -49,6 +50,7 @@ impl Render for SidebarView {
         let theme = cx.theme();
         let selected = self.selected_section.clone();
         let projects_expanded = self.expanded_folders.contains("projects");
+        let arch_expanded = self.expanded_folders.contains("projects:architecture");
         let personal_expanded = self.expanded_folders.contains("personal");
 
         let header = SidebarHeader::new()
@@ -139,24 +141,62 @@ impl Render for SidebarView {
                             })),
                     )
                     .children(if projects_expanded {
-                        vec![
+                        let mut items = Vec::new();
+
+                        items.push(
                             FolderTreeItem::new("folder-architecture", "Architecture")
                                 .depth(1)
+                                .icon(IconName::Code)
+                                .expanded(arch_expanded)
                                 .selected(selected == "folder:architecture")
                                 .count(4)
+                                .on_toggle(cx.listener(|this, _, _, cx| {
+                                    this.toggle_folder("projects:architecture", cx);
+                                }))
                                 .on_select(cx.listener(|this, _, _, cx| {
                                     this.select_section("folder:architecture", cx);
                                 }))
                                 .into_any_element(),
+                        );
+
+                        if arch_expanded {
+                            items.push(
+                                FolderTreeItem::new("folder-arch-core", "Core Engine")
+                                    .depth(2)
+                                    .icon(IconName::Zap)
+                                    .selected(selected == "folder:arch-core")
+                                    .count(2)
+                                    .on_select(cx.listener(|this, _, _, cx| {
+                                        this.select_section("folder:arch-core", cx);
+                                    }))
+                                    .into_any_element(),
+                            );
+                            items.push(
+                                FolderTreeItem::new("folder-arch-desktop", "Desktop Shell")
+                                    .depth(2)
+                                    .icon(IconName::Rocket)
+                                    .selected(selected == "folder:arch-desktop")
+                                    .count(2)
+                                    .on_select(cx.listener(|this, _, _, cx| {
+                                        this.select_section("folder:arch-desktop", cx);
+                                    }))
+                                    .into_any_element(),
+                            );
+                        }
+
+                        items.push(
                             FolderTreeItem::new("folder-specs", "Specifications")
                                 .depth(1)
+                                .icon(IconName::FileText)
                                 .selected(selected == "folder:specs")
                                 .count(8)
                                 .on_select(cx.listener(|this, _, _, cx| {
                                     this.select_section("folder:specs", cx);
                                 }))
                                 .into_any_element(),
-                        ]
+                        );
+
+                        items
                     } else {
                         vec![]
                     })
@@ -172,7 +212,31 @@ impl Render for SidebarView {
                             .on_select(cx.listener(|this, _, _, cx| {
                                 this.select_section("folder:personal", cx);
                             })),
-                    ),
+                    )
+                    .children(if personal_expanded {
+                        vec![
+                            FolderTreeItem::new("folder-journal", "Journal")
+                                .depth(1)
+                                .icon(IconName::Bookmark)
+                                .selected(selected == "folder:journal")
+                                .count(3)
+                                .on_select(cx.listener(|this, _, _, cx| {
+                                    this.select_section("folder:journal", cx);
+                                }))
+                                .into_any_element(),
+                            FolderTreeItem::new("folder-ideas", "Ideas")
+                                .depth(1)
+                                .icon(IconName::Lightbulb)
+                                .selected(selected == "folder:ideas")
+                                .count(4)
+                                .on_select(cx.listener(|this, _, _, cx| {
+                                    this.select_section("folder:ideas", cx);
+                                }))
+                                .into_any_element(),
+                        ]
+                    } else {
+                        vec![]
+                    }),
             );
 
         let footer = SidebarFooter::new().child(
