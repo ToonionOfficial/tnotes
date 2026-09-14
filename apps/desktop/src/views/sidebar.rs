@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use gpui::*;
 use crate::components::{
-    Button, FolderTreeItem, Icon, IconName, Input, Sidebar, SidebarContent, SidebarFooter,
+    Button, FolderTreeItem, IconName, Input, Sidebar, SidebarContent, SidebarFooter,
     SidebarGroup, SidebarHeader,
 };
 use crate::theme::ThemeExt;
@@ -53,6 +53,50 @@ impl Render for SidebarView {
         let arch_expanded = self.expanded_folders.contains("projects:architecture");
         let personal_expanded = self.expanded_folders.contains("personal");
 
+        if self.is_collapsed {
+            return div()
+                .id("main-sidebar-collapsed")
+                .w(px(48.))
+                .h_full()
+                .bg(theme.background)
+                .border_r_1()
+                .border_color(theme.border)
+                .flex()
+                .flex_col()
+                .items_center()
+                .justify_between()
+                .py_2p5()
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            Button::icon("sidebar-collapse-btn", IconName::PanelLeft)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.toggle_collapsed(cx);
+                                })),
+                        )
+                        .child(
+                            Button::icon("new-note-collapsed-btn", IconName::Plus)
+                                .size(crate::components::ButtonSize::Sm),
+                        )
+                        .child(
+                            Button::icon("search-collapsed-btn", IconName::Search)
+                                .size(crate::components::ButtonSize::Sm),
+                        ),
+                )
+                .child(
+                    Button::icon("settings-collapsed-btn", IconName::Settings)
+                        .size(crate::components::ButtonSize::Sm)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.select_section("settings", cx);
+                        })),
+                )
+                .into_any_element();
+        }
+
         let header = SidebarHeader::new()
             .child(
                 div()
@@ -64,18 +108,30 @@ impl Render for SidebarView {
                         div()
                             .flex()
                             .items_center()
-                            .gap_1p5()
+                            .gap_2()
                             .child(
-                                Icon::new(IconName::Folder)
-                                    .size(px(14.))
-                                    .color(theme.primary),
+                                div()
+                                    .w(px(22.))
+                                    .h(px(22.))
+                                    .rounded(px(6.))
+                                    .bg(theme.primary)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(
+                                        div()
+                                            .text_size(px(12.))
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.primary_foreground)
+                                            .child("T"),
+                                    ),
                             )
                             .child(
                                 div()
-                                    .text_size(px(13.5))
-                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_size(px(14.))
+                                    .font_weight(FontWeight::BOLD)
                                     .text_color(theme.foreground)
-                                    .child("Personal Vault"),
+                                    .child("TNotes"),
                             ),
                     )
                     .child(
@@ -250,9 +306,10 @@ impl Render for SidebarView {
 
         Sidebar::new("main-sidebar")
             .width(px(250.))
-            .collapsed(self.is_collapsed)
+            .collapsed(false)
             .header(header)
             .content(content)
             .footer(footer)
+            .into_any_element()
     }
 }
