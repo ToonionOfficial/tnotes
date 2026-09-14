@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use gpui::*;
 use crate::components::{
-    Button, FolderTreeItem, IconName, Input, Sidebar, SidebarContent, SidebarFooter,
+    Button, FolderTreeItem, Icon, IconName, Input, Sidebar, SidebarContent, SidebarFooter,
     SidebarGroup, SidebarHeader,
 };
 use crate::theme::ThemeExt;
@@ -182,7 +182,20 @@ impl Render for SidebarView {
             .child(
                 SidebarGroup::new()
                     .label("Folders")
-                    .action(Button::icon("add-folder-btn", IconName::Plus).size(crate::components::ButtonSize::Sm))
+                    .action(
+                        div()
+                            .id("add-folder-btn")
+                            .w(px(20.))
+                            .h(px(20.))
+                            .rounded(px(4.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                            .text_color(theme.muted_foreground)
+                            .child(Icon::new(IconName::Plus).size(px(12.))),
+                    )
                     .child(
                         FolderTreeItem::new("folder-projects", "Projects")
                             .depth(0)
@@ -243,7 +256,7 @@ impl Render for SidebarView {
                         items.push(
                             FolderTreeItem::new("folder-specs", "Specifications")
                                 .depth(1)
-                                .icon(IconName::FileText)
+                                .icon(IconName::Briefcase)
                                 .selected(selected == "folder:specs")
                                 .count(8)
                                 .on_select(cx.listener(|this, _, _, cx| {

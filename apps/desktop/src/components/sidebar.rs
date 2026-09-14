@@ -195,12 +195,13 @@ impl RenderOnce for SidebarGroup {
 
         let header = self.label.map(|label| {
             div()
+                .h(px(24.))
                 .flex()
                 .items_center()
                 .justify_between()
-                .px_2()
-                .py_1()
-                .text_size(px(10.5))
+                .pl(px(6.))
+                .pr(px(2.))
+                .text_size(px(11.))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme.muted_foreground)
                 .child(label)
