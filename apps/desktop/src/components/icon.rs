@@ -18,8 +18,23 @@ pub enum IconName {
     PanelLeft,
     X,
     RefreshCw,
+    Briefcase,
+    Lightbulb,
+    Rocket,
+    Target,
+    GraduationCap,
+    Palette,
+    Home,
+    Wallet,
+    Heart,
+    Bookmark,
+    Code,
+    Music,
+    Zap,
+    ShoppingCart,
 }
 
+#[allow(dead_code)]
 impl IconName {
     pub fn path(self) -> SharedString {
         match self {
@@ -37,8 +52,56 @@ impl IconName {
             Self::PanelLeft => "icons/panel-left.svg",
             Self::X => "icons/x.svg",
             Self::RefreshCw => "icons/refresh-cw.svg",
+            Self::Briefcase => "icons/briefcase.svg",
+            Self::Lightbulb => "icons/lightbulb.svg",
+            Self::Rocket => "icons/rocket.svg",
+            Self::Target => "icons/target.svg",
+            Self::GraduationCap => "icons/graduation-cap.svg",
+            Self::Palette => "icons/palette.svg",
+            Self::Home => "icons/home.svg",
+            Self::Wallet => "icons/wallet.svg",
+            Self::Heart => "icons/heart.svg",
+            Self::Bookmark => "icons/bookmark.svg",
+            Self::Code => "icons/code.svg",
+            Self::Music => "icons/music.svg",
+            Self::Zap => "icons/zap.svg",
+            Self::ShoppingCart => "icons/shopping-cart.svg",
         }
         .into()
+    }
+
+    pub fn from_slug(slug: &str) -> Option<Self> {
+        match slug {
+            "folder" => Some(Self::Folder),
+            "folder-open" => Some(Self::FolderOpen),
+            "file-text" => Some(Self::FileText),
+            "search" => Some(Self::Search),
+            "settings" => Some(Self::Settings),
+            "plus" => Some(Self::Plus),
+            "chevron-right" => Some(Self::ChevronRight),
+            "chevron-down" => Some(Self::ChevronDown),
+            "star" => Some(Self::Star),
+            "check" => Some(Self::Check),
+            "trash" | "trash-2" => Some(Self::Trash2),
+            "panel-left" => Some(Self::PanelLeft),
+            "x" => Some(Self::X),
+            "refresh-cw" => Some(Self::RefreshCw),
+            "briefcase" => Some(Self::Briefcase),
+            "lightbulb" => Some(Self::Lightbulb),
+            "rocket" => Some(Self::Rocket),
+            "target" => Some(Self::Target),
+            "graduation-cap" => Some(Self::GraduationCap),
+            "palette" => Some(Self::Palette),
+            "home" => Some(Self::Home),
+            "wallet" => Some(Self::Wallet),
+            "heart" => Some(Self::Heart),
+            "bookmark" => Some(Self::Bookmark),
+            "code" => Some(Self::Code),
+            "music" => Some(Self::Music),
+            "zap" => Some(Self::Zap),
+            "shopping-cart" => Some(Self::ShoppingCart),
+            _ => None,
+        }
     }
 }
 

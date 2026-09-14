@@ -1,11 +1,10 @@
 use gpui::*;
 use crate::assets::DesktopAssets;
-use crate::components::{Button, IconName, Input};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
+use crate::views::SidebarView;
 
-#[allow(dead_code)]
 pub struct Tnotes {
-    text: SharedString,
+    sidebar: Entity<SidebarView>,
 }
 
 impl Render for Tnotes {
@@ -14,34 +13,29 @@ impl Render for Tnotes {
         div()
             .size_full()
             .flex()
-            .flex_col()
-            .items_center()
-            .justify_center()
-            .gap_4()
             .bg(theme.background)
             .text_color(theme.foreground)
+            .child(self.sidebar.clone())
             .child(
                 div()
-                    .w(px(260.))
+                    .flex_1()
+                    .h_full()
                     .flex()
                     .flex_col()
-                    .gap_2()
-                    .child(Input::sidebar_search("search-input"))
+                    .items_center()
+                    .justify_center()
+                    .gap_3()
                     .child(
-                        Button::sidebar("notes-btn", "All Notes")
-                            .leading_icon(IconName::FileText)
-                            .count(42)
-                            .active(true),
+                        div()
+                            .text_size(px(24.))
+                            .font_weight(FontWeight::BOLD)
+                            .child("TNotes"),
                     )
                     .child(
-                        Button::sidebar("starred-btn", "Starred")
-                            .leading_icon(IconName::Star)
-                            .count(5),
-                    )
-                    .child(
-                        Button::primary("create-btn", "New Note")
-                            .leading_icon(IconName::Plus)
-                            .full_width(true),
+                        div()
+                            .text_size(px(14.))
+                            .text_color(theme.muted_foreground)
+                            .child("Select or create a note to begin"),
                     ),
             )
     }
@@ -54,7 +48,7 @@ impl Tnotes {
             .run(|cx: &mut App| {
                 cx.set_global(ActiveTheme(Theme::dark()));
 
-                let bounds = Bounds::centered(None, size(px(800.), px(600.)), cx);
+                let bounds = Bounds::centered(None, size(px(1000.), px(700.)), cx);
 
                 cx.open_window(
                     WindowOptions {
@@ -62,9 +56,8 @@ impl Tnotes {
                         ..Default::default()
                     },
                     |_, cx| {
-                        cx.new(|_cx| Tnotes {
-                            text: "TNotes".into(),
-                        })
+                        let sidebar = cx.new(|_| SidebarView::new());
+                        cx.new(|_| Tnotes { sidebar })
                     },
                 )
                 .unwrap();
