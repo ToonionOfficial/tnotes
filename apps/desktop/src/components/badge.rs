@@ -26,6 +26,20 @@ impl Badge {
         }
     }
 
+    pub fn secondary(label: impl Into<SharedString>) -> Self {
+        Self {
+            label: label.into(),
+            variant: BadgeVariant::Secondary,
+        }
+    }
+
+    pub fn outline(label: impl Into<SharedString>) -> Self {
+        Self {
+            label: label.into(),
+            variant: BadgeVariant::Outline,
+        }
+    }
+
     pub fn variant(mut self, variant: BadgeVariant) -> Self {
         self.variant = variant;
         self

@@ -13,10 +13,12 @@ pub use badge::{Badge, BadgeVariant, KbdBadge};
 #[allow(unused_imports)]
 pub use button::{Button, ButtonSize, ButtonVariant};
 #[allow(unused_imports)]
-pub use folder_item::FolderTreeItem;
+pub use folder_item::{FolderTreeItem, NoteTreeItem};
 #[allow(unused_imports)]
 pub use icon::{Icon, IconName};
 #[allow(unused_imports)]
 pub use input::{Input, InputSize, InputVariant};
+#[allow(unused_imports)]
+pub use note_card::NoteCard;
 #[allow(unused_imports)]
 pub use sidebar::{Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader};

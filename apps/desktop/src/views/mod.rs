@@ -5,4 +5,6 @@ pub mod settings;
 pub mod sidebar;
 
 #[allow(unused_imports)]
-pub use sidebar::SidebarView;
+pub use note_list::{NoteListView, NoteSummary};
+#[allow(unused_imports)]
+pub use sidebar::{NoteItem, SidebarView};

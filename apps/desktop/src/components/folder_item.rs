@@ -168,3 +168,118 @@ impl RenderOnce for FolderTreeItem {
         row
     }
 }
+
+#[allow(dead_code)]
+#[derive(IntoElement)]
+pub struct NoteTreeItem {
+    id: ElementId,
+    title: SharedString,
+    depth: usize,
+    is_active: bool,
+    is_pinned: bool,
+    on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+}
+
+#[allow(dead_code)]
+impl NoteTreeItem {
+    pub fn new(id: impl Into<SharedString>, title: impl Into<SharedString>) -> Self {
+        let id_str: SharedString = id.into();
+        Self {
+            id: ElementId::from(id_str),
+            title: title.into(),
+            depth: 0,
+            is_active: false,
+            is_pinned: false,
+            on_click: None,
+        }
+    }
+
+    pub fn depth(mut self, depth: usize) -> Self {
+        self.depth = depth;
+        self
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.is_active = active;
+        self
+    }
+
+    pub fn pinned(mut self, pinned: bool) -> Self {
+        self.is_pinned = pinned;
+        self
+    }
+
+    pub fn on_click(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_click = Some(Box::new(handler));
+        self
+    }
+}
+
+impl RenderOnce for NoteTreeItem {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let theme = cx.theme();
+        let indent = px(12. + (self.depth as f32) * 16.);
+
+        let (bg, text_color, icon_color) = if self.is_active {
+            (theme.secondary, theme.foreground, theme.primary)
+        } else {
+            (gpui::transparent_black(), theme.foreground, theme.muted_foreground)
+        };
+
+        let mut row = div()
+            .id(self.id)
+            .w_full()
+            .h(px(28.))
+            .pl(indent)
+            .pr(px(8.))
+            .rounded(px(5.))
+            .bg(bg)
+            .flex()
+            .items_center()
+            .justify_between()
+            .cursor_pointer()
+            .hover(|s| s.bg(theme.secondary))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .flex_1()
+                    .overflow_hidden()
+                    .child(
+                        Icon::new(IconName::FileText)
+                            .size(px(14.))
+                            .color(icon_color),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .font_weight(if self.is_active {
+                                FontWeight::MEDIUM
+                            } else {
+                                FontWeight::NORMAL
+                            })
+                            .text_color(text_color)
+                            .line_clamp(1)
+                            .child(self.title),
+                    ),
+            );
+
+        if self.is_pinned {
+            row = row.child(
+                Icon::new(IconName::Star)
+                    .size(px(11.))
+                    .color(theme.primary),
+            );
+        }
+
+        if let Some(on_click) = self.on_click {
+            row = row.on_click(move |ev, window, cx| on_click(ev, window, cx));
+        }
+
+        row
+    }
+}
