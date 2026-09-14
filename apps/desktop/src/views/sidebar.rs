@@ -8,20 +8,60 @@ use crate::theme::ThemeExt;
 
 pub struct SidebarView {
     is_collapsed: bool,
+    search_query: String,
+    search_focus: FocusHandle,
     selected_section: String,
     expanded_folders: HashSet<String>,
 }
 
 impl SidebarView {
-    pub fn new() -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         let mut expanded_folders = HashSet::new();
         expanded_folders.insert("projects".to_string());
         expanded_folders.insert("projects:architecture".to_string());
 
         Self {
             is_collapsed: false,
+            search_query: String::new(),
+            search_focus: cx.focus_handle(),
             selected_section: "all_notes".to_string(),
             expanded_folders,
+        }
+    }
+
+    fn handle_search_key(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let key = &event.keystroke.key;
+        if key == "backspace" {
+            self.search_query.pop();
+            cx.notify();
+        } else if key == "escape" {
+            self.search_query.clear();
+            window.blur();
+            cx.notify();
+        } else if key == "enter" {
+            window.blur();
+            cx.notify();
+        } else if !event.keystroke.modifiers.platform
+            && !event.keystroke.modifiers.control
+            && !event.keystroke.modifiers.alt
+        {
+            if let Some(ref text) = event.keystroke.key_char {
+                if !text.is_empty() && !text.chars().all(|c| c.is_control()) {
+                    self.search_query.push_str(text);
+                    cx.notify();
+                }
+            } else if key == "space" {
+                self.search_query.push(' ');
+                cx.notify();
+            } else if key.chars().count() == 1 {
+                self.search_query.push_str(key);
+                cx.notify();
+            }
         }
     }
 
@@ -146,7 +186,18 @@ impl Render for SidebarView {
                     .leading_icon(IconName::Plus)
                     .full_width(true),
             )
-            .child(Input::sidebar_search("sidebar-search-input"));
+            .child(
+                Input::sidebar_search("sidebar-search-input")
+                    .value(self.search_query.clone())
+                    .focus_handle(self.search_focus.clone())
+                    .on_key_down(cx.listener(|this, event, window, cx| {
+                        this.handle_search_key(event, window, cx);
+                    }))
+                    .on_clear(cx.listener(|this, _, _, cx| {
+                        this.search_query.clear();
+                        cx.notify();
+                    })),
+            );
 
         let content = SidebarContent::new()
             .child(

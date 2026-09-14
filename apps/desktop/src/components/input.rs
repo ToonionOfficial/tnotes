@@ -28,10 +28,13 @@ pub struct Input {
     size: InputSize,
     placeholder: SharedString,
     value: SharedString,
+    focus_handle: Option<FocusHandle>,
     leading_icon: Option<IconName>,
     trailing_kbd: Option<SharedString>,
     disabled: bool,
     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_key_down: Option<Box<dyn Fn(&KeyDownEvent, &mut Window, &mut App) + 'static>>,
+    on_clear: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -43,10 +46,13 @@ impl Input {
             size: InputSize::Default,
             placeholder: "".into(),
             value: "".into(),
+            focus_handle: None,
             leading_icon: None,
             trailing_kbd: None,
             disabled: false,
             on_click: None,
+            on_key_down: None,
+            on_clear: None,
         }
     }
 
@@ -79,6 +85,11 @@ impl Input {
         self
     }
 
+    pub fn focus_handle(mut self, handle: FocusHandle) -> Self {
+        self.focus_handle = Some(handle);
+        self
+    }
+
     pub fn leading_icon(mut self, icon: IconName) -> Self {
         self.leading_icon = Some(icon);
         self
@@ -101,10 +112,26 @@ impl Input {
         self.on_click = Some(Box::new(handler));
         self
     }
+
+    pub fn on_key_down(
+        mut self,
+        handler: impl Fn(&KeyDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_key_down = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_clear(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_clear = Some(Box::new(handler));
+        self
+    }
 }
 
 impl RenderOnce for Input {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
 
         let (height, padding_x, font_size, icon_size, radius) = match self.size {
@@ -113,22 +140,18 @@ impl RenderOnce for Input {
             InputSize::Lg => (px(40.), px(12.), px(15.0), px(18.), px(8.)),
         };
 
+        let is_focused = self
+            .focus_handle
+            .as_ref()
+            .map(|h| h.is_focused(window))
+            .unwrap_or(false);
+
         let (bg, border_color) = match self.variant {
-            InputVariant::Default => (theme.card, theme.border),
-            InputVariant::Sidebar => (theme.card, theme.border),
+            InputVariant::Default => (theme.card, if is_focused { theme.ring } else { theme.border }),
+            InputVariant::Sidebar => (theme.card, if is_focused { theme.ring } else { theme.border }),
         };
 
         let is_empty = self.value.is_empty();
-        let display_text = if is_empty {
-            self.placeholder.clone()
-        } else {
-            self.value.clone()
-        };
-        let text_color = if is_empty {
-            theme.muted_foreground
-        } else {
-            theme.foreground
-        };
 
         let mut el = div()
             .id(self.id)
@@ -142,38 +165,114 @@ impl RenderOnce for Input {
             .flex()
             .items_center()
             .justify_between()
-            .text_size(font_size)
-            .text_color(text_color);
+            .text_size(font_size);
 
         if self.disabled {
             el = el.opacity(0.5).cursor_not_allowed();
         } else {
             el = el
                 .cursor_text()
-                .hover(|s| s.border_color(theme.ring));
+                .hover(|s| s.border_color(theme.ring))
+                .focus(|s| s.border_color(theme.ring));
+        }
+
+        if let Some(ref focus_handle) = self.focus_handle {
+            el = el.track_focus(focus_handle);
+        }
+
+        if !self.disabled {
+            let focus_handle = self.focus_handle.clone();
+            let on_click = self.on_click;
+            if focus_handle.is_some() || on_click.is_some() {
+                el = el.on_click(move |ev, window, cx| {
+                    if let Some(ref h) = focus_handle {
+                        h.focus(window);
+                    }
+                    if let Some(ref click) = on_click {
+                        click(ev, window, cx);
+                    }
+                });
+            }
+        }
+
+        if let Some(on_key_down) = self.on_key_down {
+            el = el.on_key_down(move |event, window, cx| {
+                on_key_down(event, window, cx);
+            });
+        }
+
+        if is_focused {
+            el = el.on_mouse_down_out(move |_event, window, _| {
+                window.blur();
+            });
+        }
+
+        let cursor = div()
+            .w(px(1.5))
+            .h(px(14.))
+            .bg(theme.primary);
+
+        let mut text_container = div().flex().items_center().overflow_hidden();
+
+        if is_empty {
+            if is_focused {
+                text_container = text_container.child(cursor.mr(px(2.)));
+            }
+            text_container = text_container.child(
+                div()
+                    .text_color(theme.muted_foreground)
+                    .line_clamp(1)
+                    .child(self.placeholder.clone()),
+            );
+        } else {
+            text_container = text_container.child(
+                div()
+                    .text_color(theme.foreground)
+                    .line_clamp(1)
+                    .child(self.value.clone()),
+            );
+            if is_focused {
+                text_container = text_container.child(cursor.ml(px(1.)));
+            }
         }
 
         let leading = div()
             .flex()
             .items_center()
             .gap_2()
+            .flex_1()
+            .overflow_hidden()
             .children(self.leading_icon.map(|name| {
                 Icon::new(name)
                     .size(icon_size)
-                    .color(theme.muted_foreground)
+                    .color(if is_focused { theme.primary } else { theme.muted_foreground })
             }))
-            .child(div().line_clamp(1).child(display_text));
+            .child(text_container);
 
         el = el.child(leading);
 
-        if let Some(kbd) = self.trailing_kbd {
+        if !is_empty && self.on_clear.is_some() {
+            let on_clear = self.on_clear.unwrap();
+            el = el.child(
+                div()
+                    .id("input-clear-btn")
+                    .w(px(16.))
+                    .h(px(16.))
+                    .rounded(px(3.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                    .text_color(theme.muted_foreground)
+                    .on_click(move |ev, window, cx| {
+                        cx.stop_propagation();
+                        on_clear(ev, window, cx);
+                    })
+                    .child(Icon::new(IconName::X).size(px(11.))),
+            );
+        } else if let Some(kbd) = self.trailing_kbd {
             el = el.child(KbdBadge::new(kbd));
-        }
-
-        if let Some(on_click) = self.on_click {
-            if !self.disabled {
-                el = el.on_click(move |ev, window, cx| on_click(ev, window, cx));
-            }
         }
 
         el

@@ -56,7 +56,7 @@ impl Tnotes {
                         ..Default::default()
                     },
                     |_, cx| {
-                        let sidebar = cx.new(|_| SidebarView::new());
+                        let sidebar = cx.new(|cx| SidebarView::new(cx));
                         cx.new(|_| Tnotes { sidebar })
                     },
                 )
