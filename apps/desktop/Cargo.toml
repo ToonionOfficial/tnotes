@@ -8,3 +8,4 @@ tnotes-core = { path = "../../crates/tnotes-core" }
 
 gpui = "0.2"
 twrite = "0.10.0"
+rust-embed = "8.5"

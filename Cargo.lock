@@ -6067,6 +6067,7 @@ name = "tnotes-desktop"
 version = "0.1.0"
 dependencies = [
  "gpui",
+ "rust-embed",
  "tnotes-core",
  "twrite",
 ]
