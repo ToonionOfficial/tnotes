@@ -786,4 +786,35 @@ mod tests {
 
         assert_eq!(store.read_with(cx, |s, _| s.active_notes().len()), 0);
     }
+
+    #[test]
+    fn settings_benchmark_large_batch_creation() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        let store = view.read_with(cx, |v, _| v.test_store());
+
+        store.update(cx, |s, cx| {
+            let (notes, folders) = s.create_benchmark_notes(5000, cx);
+            assert_eq!(notes, 5000);
+            assert_eq!(folders, 500);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(store.read_with(cx, |s, _| s.active_note_count()), 5000);
+
+        store.update(cx, |s, cx| {
+            let deleted = s.delete_benchmark_notes(cx);
+            assert_eq!(deleted, 5000);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(store.read_with(cx, |s, _| s.active_note_count()), 0);
+    }
 }

@@ -10,8 +10,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         (
             store.user_id().to_string(),
             crate::paths::database_file(),
-            store.active_notes().len(),
-            store.trashed_notes().len(),
+            store.active_note_count(),
+            store.trashed_note_count(),
             store.folder_tree().len(),
         )
     };

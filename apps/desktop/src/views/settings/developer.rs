@@ -10,7 +10,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         let store = view.store();
         let store = store.read(cx);
         (
-            store.active_notes().len(),
+            store.active_note_count(),
             store.folder_tree().len(),
             crate::paths::database_file(),
         )

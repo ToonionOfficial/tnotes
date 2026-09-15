@@ -5,6 +5,7 @@ mod folder_tree;
 mod model;
 mod rename;
 
+#[allow(unused_imports)]
 pub use folder_icons::FOLDER_ICON_OPTIONS;
 #[allow(unused_imports)]
 pub(crate) use folder_icons::{folder_icon_for, folder_icon_from_name, folder_icon_name};
@@ -15,14 +16,13 @@ pub use model::{
 use std::collections::HashSet;
 use gpui::*;
 use crate::components::{
-    InputState, Sidebar, SidebarCollapsible,
+    InputState, Sidebar, SidebarCollapsible, UniformListScrollHandle,
 };
 use crate::store::NoteStore;
 
 impl SidebarView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
         let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
-        // Folders start collapsed; expansion is purely local UI state.
         let expanded_folders = HashSet::new();
 
         Self {
@@ -35,6 +35,10 @@ impl SidebarView {
             context_menu_focus: cx.focus_handle(),
             renaming: None,
             picking_icon_for: None,
+            tree_scroll_handle: UniformListScrollHandle::new(),
+            search_scroll_handle: UniformListScrollHandle::new(),
+            tree_rows: Vec::new(),
+            search_rows: Vec::new(),
             _store_subscription: store_sub,
         }
     }
@@ -191,18 +195,19 @@ impl Render for SidebarView {
             .rail(self.render_rail(cx))
             .into_any_element();
 
-        // The wrapper sits at the window origin (first flex child), so the
-        // menu's window-coordinate offsets resolve 1:1 onto it. The deferred
-        // menu paints above the sidebar without being clipped by the scroll
-        // area. (The menu must stay a direct child of this wrapper: any
-        // in-flow element between them would shift the absolute offsets by
-        // its own origin and push the popup off-screen.)
         if let Some(menu) = self.context_menu_element(cx) {
             div()
                 .id("sidebar-with-context-menu")
                 .h_full()
                 .child(sidebar)
                 .child(menu)
+                .into_any_element()
+        } else if let Some(picker) = self.icon_picker_element(cx) {
+            div()
+                .id("sidebar-with-icon-picker")
+                .h_full()
+                .child(sidebar)
+                .child(picker)
                 .into_any_element()
         } else {
             sidebar

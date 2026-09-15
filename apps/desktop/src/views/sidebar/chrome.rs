@@ -187,7 +187,7 @@ impl SidebarView {
         )
     }
 
-    pub(super) fn render_content(&self, cx: &mut Context<Self>) -> SidebarContent {
+    pub(super) fn render_content(&mut self, cx: &mut Context<Self>) -> SidebarContent {
         use crate::store::NavigationLocation;
 
         let (selected_note, active_location, starred_count, trash_count) = {
@@ -195,8 +195,8 @@ impl SidebarView {
             (
                 store.selected_note_id(),
                 store.active_location().clone(),
-                store.starred_notes().len(),
-                store.trashed_notes().len(),
+                store.starred_note_count(),
+                store.trashed_note_count(),
             )
         };
         let query = self.search_state.value().trim().to_string();

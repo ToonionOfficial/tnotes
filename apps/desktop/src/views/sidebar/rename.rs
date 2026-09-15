@@ -95,8 +95,6 @@ impl SidebarView {
         }
     }
 
-    /// Inline rename editor for the folder/note row with `id`, or `None` when
-    /// no rename session targets it.
     pub(super) fn rename_editor_row(
         &self,
         id: &str,
@@ -111,9 +109,11 @@ impl SidebarView {
         let focus = state.focus.clone();
         Some(
             div()
+                .h(px(28.))
                 .pl(indent)
                 .pr_2()
-                .py(px(1.))
+                .flex()
+                .items_center()
                 .child(
                     Input::new(SharedString::from(format!("rename-{id}")))
                         .state(&input)

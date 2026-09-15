@@ -10,7 +10,10 @@ pub mod note_card;
 pub mod pairing_dialog;
 pub mod sidebar;
 pub mod sync_indicator;
+pub mod virtual_list;
 
+#[allow(unused_imports)]
+pub use virtual_list::{uniform_list, virtual_list, UniformList, UniformListScrollHandle};
 #[allow(unused_imports)]
 pub use badge::{Badge, BadgeVariant, KbdBadge};
 #[allow(unused_imports)]

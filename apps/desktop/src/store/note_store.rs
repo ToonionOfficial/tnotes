@@ -379,6 +379,22 @@ impl NoteStore {
 
     // ---- note collections (owned clones: keeps the FTS swap signature-stable) ----
 
+    pub fn notes(&self) -> &[Note] {
+        &self.notes
+    }
+
+    pub fn active_note_count(&self) -> usize {
+        self.notes.iter().filter(|n| !n.trashed).count()
+    }
+
+    pub fn trashed_note_count(&self) -> usize {
+        self.notes.iter().filter(|n| n.trashed).count()
+    }
+
+    pub fn starred_note_count(&self) -> usize {
+        self.notes.iter().filter(|n| n.pinned && !n.trashed).count()
+    }
+
     pub fn active_notes(&self) -> Vec<Note> {
         self.notes.iter().filter(|n| !n.trashed).cloned().collect()
     }
@@ -586,11 +602,23 @@ impl NoteStore {
     pub fn create_benchmark_notes(&mut self, count: usize, cx: &mut Context<Self>) -> (usize, usize) {
         let folder_count = (count + 9) / 10;
         let mut folder_ids = Vec::with_capacity(folder_count);
+        let mut new_folders = Vec::with_capacity(folder_count);
+
         for i in 0..folder_count {
             let folder_name = format!("__tnotes_benchmark_folder_v1__:Benchmark Folder {}", i + 1);
-            let fid = self.create_folder(&folder_name, None, cx);
-            folder_ids.push(fid);
+            let folder = Folder::new(
+                &folder_name,
+                None,
+                None,
+                i as i32,
+                LOCAL_DEVICE_ID,
+                self.user_id.clone(),
+            );
+            folder_ids.push(folder.id.clone());
+            new_folders.push(folder);
         }
+
+        let mut new_notes = Vec::with_capacity(count);
         for i in 0..count {
             let target_folder = if !folder_ids.is_empty() {
                 Some(folder_ids[i % folder_ids.len()].clone())
@@ -607,35 +635,70 @@ impl NoteStore {
                 LOCAL_DEVICE_ID,
                 self.user_id.clone(),
             );
-            self.persist_note(&note);
-            self.notes.insert(0, note);
+            new_notes.push(note);
         }
+
+        if let Some(conn) = self.conn.as_ref() {
+            let _ = conn.execute_batch("BEGIN TRANSACTION;");
+            for folder in &new_folders {
+                let _ = folders::upsert_folder(conn, folder);
+            }
+            for note in &new_notes {
+                let _ = notes::upsert_note(conn, note);
+            }
+            let _ = conn.execute_batch("COMMIT;");
+            self.reload_folders();
+        } else {
+            for folder in new_folders {
+                let node = FolderNode {
+                    folder: folder.clone(),
+                    depth: 0,
+                    path: folder.name.clone(),
+                };
+                self.folders.push(node);
+            }
+        }
+
+        new_notes.extend(std::mem::take(&mut self.notes));
+        self.notes = new_notes;
+
         cx.notify();
         (count, folder_count)
     }
 
     pub fn delete_benchmark_notes(&mut self, cx: &mut Context<Self>) -> usize {
-        let benchmark_note_ids: Vec<String> = self
+        let benchmark_note_ids: std::collections::HashSet<String> = self
             .notes
             .iter()
             .filter(|n| n.searchable_text.starts_with("__tnotes_benchmark_note_v1__:") || n.title.starts_with("Benchmark Note"))
             .map(|n| n.id.clone())
             .collect();
         let count = benchmark_note_ids.len();
-        self.notes.retain(|n| !benchmark_note_ids.contains(&n.id));
-        for id in &benchmark_note_ids {
-            self.delete_persisted_note(id);
-            self.history.remove_note(id);
-        }
-        let benchmark_folder_ids: Vec<String> = self
+
+        let benchmark_folder_ids: std::collections::HashSet<String> = self
             .folders
             .iter()
             .filter(|f| f.folder.name.starts_with("__tnotes_benchmark_folder_v1__:") || f.folder.name.starts_with("Benchmark Folder"))
             .map(|f| f.folder.id.clone())
             .collect();
-        for fid in benchmark_folder_ids {
-            self.delete_folder(&fid, cx);
+
+        if let Some(conn) = self.conn.as_ref() {
+            let _ = conn.execute_batch(
+                "BEGIN TRANSACTION;
+                 DELETE FROM notes WHERE searchable_text LIKE '__tnotes_benchmark_note_v1__:%' OR title LIKE 'Benchmark Note %';
+                 DELETE FROM folders WHERE name LIKE '__tnotes_benchmark_folder_v1__:%' OR name LIKE 'Benchmark Folder %';
+                 COMMIT;",
+            );
+            self.reload_folders();
+        } else {
+            self.folders.retain(|f| !benchmark_folder_ids.contains(&f.folder.id));
         }
+
+        self.notes.retain(|n| !benchmark_note_ids.contains(&n.id));
+        for id in &benchmark_note_ids {
+            self.history.remove_note(id);
+        }
+
         cx.notify();
         count
     }
@@ -654,6 +717,7 @@ impl NoteStore {
             .map(|n| n.folder.name.as_str())
     }
 
+    #[allow(dead_code)]
     fn is_descendant(&self, folder_id: &str, ancestor_id: &str) -> bool {
         if folder_id == ancestor_id {
             return true;
@@ -676,6 +740,7 @@ impl NoteStore {
         false
     }
 
+    #[allow(dead_code)]
     pub fn notes_in_folder(&self, folder_id: &str) -> Vec<Note> {
         self.notes
             .iter()
@@ -685,6 +750,7 @@ impl NoteStore {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn notes_without_folder(&self) -> Vec<Note> {
         self.notes
             .iter()
@@ -693,7 +759,7 @@ impl NoteStore {
             .collect()
     }
 
-    /// Subtree count (matches the old hardcoded badge totals).
+    #[allow(dead_code)]
     pub fn note_count_in_folder(&self, folder_id: &str) -> usize {
         self.notes
             .iter()
@@ -1327,6 +1393,47 @@ mod tests {
             let node = s.folder_tree().iter().find(|n| n.folder.id == fid).unwrap();
             assert_eq!(node.folder.icon, "briefcase");
         });
+    }
+
+    #[test]
+    fn sqlite_benchmark_large_batch_persists_and_deletes() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("tnotes-bench-test-{nanos}.db"));
+
+        let cx = TestAppContext::single();
+        let store = cx.update(|cx| {
+            cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap())
+        });
+
+        cx.update(|cx| {
+            store.update(cx, |s, cx| {
+                let (notes, folders) = s.create_benchmark_notes(5000, cx);
+                assert_eq!(notes, 5000);
+                assert_eq!(folders, 500);
+            });
+        });
+
+        let reopened = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        assert_eq!(reopened.active_note_count(), 5000);
+        assert_eq!(reopened.folder_tree().len(), 500);
+
+        cx.update(|cx| {
+            store.update(cx, |s, cx| {
+                let deleted = s.delete_benchmark_notes(cx);
+                assert_eq!(deleted, 5000);
+            });
+        });
+
+        let reopened_empty = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        assert_eq!(reopened_empty.active_note_count(), 0);
+        assert_eq!(reopened_empty.folder_tree().len(), 0);
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
     }
     /// Deterministic fixture for view tests: one folder with three notes
     /// (two pinned, one plain). Not part of the production API.

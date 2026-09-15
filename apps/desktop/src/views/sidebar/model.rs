@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use gpui::*;
-use crate::components::InputState;
+use tnotes_core::models::note::Note;
+use crate::components::{InputState, UniformListScrollHandle};
 use crate::store::NoteStore;
 
 pub struct SidebarView {
@@ -13,10 +14,42 @@ pub struct SidebarView {
     pub(crate) context_menu_focus: FocusHandle,
     pub(crate) renaming: Option<RenameState>,
     pub(crate) picking_icon_for: Option<String>,
+    pub(crate) tree_scroll_handle: UniformListScrollHandle,
+    pub(crate) search_scroll_handle: UniformListScrollHandle,
+    pub(crate) tree_rows: Vec<TreeRow>,
+    pub(crate) search_rows: Vec<Note>,
     pub(crate) _store_subscription: Subscription,
 }
 
-/// Inline rename session for one folder or note row.
+#[derive(Clone, Debug)]
+pub enum TreeRow {
+    Folder {
+        id: String,
+        name: String,
+        icon: String,
+        depth: usize,
+        expanded: bool,
+        count: usize,
+    },
+    Note {
+        id: String,
+        title: String,
+        depth: usize,
+        is_active: bool,
+        is_pinned: bool,
+    },
+}
+
+impl TreeRow {
+    #[allow(dead_code)]
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Folder { id, .. } => id,
+            Self::Note { id, .. } => id,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RenameState {
     pub(crate) kind: RenameKind,
@@ -31,7 +64,6 @@ pub enum RenameKind {
     Note,
 }
 
-/// Right-click target for the sidebar context menu.
 #[derive(Clone, Debug)]
 pub enum SidebarContextTarget {
     Folder { id: String, name: String },

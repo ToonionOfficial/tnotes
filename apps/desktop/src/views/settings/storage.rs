@@ -9,8 +9,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         let store = store.read(cx);
         (
             crate::paths::database_file(),
-            store.active_notes().len(),
-            store.trashed_notes().len(),
+            store.active_note_count(),
+            store.trashed_note_count(),
             store.folder_tree().len(),
         )
     };

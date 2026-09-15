@@ -343,7 +343,7 @@ impl FpsMonitor {
             last_render_at: None,
             last_draw_duration: Duration::from_micros(1000),
             frame_budget,
-            headline_mode: HeadlineMode::Max,
+            headline_mode: HeadlineMode::Observed,
             compact: false,
             benchmarking: false,
             style: FpsStyle::default(),
@@ -841,7 +841,9 @@ impl Render for FpsMonitor {
                 }
             });
 
-        self.last_draw_duration = render_start.elapsed().max(Duration::from_micros(100));
+        self.last_draw_duration = self
+            .last_draw_duration
+            .max(render_start.elapsed().max(Duration::from_micros(100)));
 
         hud
     }
@@ -974,6 +976,32 @@ pub fn fps_monitor(window: &mut Window, cx: &mut App) -> FpsOverlay {
             monitor
         }
     };
+
+    FpsOverlay::new(&monitor)
+}
+
+pub fn fps_monitor_with_duration(
+    window: &mut Window,
+    cx: &mut App,
+    draw_duration: Duration,
+) -> FpsOverlay {
+    let window_id = window.window_handle().window_id();
+    let existing = cx
+        .try_global::<FpsMonitors>()
+        .and_then(|state| state.0.get(&window_id).cloned());
+    let monitor = match existing {
+        Some(monitor) => monitor,
+        None => {
+            let monitor = cx.new(|cx| FpsMonitor::new(window, cx));
+            cx.default_global::<FpsMonitors>()
+                .0
+                .insert(window_id, monitor.clone());
+            monitor
+        }
+    };
+    monitor.update(cx, |this, _cx| {
+        this.last_draw_duration = draw_duration;
+    });
 
     FpsOverlay::new(&monitor)
 }

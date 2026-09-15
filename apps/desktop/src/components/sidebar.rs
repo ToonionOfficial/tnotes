@@ -290,15 +290,15 @@ impl SidebarContent {
 impl RenderOnce for SidebarContent {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         div()
-            .id("sidebar-content-scroll")
+            .id("sidebar-content")
             .flex_1()
             .min_h_0()
-            .overflow_y_scroll()
+            .overflow_hidden()
             .px_2()
             .py_1()
             .flex()
             .flex_col()
-            .gap_3()
+            .gap_2()
             .children(self.children)
     }
 }
@@ -310,6 +310,7 @@ pub struct SidebarGroup {
     action: Option<AnyElement>,
     collapsed: bool,
     collapsible: bool,
+    fill: bool,
     children: Vec<AnyElement>,
 }
 
@@ -317,6 +318,11 @@ pub struct SidebarGroup {
 impl SidebarGroup {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn fill(mut self, fill: bool) -> Self {
+        self.fill = fill;
+        self
     }
 
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
@@ -358,6 +364,7 @@ impl RenderOnce for SidebarGroup {
         let header = self.label.map(|label| {
             div()
                 .h(px(24.))
+                .flex_none()
                 .flex()
                 .items_center()
                 .justify_between()
@@ -370,19 +377,39 @@ impl RenderOnce for SidebarGroup {
                 .children(self.action)
         });
 
-        div()
+        let mut group = div()
             .flex()
             .flex_col()
-            .gap_0p5()
+            .gap_0p5();
+
+        if self.fill {
+            group = group.flex_1().min_h_0().overflow_hidden();
+        } else {
+            group = group.flex_none();
+        }
+
+        group
             .children(header)
             .when(!self.collapsed, |this| {
-                this.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_0p5()
-                        .children(self.children),
-                )
+                if self.fill {
+                    this.child(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .flex()
+                            .flex_col()
+                            .children(self.children),
+                    )
+                } else {
+                    this.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_0p5()
+                            .children(self.children),
+                    )
+                }
             })
     }
 }

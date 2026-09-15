@@ -1,7 +1,8 @@
+use std::time::Instant;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use crate::assets::DesktopAssets;
-use crate::components::fps_monitor;
+use crate::components::fps::fps_monitor_with_duration;
 use crate::keymap::{
     CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NavigateBack, NavigateForward, NewNote,
     OpenSettings, PinNote, ToggleFps, ToggleSidebar,
@@ -34,6 +35,7 @@ pub struct Tnotes {
 
 impl Render for Tnotes {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let frame_start = Instant::now();
         let theme = cx.theme();
 
         let root = div()
@@ -44,10 +46,17 @@ impl Render for Tnotes {
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle);
 
-        self.with_actions(root, cx)
+        let content = self.with_actions(root, cx)
             .child(self.render_notes(cx))
-            .child(self.render_settings(cx))
-            .when(self.show_fps, |this| this.child(fps_monitor(window, cx)))
+            .child(self.render_settings(cx));
+
+        if self.show_fps {
+            window.request_animation_frame();
+            let draw_duration = frame_start.elapsed();
+            content.child(fps_monitor_with_duration(window, cx, draw_duration))
+        } else {
+            content
+        }
     }
 }
 
