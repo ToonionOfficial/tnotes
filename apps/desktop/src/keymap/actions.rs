@@ -11,6 +11,8 @@ actions!(tnotes, [
     SaveAndClose,
     OpenSettings,
     CloseSettings,
+    NavigateBack,
+    NavigateForward,
 ]);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,6 +98,22 @@ pub const ALL_ACTIONS: &[ActionMeta] = &[
         default_context: Some("Editor"),
         default_key: "ctrl-enter",
     },
+    ActionMeta {
+        id: "tnotes::NavigateBack",
+        label: "Go Back",
+        description: "Navigate to previous note in history",
+        category: "Navigation",
+        default_context: None,
+        default_key: "alt-left",
+    },
+    ActionMeta {
+        id: "tnotes::NavigateForward",
+        label: "Go Forward",
+        description: "Navigate to next note in history",
+        category: "Navigation",
+        default_context: None,
+        default_key: "alt-right",
+    },
 ];
 
 pub fn create_binding(id: &str, raw_keystrokes: &str, context: Option<&str>) -> Option<KeyBinding> {
@@ -111,6 +129,8 @@ pub fn create_binding(id: &str, raw_keystrokes: &str, context: Option<&str>) -> 
         "tnotes::Save" => Some(KeyBinding::new(&normalized, Save, context)),
         "tnotes::SaveAndClose" => Some(KeyBinding::new(&normalized, SaveAndClose, context)),
         "tnotes::CloseSettings" => Some(KeyBinding::new(&normalized, CloseSettings, context)),
+        "tnotes::NavigateBack" => Some(KeyBinding::new(&normalized, NavigateBack, context)),
+        "tnotes::NavigateForward" => Some(KeyBinding::new(&normalized, NavigateForward, context)),
         _ => None,
     }
 }

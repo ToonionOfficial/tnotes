@@ -31,6 +31,10 @@ impl KeymapConfig {
         global_bindings.insert("ctrl-n".to_string(), "tnotes::NewNote".to_string());
         global_bindings.insert("ctrl-k".to_string(), "tnotes::FocusSearch".to_string());
         global_bindings.insert("ctrl-,".to_string(), "tnotes::OpenSettings".to_string());
+        global_bindings.insert("alt-left".to_string(), "tnotes::NavigateBack".to_string());
+        global_bindings.insert("alt-right".to_string(), "tnotes::NavigateForward".to_string());
+        global_bindings.insert("ctrl-[".to_string(), "tnotes::NavigateBack".to_string());
+        global_bindings.insert("ctrl-]".to_string(), "tnotes::NavigateForward".to_string());
 
         let mut sidebar_bindings = BTreeMap::new();
         sidebar_bindings.insert("delete".to_string(), "tnotes::DeleteNote".to_string());

@@ -48,6 +48,12 @@ impl Render for SettingsView {
                     this.trigger_back(window, cx);
                 }
             }))
+            .on_mouse_down(
+                MouseButton::Navigate(NavigationDirection::Back),
+                cx.listener(|this, _event, window, cx| {
+                    this.trigger_back(window, cx);
+                }),
+            )
             .child(
                 div()
                     .id("settings-sidebar-placeholder")
@@ -194,5 +200,36 @@ mod tests {
         cx.run_until_parked();
 
         assert!(called.load(Ordering::SeqCst), "escape keystroke should invoke on_back");
+    }
+
+    #[test]
+    fn settings_view_mouse_back_button_invokes_on_back() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let (_view, cx) = cx.add_window_view(|_, cx| {
+            let mut settings = SettingsView::new(cx);
+            settings.set_on_back(move |_, _| {
+                called_clone.store(true, Ordering::SeqCst);
+            });
+            settings
+        });
+        cx.run_until_parked();
+
+        cx.simulate_event(gpui::MouseDownEvent {
+            button: gpui::MouseButton::Navigate(gpui::NavigationDirection::Back),
+            position: gpui::point(gpui::px(50.), gpui::px(50.)),
+            modifiers: Default::default(),
+            click_count: 1,
+            first_mouse: false,
+        });
+        cx.run_until_parked();
+
+        assert!(called.load(Ordering::SeqCst), "mouse back button should invoke on_back");
     }
 }

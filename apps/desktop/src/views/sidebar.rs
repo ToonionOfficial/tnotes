@@ -20,12 +20,59 @@ pub struct NoteItem {
     pub is_pinned: bool,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NavigationHistory {
+    pub back_stack: Vec<String>,
+    pub forward_stack: Vec<String>,
+}
+
+impl NavigationHistory {
+    pub fn can_go_back(&self) -> bool {
+        !self.back_stack.is_empty()
+    }
+
+    pub fn can_go_forward(&self) -> bool {
+        !self.forward_stack.is_empty()
+    }
+
+    pub fn push(&mut self, current: Option<&str>, next: &str) {
+        if let Some(cur) = current {
+            if cur != next {
+                self.back_stack.push(cur.to_string());
+                self.forward_stack.clear();
+            }
+        }
+    }
+
+    pub fn go_back(&mut self, current: Option<&str>) -> Option<String> {
+        let prev = self.back_stack.pop()?;
+        if let Some(cur) = current {
+            self.forward_stack.push(cur.to_string());
+        }
+        Some(prev)
+    }
+
+    pub fn go_forward(&mut self, current: Option<&str>) -> Option<String> {
+        let next = self.forward_stack.pop()?;
+        if let Some(cur) = current {
+            self.back_stack.push(cur.to_string());
+        }
+        Some(next)
+    }
+
+    pub fn remove_note(&mut self, note_id: &str) {
+        self.back_stack.retain(|id| id != note_id);
+        self.forward_stack.retain(|id| id != note_id);
+    }
+}
+
 pub struct SidebarView {
     is_collapsed: bool,
     search_state: InputState,
     search_focus: FocusHandle,
     selected_section: String,
     selected_note_id: Option<String>,
+    history: NavigationHistory,
     expanded_folders: HashSet<String>,
     starred_expanded: bool,
     notes: Vec<NoteItem>,
@@ -130,6 +177,7 @@ impl SidebarView {
             search_focus: cx.focus_handle(),
             selected_section: "projects".to_string(),
             selected_note_id,
+            history: NavigationHistory::default(),
             expanded_folders,
             starred_expanded: false,
             notes,
@@ -183,7 +231,6 @@ impl SidebarView {
 
     pub fn toggle_starred(&mut self, cx: &mut Context<Self>) {
         self.starred_expanded = !self.starred_expanded;
-        self.selected_section = "starred".to_string();
         cx.notify();
     }
 
@@ -193,8 +240,40 @@ impl SidebarView {
     }
 
     pub fn select_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
+        if self.selected_note_id.as_deref() == Some(note_id) {
+            return;
+        }
+        self.history.push(self.selected_note_id.as_deref(), note_id);
         self.selected_note_id = Some(note_id.to_string());
         cx.notify();
+    }
+
+    pub fn navigate_back(&mut self, cx: &mut Context<Self>) -> bool {
+        if let Some(prev) = self.history.go_back(self.selected_note_id.as_deref()) {
+            self.selected_note_id = Some(prev);
+            cx.notify();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn navigate_forward(&mut self, cx: &mut Context<Self>) -> bool {
+        if let Some(next) = self.history.go_forward(self.selected_note_id.as_deref()) {
+            self.selected_note_id = Some(next);
+            cx.notify();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn can_navigate_back(&self) -> bool {
+        self.history.can_go_back()
+    }
+
+    pub fn can_navigate_forward(&self) -> bool {
+        self.history.can_go_forward()
     }
 
     pub fn selected_note(&self) -> Option<&NoteItem> {
@@ -218,9 +297,8 @@ impl SidebarView {
             is_pinned: false,
         };
         self.notes.insert(0, new_note);
-        self.selected_note_id = Some(id);
+        self.select_note(&id, cx);
         self.context_menu = None;
-        cx.notify();
     }
 
     pub fn toggle_note_pin(&mut self, note_id: &str, cx: &mut Context<Self>) {
@@ -245,16 +323,16 @@ impl SidebarView {
                 is_pinned: false,
             };
             self.notes.insert(index + 1, copy);
-            self.selected_note_id = Some(id);
+            self.select_note(&id, cx);
         }
         self.context_menu = None;
-        cx.notify();
     }
 
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         self.notes.retain(|n| n.id != note_id);
+        self.history.remove_note(note_id);
         if self.selected_note_id.as_deref() == Some(note_id) {
-            self.selected_note_id = None;
+            self.selected_note_id = self.history.back_stack.pop().or_else(|| self.notes.first().map(|n| n.id.clone()));
         }
         self.context_menu = None;
         cx.notify();
@@ -642,12 +720,8 @@ impl Render for SidebarView {
                     .depth(0)
                     .icon(IconName::Star)
                     .expanded(self.starred_expanded)
-                    .selected(self.selected_section == "starred")
                     .count(starred_count)
                     .on_toggle(cx.listener(|this, _, _, cx| {
-                        this.toggle_starred(cx);
-                    }))
-                    .on_select(cx.listener(|this, _, _, cx| {
                         this.toggle_starred(cx);
                     }))
                     .on_right_click(cx.listener(Self::folder_menu_handler(
@@ -721,13 +795,9 @@ impl Render for SidebarView {
                 FolderTreeItem::new("folder-projects", "Projects")
                     .depth(0)
                     .expanded(projects_expanded)
-                    .selected(self.selected_section == "folder:projects")
                     .count(4)
                     .on_toggle(cx.listener(|this, _, _, cx| {
                         this.toggle_folder("projects", cx);
-                    }))
-                    .on_select(cx.listener(|this, _, _, cx| {
-                        this.select_section("folder:projects", cx);
                     }))
                     .on_right_click(cx.listener(Self::folder_menu_handler(
                         "projects".to_string(),
@@ -741,13 +811,9 @@ impl Render for SidebarView {
                         .depth(1)
                         .icon(IconName::Code)
                         .expanded(arch_expanded)
-                        .selected(self.selected_section == "folder:architecture")
                         .count(2)
                         .on_toggle(cx.listener(|this, _, _, cx| {
                             this.toggle_folder("projects:architecture", cx);
-                        }))
-                        .on_select(cx.listener(|this, _, _, cx| {
-                            this.select_section("folder:architecture", cx);
                         }))
                         .on_right_click(cx.listener(Self::folder_menu_handler(
                             "projects:architecture".to_string(),
@@ -761,13 +827,9 @@ impl Render for SidebarView {
                             .depth(2)
                             .icon(IconName::Zap)
                             .expanded(core_expanded)
-                            .selected(self.selected_section == "folder:arch-core")
                             .count(1)
                             .on_toggle(cx.listener(|this, _, _, cx| {
                                 this.toggle_folder("projects:architecture:core", cx);
-                            }))
-                            .on_select(cx.listener(|this, _, _, cx| {
-                                this.select_section("folder:arch-core", cx);
                             }))
                             .on_right_click(cx.listener(Self::folder_menu_handler(
                                 "projects:architecture:core".to_string(),
@@ -789,7 +851,7 @@ impl Render for SidebarView {
                                     "note-arch-spec".to_string(),
                                     "System Architecture Spec".to_string(),
                                     true,
-                                ))),
+                                    ))),
                         );
                     }
 
@@ -798,13 +860,9 @@ impl Render for SidebarView {
                             .depth(2)
                             .icon(IconName::Rocket)
                             .expanded(desktop_expanded)
-                            .selected(self.selected_section == "folder:arch-desktop")
                             .count(1)
                             .on_toggle(cx.listener(|this, _, _, cx| {
                                 this.toggle_folder("projects:architecture:desktop", cx);
-                            }))
-                            .on_select(cx.listener(|this, _, _, cx| {
-                                this.select_section("folder:arch-desktop", cx);
                             }))
                             .on_right_click(cx.listener(Self::folder_menu_handler(
                                 "projects:architecture:desktop".to_string(),
@@ -865,11 +923,7 @@ impl Render for SidebarView {
                     FolderTreeItem::new("folder-specs", "Specifications")
                         .depth(1)
                         .icon(IconName::Briefcase)
-                        .selected(self.selected_section == "folder:specs")
                         .count(0)
-                        .on_select(cx.listener(|this, _, _, cx| {
-                            this.select_section("folder:specs", cx);
-                        }))
                         .on_right_click(cx.listener(Self::folder_menu_handler(
                             "specs".to_string(),
                             "Specifications".to_string(),
@@ -881,13 +935,9 @@ impl Render for SidebarView {
                 FolderTreeItem::new("folder-personal", "Personal Notes")
                     .depth(0)
                     .expanded(personal_expanded)
-                    .selected(self.selected_section == "folder:personal")
                     .count(3)
                     .on_toggle(cx.listener(|this, _, _, cx| {
                         this.toggle_folder("personal", cx);
-                    }))
-                    .on_select(cx.listener(|this, _, _, cx| {
-                        this.select_section("folder:personal", cx);
                     }))
                     .on_right_click(cx.listener(Self::folder_menu_handler(
                         "personal".to_string(),
@@ -901,13 +951,9 @@ impl Render for SidebarView {
                         .depth(1)
                         .icon(IconName::Bookmark)
                         .expanded(journal_expanded)
-                        .selected(self.selected_section == "folder:journal")
                         .count(2)
                         .on_toggle(cx.listener(|this, _, _, cx| {
                             this.toggle_folder("personal:journal", cx);
-                        }))
-                        .on_select(cx.listener(|this, _, _, cx| {
-                            this.select_section("folder:journal", cx);
                         }))
                         .on_right_click(cx.listener(Self::folder_menu_handler(
                             "personal:journal".to_string(),
@@ -1236,5 +1282,141 @@ mod tests {
         });
         cx.run_until_parked();
         assert!(!view.read_with(cx, |v, _| v.is_collapsed));
+    }
+
+    #[test]
+    fn navigation_history_stack_operations() {
+        let mut history = super::NavigationHistory::default();
+        assert!(!history.can_go_back());
+        assert!(!history.can_go_forward());
+
+        history.push(Some("note-a"), "note-b");
+        history.push(Some("note-b"), "note-c");
+        assert!(history.can_go_back());
+        assert!(!history.can_go_forward());
+
+        history.push(Some("note-c"), "note-c");
+        assert_eq!(history.back_stack.len(), 2);
+
+        let prev = history.go_back(Some("note-c"));
+        assert_eq!(prev.as_deref(), Some("note-b"));
+        assert!(history.can_go_back());
+        assert!(history.can_go_forward());
+
+        let prev = history.go_back(Some("note-b"));
+        assert_eq!(prev.as_deref(), Some("note-a"));
+        assert!(!history.can_go_back());
+        assert!(history.can_go_forward());
+
+        let next = history.go_forward(Some("note-a"));
+        assert_eq!(next.as_deref(), Some("note-b"));
+        assert!(history.can_go_back());
+        assert!(history.can_go_forward());
+
+        history.push(Some("note-b"), "note-d");
+        assert!(history.can_go_back());
+        assert!(!history.can_go_forward());
+
+        history.remove_note("note-a");
+        assert_eq!(history.back_stack, vec!["note-b".to_string()]);
+    }
+
+    #[test]
+    fn sidebar_view_note_navigation_back_and_forward() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-arch-spec".to_string())
+        );
+        assert!(!view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(!view.read_with(cx, |v, _| v.can_navigate_forward()));
+
+        view.update(cx, |v, cx| {
+            v.select_note("note-desktop-gpui", cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-desktop-gpui".to_string())
+        );
+        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(!view.read_with(cx, |v, _| v.can_navigate_forward()));
+
+        view.update(cx, |v, cx| {
+            v.select_note("note-db-schema", cx);
+        });
+        cx.run_until_parked();
+
+        let went_back = view.update(cx, |v, cx| v.navigate_back(cx));
+        assert!(went_back);
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-desktop-gpui".to_string())
+        );
+        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(view.read_with(cx, |v, _| v.can_navigate_forward()));
+
+        let went_back = view.update(cx, |v, cx| v.navigate_back(cx));
+        assert!(went_back);
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-arch-spec".to_string())
+        );
+        assert!(!view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(view.read_with(cx, |v, _| v.can_navigate_forward()));
+
+        let went_forward = view.update(cx, |v, cx| v.navigate_forward(cx));
+        assert!(went_forward);
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-desktop-gpui".to_string())
+        );
+    }
+
+    #[test]
+    fn folder_toggle_does_not_select_folder_or_affect_note_selection() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-arch-spec".to_string())
+        );
+
+        view.update(cx, |v, cx| {
+            v.toggle_folder("projects", cx);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-arch-spec".to_string())
+        );
+
+        view.update(cx, |v, cx| {
+            v.toggle_starred(cx);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            Some("note-arch-spec".to_string())
+        );
+        assert_ne!(
+            view.read_with(cx, |v, _| v.selected_section.clone()),
+            "starred"
+        );
     }
 }

@@ -3,8 +3,8 @@ use gpui::*;
 use crate::assets::DesktopAssets;
 use crate::components::{fps_monitor, Icon, IconName};
 use crate::keymap::{
-    CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NewNote, OpenSettings, PinNote,
-    ToggleFps, ToggleSidebar,
+    CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NavigateBack, NavigateForward, NewNote,
+    OpenSettings, PinNote, ToggleFps, ToggleSidebar,
 };
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
 use crate::views::{SettingsView, SidebarView};
@@ -31,28 +31,89 @@ impl Render for Tnotes {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
-        let right_pane = if let Some(note) = self.sidebar.read(cx).selected_note() {
-                    let folder_label = note
-                        .folder_name
-                        .clone()
-                        .unwrap_or_else(|| "Notes".to_string());
+        let sidebar_view = self.sidebar.read(cx);
+        let selected_note = sidebar_view.selected_note();
+        let can_back = sidebar_view.can_navigate_back();
+        let can_forward = sidebar_view.can_navigate_forward();
 
+        let right_pane = if let Some(note) = selected_note {
+            let folder_label = note
+                .folder_name
+                .clone()
+                .unwrap_or_else(|| "Notes".to_string());
+
+            div()
+                .flex_1()
+                .h_full()
+                .flex()
+                .flex_col()
+                .bg(theme.background)
+                .child(
                     div()
-                        .flex_1()
-                        .h_full()
+                        .w_full()
+                        .h(px(48.))
+                        .px(px(24.))
                         .flex()
-                        .flex_col()
-                        .bg(theme.background)
+                        .items_center()
+                        .justify_between()
+                        .border_b_1()
+                        .border_color(theme.border)
                         .child(
                             div()
-                                .w_full()
-                                .h(px(48.))
-                                .px(px(24.))
                                 .flex()
                                 .items_center()
-                                .justify_between()
-                                .border_b_1()
-                                .border_color(theme.border)
+                                .gap_3()
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .id("note-nav-back-btn")
+                                                .w(px(24.))
+                                                .h(px(24.))
+                                                .rounded(px(4.))
+                                                .flex()
+                                                .items_center()
+                                                .justify_center()
+                                                .text_color(theme.muted_foreground)
+                                                .when(can_back, |this| {
+                                                    this.cursor_pointer()
+                                                        .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                                                        .on_click(cx.listener(|this, _, _window, cx| {
+                                                            this.sidebar.update(cx, |sidebar, cx| {
+                                                                sidebar.navigate_back(cx);
+                                                            });
+                                                        }))
+                                                })
+                                                .when(!can_back, |this| this.opacity(0.35).cursor_default())
+                                                .child(Icon::new(IconName::ArrowLeft).size(px(13.))),
+                                        )
+                                        .child(
+                                            div()
+                                                .id("note-nav-forward-btn")
+                                                .w(px(24.))
+                                                .h(px(24.))
+                                                .rounded(px(4.))
+                                                .flex()
+                                                .items_center()
+                                                .justify_center()
+                                                .text_color(theme.muted_foreground)
+                                                .when(can_forward, |this| {
+                                                    this.cursor_pointer()
+                                                        .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                                                        .on_click(cx.listener(|this, _, _window, cx| {
+                                                            this.sidebar.update(cx, |sidebar, cx| {
+                                                                sidebar.navigate_forward(cx);
+                                                            });
+                                                        }))
+                                                })
+                                                .when(!can_forward, |this| this.opacity(0.35).cursor_default())
+                                                .child(Icon::new(IconName::ArrowRight).size(px(13.))),
+                                        ),
+                                )
+                                .child(div().w(px(1.)).h(px(14.)).bg(theme.border))
                                 .child(
                                     div()
                                         .flex()
@@ -70,7 +131,8 @@ impl Render for Tnotes {
                                                 .font_weight(FontWeight::MEDIUM)
                                                 .child(note.title.clone()),
                                         ),
-                                )
+                                ),
+                        )
                                 .child(
                                     div()
                                         .flex()
@@ -226,6 +288,38 @@ impl Render for Tnotes {
                     }
                 });
             }))
+            .on_action(cx.listener(|this, _: &NavigateBack, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    sidebar.navigate_back(cx);
+                });
+            }))
+            .on_action(cx.listener(|this, _: &NavigateForward, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    sidebar.navigate_forward(cx);
+                });
+            }))
+            .on_mouse_down(
+                MouseButton::Navigate(NavigationDirection::Back),
+                cx.listener(|this, _event, window, cx| {
+                    if this.active_screen == AppScreen::Settings {
+                        this.close_settings(window, cx);
+                    } else {
+                        this.sidebar.update(cx, |sidebar, cx| {
+                            sidebar.navigate_back(cx);
+                        });
+                    }
+                }),
+            )
+            .on_mouse_down(
+                MouseButton::Navigate(NavigationDirection::Forward),
+                cx.listener(|this, _event, _window, cx| {
+                    if this.active_screen == AppScreen::Notes {
+                        this.sidebar.update(cx, |sidebar, cx| {
+                            sidebar.navigate_forward(cx);
+                        });
+                    }
+                }),
+            )
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
                 if event.keystroke.key == "f12"
                     || ((event.keystroke.modifiers.control || event.keystroke.modifiers.platform)

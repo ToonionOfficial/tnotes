@@ -10,10 +10,8 @@ pub struct FolderTreeItem {
     icon: Option<IconName>,
     depth: usize,
     is_expanded: bool,
-    is_selected: bool,
     count: Option<usize>,
     on_toggle: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
-    on_select: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
     on_right_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
@@ -26,10 +24,8 @@ impl FolderTreeItem {
             icon: None,
             depth: 0,
             is_expanded: false,
-            is_selected: false,
             count: None,
             on_toggle: None,
-            on_select: None,
             on_right_click: None,
         }
     }
@@ -49,11 +45,6 @@ impl FolderTreeItem {
         self
     }
 
-    pub fn selected(mut self, selected: bool) -> Self {
-        self.is_selected = selected;
-        self
-    }
-
     pub fn count(mut self, count: usize) -> Self {
         self.count = Some(count);
         self
@@ -64,14 +55,6 @@ impl FolderTreeItem {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_toggle = Some(Box::new(handler));
-        self
-    }
-
-    pub fn on_select(
-        mut self,
-        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_select = Some(Box::new(handler));
         self
     }
 
@@ -88,18 +71,6 @@ impl RenderOnce for FolderTreeItem {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
         let indent = px(6.0 + (self.depth as f32 * 12.0));
-
-        let bg = if self.is_selected {
-            theme.secondary
-        } else {
-            gpui::transparent_black()
-        };
-
-        let text_color = if self.is_selected {
-            theme.foreground
-        } else {
-            theme.muted_foreground
-        };
 
         let item_icon = self.icon.unwrap_or(if self.is_expanded {
             IconName::FolderOpen
@@ -125,7 +96,6 @@ impl RenderOnce for FolderTreeItem {
         };
 
         let on_toggle = self.on_toggle;
-        let on_select = self.on_select;
         let on_right_click = self.on_right_click;
 
         let mut row = div()
@@ -134,13 +104,13 @@ impl RenderOnce for FolderTreeItem {
             .pl(indent)
             .pr_2()
             .rounded(px(6.))
-            .bg(bg)
+            .bg(gpui::transparent_black())
             .flex()
             .items_center()
             .justify_between()
             .cursor_pointer()
             .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
-            .text_color(text_color)
+            .text_color(theme.muted_foreground)
             .text_size(px(13.))
             .child(
                 div()
@@ -151,7 +121,7 @@ impl RenderOnce for FolderTreeItem {
                     .child(
                         Icon::new(item_icon)
                             .size(px(14.))
-                            .color(if self.is_selected { theme.primary } else { theme.muted_foreground }),
+                            .color(theme.muted_foreground),
                     )
                     .child(div().line_clamp(1).child(self.name)),
             );
@@ -165,19 +135,12 @@ impl RenderOnce for FolderTreeItem {
             );
         }
 
-        if on_toggle.is_some() || on_select.is_some() {
+        if let Some(on_toggle) = on_toggle {
             row = row.on_click(move |ev, window, cx| {
-                // Right-clicks are handled by `on_right_click` below so the
-                // row doesn't toggle/select when opening the context menu.
                 if ev.is_right_click() {
                     return;
                 }
-                if let Some(ref toggle) = on_toggle {
-                    toggle(ev, window, cx);
-                }
-                if let Some(ref select) = on_select {
-                    select(ev, window, cx);
-                }
+                on_toggle(ev, window, cx);
             });
         }
 
