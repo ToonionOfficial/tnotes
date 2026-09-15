@@ -1,142 +1,24 @@
 use std::collections::HashSet;
 use gpui::*;
+use tnotes_core::models::note::Note;
 use crate::components::{
     Button, ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel,
     ContextMenuSeparator, FolderTreeItem, Icon, IconName, Input, InputState, NoteTreeItem, Sidebar,
     SidebarCollapsible, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarRail,
     SidebarRailItem, SidebarToggleButton,
 };
+use crate::store::{NoteStore, NavigationLocation};
 use crate::theme::ThemeExt;
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub struct NoteItem {
-    pub id: String,
-    pub title: String,
-    pub snippet: String,
-    pub updated_at: String,
-    pub folder_id: Option<String>,
-    pub folder_name: Option<String>,
-    pub is_pinned: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum NavigationLocation {
-    Note(String),
-    Starred,
-    Trash,
-}
-
-impl NavigationLocation {
-    pub fn as_note_id(&self) -> Option<&str> {
-        match self {
-            Self::Note(id) => Some(id.as_str()),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Note(id) => id.as_str(),
-            Self::Starred => "starred",
-            Self::Trash => "trash",
-        }
-    }
-}
-
-impl std::ops::Deref for NavigationLocation {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
-    }
-}
-
-impl From<&str> for NavigationLocation {
-    fn from(s: &str) -> Self {
-        match s {
-            "starred" => Self::Starred,
-            "trash" => Self::Trash,
-            other => Self::Note(other.to_string()),
-        }
-    }
-}
-
-impl From<String> for NavigationLocation {
-    fn from(s: String) -> Self {
-        match s.as_str() {
-            "starred" => Self::Starred,
-            "trash" => Self::Trash,
-            _ => Self::Note(s),
-        }
-    }
-}
-
-impl From<&NavigationLocation> for NavigationLocation {
-    fn from(loc: &NavigationLocation) -> Self {
-        loc.clone()
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NavigationHistory {
-    pub back_stack: Vec<NavigationLocation>,
-    pub forward_stack: Vec<NavigationLocation>,
-}
-
-impl NavigationHistory {
-    pub fn can_go_back(&self) -> bool {
-        !self.back_stack.is_empty()
-    }
-
-    pub fn can_go_forward(&self) -> bool {
-        !self.forward_stack.is_empty()
-    }
-
-    pub fn push(&mut self, current: Option<impl Into<NavigationLocation>>, next: impl Into<NavigationLocation>) {
-        let next = next.into();
-        if let Some(cur) = current {
-            let cur = cur.into();
-            if cur != next {
-                self.back_stack.push(cur);
-                self.forward_stack.clear();
-            }
-        }
-    }
-
-    pub fn go_back(&mut self, current: Option<impl Into<NavigationLocation>>) -> Option<NavigationLocation> {
-        let prev = self.back_stack.pop()?;
-        if let Some(cur) = current {
-            self.forward_stack.push(cur.into());
-        }
-        Some(prev)
-    }
-
-    pub fn go_forward(&mut self, current: Option<impl Into<NavigationLocation>>) -> Option<NavigationLocation> {
-        let next = self.forward_stack.pop()?;
-        if let Some(cur) = current {
-            self.back_stack.push(cur.into());
-        }
-        Some(next)
-    }
-
-    pub fn remove_note(&mut self, note_id: &str) {
-        let target = NavigationLocation::Note(note_id.to_string());
-        self.back_stack.retain(|id| id != &target);
-        self.forward_stack.retain(|id| id != &target);
-    }
-}
-
 pub struct SidebarView {
+    store: Entity<NoteStore>,
     is_collapsed: bool,
     search_state: InputState,
     search_focus: FocusHandle,
-    active_location: NavigationLocation,
-    history: NavigationHistory,
     expanded_folders: HashSet<String>,
-    notes: Vec<NoteItem>,
-    deleted_notes: Vec<NoteItem>,
     context_menu: Option<SidebarContextMenu>,
     context_menu_focus: FocusHandle,
+    _store_subscription: Subscription,
 }
 
 /// Right-click target for the sidebar context menu.
@@ -153,7 +35,8 @@ pub struct SidebarContextMenu {
 }
 
 impl SidebarView {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+        let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
         let mut expanded_folders = HashSet::new();
         expanded_folders.insert("projects".to_string());
         expanded_folders.insert("projects:architecture".to_string());
@@ -162,85 +45,15 @@ impl SidebarView {
         expanded_folders.insert("personal".to_string());
         expanded_folders.insert("personal:journal".to_string());
 
-        let notes = vec![
-            NoteItem {
-                id: "note-arch-spec".to_string(),
-                title: "System Architecture Spec".to_string(),
-                snippet: "Local-first SQLite with FTS5, CRDT synchronization, and DankeShell token design system.".to_string(),
-                updated_at: "Just now".to_string(),
-                folder_id: Some("projects:architecture:core".to_string()),
-                folder_name: Some("Core Engine".to_string()),
-                is_pinned: true,
-            },
-            NoteItem {
-                id: "note-desktop-gpui".to_string(),
-                title: "Desktop Shell & GPUI Architecture".to_string(),
-                snippet: "Unified Obsidian-style sidebar, borderless notes, twrite rope canvas rendering.".to_string(),
-                updated_at: "15m ago".to_string(),
-                folder_id: Some("projects:architecture:desktop".to_string()),
-                folder_name: Some("Desktop Shell".to_string()),
-                is_pinned: true,
-            },
-            NoteItem {
-                id: "note-db-schema".to_string(),
-                title: "Database Schema & Index Design".to_string(),
-                snippet: "Tables for notes, folders, tags, sync operations log, and tokenized full-text search indexes.".to_string(),
-                updated_at: "2h ago".to_string(),
-                folder_id: Some("projects".to_string()),
-                folder_name: Some("Projects".to_string()),
-                is_pinned: false,
-            },
-            NoteItem {
-                id: "note-ws-sync".to_string(),
-                title: "WebSocket Sync Protocol".to_string(),
-                snippet: "Bidirectional binary and JSON delta streaming between mobile client and desktop server.".to_string(),
-                updated_at: "Yesterday".to_string(),
-                folder_id: Some("projects".to_string()),
-                folder_name: Some("Projects".to_string()),
-                is_pinned: false,
-            },
-            NoteItem {
-                id: "note-q3-roadmap".to_string(),
-                title: "Q3 Roadmap & Planning".to_string(),
-                snippet: "Offline-first conflict resolution, canvas mode, graph view, and end-to-end encryption.".to_string(),
-                updated_at: "Sep 12".to_string(),
-                folder_id: Some("personal".to_string()),
-                folder_name: Some("Personal Notes".to_string()),
-                is_pinned: false,
-            },
-            NoteItem {
-                id: "note-sprint-goals".to_string(),
-                title: "Weekly Sprint Goals".to_string(),
-                snippet: "Implement single-sidebar layout, DankeShell active states, and twrite editor integration.".to_string(),
-                updated_at: "Sep 10".to_string(),
-                folder_id: Some("personal:journal".to_string()),
-                folder_name: Some("Journal".to_string()),
-                is_pinned: false,
-            },
-            NoteItem {
-                id: "note-design-inspo".to_string(),
-                title: "Design Inspiration: Obsidian x Notion".to_string(),
-                snippet: "Collapsible sidebar rail, clean hierarchy, distraction-free markdown canvas, quiet chrome.".to_string(),
-                updated_at: "Sep 8".to_string(),
-                folder_id: Some("personal:journal".to_string()),
-                folder_name: Some("Journal".to_string()),
-                is_pinned: false,
-            },
-        ];
-
-        let active_location = NavigationLocation::Note("note-arch-spec".to_string());
-
         Self {
+            store,
             is_collapsed: false,
             search_state: InputState::new(""),
             search_focus: cx.focus_handle(),
-            active_location,
-            history: NavigationHistory::default(),
             expanded_folders,
-            notes,
-            deleted_notes: Vec::new(),
             context_menu: None,
             context_menu_focus: cx.focus_handle(),
+            _store_subscription: store_sub,
         }
     }
 
@@ -268,7 +81,6 @@ impl SidebarView {
         cx.notify();
     }
 
-
     pub fn toggle_collapsed(&mut self, cx: &mut Context<Self>) {
         self.is_collapsed = !self.is_collapsed;
         self.context_menu = None;
@@ -284,35 +96,23 @@ impl SidebarView {
         cx.notify();
     }
 
-    pub fn active_location(&self) -> &NavigationLocation {
-        &self.active_location
+    pub fn is_folder_expanded(&self, folder_id: &str) -> bool {
+        self.expanded_folders.contains(folder_id)
     }
 
-    pub fn selected_note_id(&self) -> Option<&str> {
-        self.active_location.as_note_id()
+    #[cfg(test)]
+    pub fn test_store(&self) -> Entity<NoteStore> {
+        self.store.clone()
     }
 
-    pub fn selected_note(&self) -> Option<&NoteItem> {
-        let id = self.selected_note_id()?;
-        self.notes.iter().find(|n| &n.id == id)
-    }
+    // ---- thin delegates over NoteStore ----
 
-    pub fn starred_notes(&self) -> Vec<&NoteItem> {
-        self.notes.iter().filter(|n| n.is_pinned).collect()
-    }
-
-    pub fn trash_notes(&self) -> Vec<&NoteItem> {
-        self.deleted_notes.iter().collect()
+    pub fn selected_note_id(&self, cx: &App) -> Option<String> {
+        self.store.read(cx).selected_note_id()
     }
 
     pub fn open_starred(&mut self, cx: &mut Context<Self>) {
-        let next = NavigationLocation::Starred;
-        if self.active_location == next {
-            return;
-        }
-        self.history.push(Some(&self.active_location), next.clone());
-        self.active_location = next;
-        cx.notify();
+        self.store.update(cx, |store, cx| store.open_starred(cx));
     }
 
     #[allow(dead_code)]
@@ -321,13 +121,7 @@ impl SidebarView {
     }
 
     pub fn open_trash(&mut self, cx: &mut Context<Self>) {
-        let next = NavigationLocation::Trash;
-        if self.active_location == next {
-            return;
-        }
-        self.history.push(Some(&self.active_location), next.clone());
-        self.active_location = next;
-        cx.notify();
+        self.store.update(cx, |store, cx| store.open_trash(cx));
     }
 
     #[allow(dead_code)]
@@ -340,125 +134,49 @@ impl SidebarView {
     }
 
     pub fn select_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        let next = NavigationLocation::Note(note_id.to_string());
-        if self.active_location == next {
-            return;
-        }
-        self.history.push(Some(&self.active_location), next.clone());
-        self.active_location = next;
-        cx.notify();
+        self.store.update(cx, |store, cx| store.select_note(note_id, cx));
     }
 
     pub fn navigate_back(&mut self, cx: &mut Context<Self>) -> bool {
-        if let Some(prev) = self.history.go_back(Some(&self.active_location)) {
-            self.active_location = prev;
-            cx.notify();
-            true
-        } else {
-            false
-        }
+        self.store.update(cx, |store, cx| store.navigate_back(cx))
     }
 
     pub fn navigate_forward(&mut self, cx: &mut Context<Self>) -> bool {
-        if let Some(next) = self.history.go_forward(Some(&self.active_location)) {
-            self.active_location = next;
-            cx.notify();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn can_navigate_back(&self) -> bool {
-        self.history.can_go_back()
-    }
-
-    pub fn can_navigate_forward(&self) -> bool {
-        self.history.can_go_forward()
+        self.store.update(cx, |store, cx| store.navigate_forward(cx))
     }
 
     pub fn create_new_note(&mut self, cx: &mut Context<Self>) {
-        self.create_note_in_folder(None, cx);
+        self.store.update(cx, |store, cx| store.create_new_note(cx));
+        self.context_menu = None;
     }
 
     pub fn create_note_in_folder(&mut self, folder_id: Option<String>, cx: &mut Context<Self>) {
-        let id = format!("note-{}", self.notes.len() + 1);
-        let new_note = NoteItem {
-            id: id.clone(),
-            title: "Untitled Note".to_string(),
-            snippet: "Start typing your note here...".to_string(),
-            updated_at: "Just now".to_string(),
-            folder_id,
-            folder_name: None,
-            is_pinned: false,
-        };
-        self.notes.insert(0, new_note);
-        self.select_note(&id, cx);
+        self.store
+            .update(cx, |store, cx| store.create_note_in_folder(folder_id, cx));
         self.context_menu = None;
     }
 
     pub fn toggle_note_pin(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id) {
-            note.is_pinned = !note.is_pinned;
-        }
+        self.store.update(cx, |store, cx| store.toggle_note_pin(note_id, cx));
         self.context_menu = None;
-        cx.notify();
     }
 
     pub fn duplicate_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        if let Some(index) = self.notes.iter().position(|n| n.id == note_id) {
-            let source = self.notes[index].clone();
-            let id = format!("note-{}-copy", self.notes.len() + 1);
-            let copy = NoteItem {
-                id: id.clone(),
-                title: format!("{} (copy)", source.title),
-                snippet: source.snippet,
-                updated_at: "Just now".to_string(),
-                folder_id: source.folder_id,
-                folder_name: source.folder_name,
-                is_pinned: false,
-            };
-            self.notes.insert(index + 1, copy);
-            self.select_note(&id, cx);
-        }
+        self.store.update(cx, |store, cx| store.duplicate_note(note_id, cx));
         self.context_menu = None;
     }
 
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        if let Some(pos) = self.notes.iter().position(|n| n.id == note_id) {
-            let note = self.notes.remove(pos);
-            self.deleted_notes.push(note);
-        }
-        self.history.remove_note(note_id);
-        if self.active_location == NavigationLocation::Note(note_id.to_string()) {
-            if let Some(prev) = self.history.back_stack.pop() {
-                self.active_location = prev;
-            } else if let Some(first) = self.notes.first() {
-                self.active_location = NavigationLocation::Note(first.id.clone());
-            } else {
-                self.active_location = NavigationLocation::Starred;
-            }
-        }
+        self.store.update(cx, |store, cx| store.delete_note(note_id, cx));
         self.context_menu = None;
-        cx.notify();
     }
 
     pub fn restore_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        if let Some(pos) = self.deleted_notes.iter().position(|n| n.id == note_id) {
-            let note = self.deleted_notes.remove(pos);
-            self.notes.push(note);
-            cx.notify();
-        }
-    }
-
-    pub fn permanently_delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.deleted_notes.retain(|n| n.id != note_id);
-        cx.notify();
+        self.store.update(cx, |store, cx| store.restore_note(note_id, cx));
     }
 
     pub fn empty_trash(&mut self, cx: &mut Context<Self>) {
-        self.deleted_notes.clear();
-        cx.notify();
+        self.store.update(cx, |store, cx| store.empty_trash(cx));
     }
 
     pub fn rename_note(&mut self, _note_id: &str, cx: &mut Context<Self>) {
@@ -468,7 +186,7 @@ impl SidebarView {
     }
 
     pub fn create_subfolder(&mut self, _folder_id: &str, cx: &mut Context<Self>) {
-        // TODO: folders are hardcoded mock data; wire to a real folder model.
+        // TODO: folders are mock data; wire to a real folder model.
         self.context_menu = None;
         cx.notify();
     }
@@ -480,7 +198,7 @@ impl SidebarView {
     }
 
     pub fn delete_folder(&mut self, _folder_id: &str, cx: &mut Context<Self>) {
-        // TODO: folders are hardcoded mock data; wire to a real folder model.
+        // TODO: folders are mock data; wire to a real folder model.
         self.context_menu = None;
         cx.notify();
     }
@@ -677,30 +395,174 @@ impl SidebarView {
         )
     }
 
-    pub fn matching_search_notes(&self) -> Vec<&NoteItem> {
-        let query = self.search_state.value().trim().to_lowercase();
-        if query.is_empty() {
-            return Vec::new();
+    pub fn matching_search_notes(&self, cx: &App) -> Vec<Note> {
+        let query = self.search_state.value().trim().to_string();
+        self.store.read(cx).search_notes(&query)
+    }
+
+    fn icon_for_folder(folder_id: &str) -> Option<IconName> {
+        match folder_id {
+            "projects:architecture" => Some(IconName::Code),
+            "projects:architecture:core" => Some(IconName::Zap),
+            "projects:architecture:desktop" => Some(IconName::Rocket),
+            "specs" => Some(IconName::Briefcase),
+            "personal:journal" => Some(IconName::Bookmark),
+            _ => None,
+        }
+    }
+
+    fn render_folder_tree(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> SidebarGroup {
+        // Clone out of the store first so no read guard is held while
+        // building listeners below.
+        let (folders, selected_note, counts) = {
+            let store = self.store.read(cx);
+            let folders: Vec<(String, String, usize)> = store
+                .folder_tree()
+                .iter()
+                .map(|n| (n.folder.id.clone(), n.folder.name.clone(), n.depth as usize))
+                .collect();
+            let selected = store.selected_note_id();
+            let counts: std::collections::HashMap<String, usize> = folders
+                .iter()
+                .map(|(id, _, _)| (id.clone(), store.note_count_in_folder(id)))
+                .collect();
+            let folder_notes: Vec<(String, Vec<Note>)> = folders
+                .iter()
+                .map(|(id, _, _)| (id.clone(), store.notes_in_folder(id)))
+                .collect();
+            let root_notes = store.notes_without_folder();
+            (folders, selected, (counts, folder_notes, root_notes))
+        };
+        let (counts, folder_notes, root_notes) = counts;
+        let notes_by_folder: std::collections::HashMap<String, Vec<Note>> =
+            folder_notes.into_iter().collect();
+        let theme = cx.theme().clone();
+
+        let mut group = SidebarGroup::new()
+            .label("Folders")
+            .action(
+                div()
+                    .id("add-folder-btn")
+                    .w(px(20.))
+                    .h(px(20.))
+                    .rounded(px(4.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                    .text_color(theme.muted_foreground)
+                    .child(Icon::new(IconName::Plus).size(px(12.))),
+            );
+
+        let mut skip_below: Option<usize> = None;
+        for (folder_id, folder_name, depth) in &folders {
+            if let Some(max_depth) = skip_below {
+                if *depth > max_depth {
+                    continue;
+                } else {
+                    skip_below = None;
+                }
+            }
+
+            let expanded = self.is_folder_expanded(folder_id);
+            let count = counts.get(folder_id).copied().unwrap_or(0);
+            let mut item = FolderTreeItem::new(
+                SharedString::from(format!("folder-{}", folder_id.replace(':', "-"))),
+                folder_name.clone(),
+            )
+            .depth(*depth)
+            .expanded(expanded)
+            .count(count)
+            .on_toggle(cx.listener({
+                let folder_id = folder_id.clone();
+                move |this, _, _, cx| {
+                    this.toggle_folder(&folder_id, cx);
+                }
+            }))
+            .on_right_click(cx.listener(Self::folder_menu_handler(
+                folder_id.clone(),
+                folder_name.clone(),
+            )));
+            if let Some(icon) = Self::icon_for_folder(folder_id) {
+                item = item.icon(icon);
+            }
+            group = group.child(item);
+
+            if expanded {
+                if let Some(notes) = notes_by_folder.get(folder_id) {
+                    for note in notes {
+                        let note_id = note.id.clone();
+                        let is_active = selected_note.as_deref() == Some(&note_id);
+                        group = group.child(
+                            NoteTreeItem::new(
+                                format!("tree-note-{}", note_id),
+                                note.title.clone(),
+                            )
+                            .depth(depth + 1)
+                            .active(is_active)
+                            .pinned(note.pinned)
+                            .on_click(cx.listener({
+                                let note_id = note_id.clone();
+                                move |this, _, _, cx| {
+                                    this.select_note(&note_id, cx);
+                                }
+                            }))
+                            .on_right_click(cx.listener(Self::note_menu_handler(
+                                note_id.clone(),
+                                note.title.clone(),
+                                note.pinned,
+                            ))),
+                        );
+                    }
+                }
+            } else {
+                skip_below = Some(*depth);
+            }
         }
 
-        self.notes
-            .iter()
-            .filter(|n| {
-                n.title.to_lowercase().contains(&query)
-                    || n.snippet.to_lowercase().contains(&query)
-                    || n.folder_name
-                        .as_ref()
-                        .map(|f| f.to_lowercase().contains(&query))
-                        .unwrap_or(false)
-            })
-            .collect()
+        for note in &root_notes {
+            let note_id = note.id.clone();
+            let is_active = selected_note.as_deref() == Some(&note_id);
+            group = group.child(
+                NoteTreeItem::new(format!("root-note-{}", note.id), note.title.clone())
+                    .depth(0)
+                    .active(is_active)
+                    .pinned(note.pinned)
+                    .on_click(cx.listener({
+                        let note_id = note_id.clone();
+                        move |this, _, _, cx| {
+                            this.select_note(&note_id, cx);
+                        }
+                    }))
+                    .on_right_click(cx.listener(Self::note_menu_handler(
+                        note.id.clone(),
+                        note.title.clone(),
+                        note.pinned,
+                    ))),
+            );
+        }
+
+        group
     }
 }
 
 impl Render for SidebarView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let selected_note = self.selected_note_id().map(|s| s.to_string());
+        let theme = cx.theme().clone();
+        // Clone store data up front; guards must not be held across listener setup.
+        let (selected_note, active_location, starred_count, trash_count) = {
+            let store = self.store.read(cx);
+            (
+                store.selected_note_id(),
+                store.active_location().clone(),
+                store.starred_notes().len(),
+                store.trashed_notes().len(),
+            )
+        };
         let query = self.search_state.value().trim().to_string();
 
         let rail = SidebarRail::new("main-sidebar-collapsed")
@@ -791,7 +653,7 @@ impl Render for SidebarView {
         let mut content = SidebarContent::new();
 
         if !query.is_empty() {
-            let matches = self.matching_search_notes();
+            let matches = self.matching_search_notes(cx);
             let count = matches.len();
 
             let mut group = SidebarGroup::new()
@@ -813,13 +675,13 @@ impl Render for SidebarView {
                     let right_click = Self::note_menu_handler(
                         note.id.clone(),
                         note.title.clone(),
-                        note.is_pinned,
+                        note.pinned,
                     );
                     group = group.child(
                         NoteTreeItem::new(format!("search-note-{}", note.id), note.title.clone())
                             .depth(0)
                             .active(is_active)
-                            .pinned(note.is_pinned)
+                            .pinned(note.pinned)
                             .on_click(cx.listener({
                                 let note_id = note_id.clone();
                                 move |this, _, _, cx| {
@@ -833,13 +695,13 @@ impl Render for SidebarView {
 
             content = content.child(group);
         } else {
-            let is_starred_active = self.active_location == NavigationLocation::Starred;
-            let is_trash_active = self.active_location == NavigationLocation::Trash;
-            let starred_count = self.notes.iter().filter(|n| n.is_pinned).count();
-            let trash_count = self.deleted_notes.len();
+            let is_starred_active = active_location == NavigationLocation::Starred;
+            let is_trash_active = active_location == NavigationLocation::Trash;
 
             let mut nav_group = SidebarGroup::new();
 
+            // Starred is a virtual view over `WHERE pinned = 1`, not a folder:
+            // no folder context menu here.
             nav_group = nav_group.child(
                 Button::sidebar("nav-starred", "Starred")
                     .leading_icon(IconName::Star)
@@ -847,11 +709,7 @@ impl Render for SidebarView {
                     .active(is_starred_active)
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.open_starred(cx);
-                    }))
-                    .on_right_click(cx.listener(Self::folder_menu_handler(
-                        "starred".to_string(),
-                        "Starred".to_string(),
-                    ))),
+                    })),
             );
 
             nav_group = nav_group.child(
@@ -865,273 +723,7 @@ impl Render for SidebarView {
             );
 
             content = content.child(nav_group);
-
-            let projects_expanded = self.expanded_folders.contains("projects");
-            let arch_expanded = self.expanded_folders.contains("projects:architecture");
-            let core_expanded = self.expanded_folders.contains("projects:architecture:core");
-            let desktop_expanded = self.expanded_folders.contains("projects:architecture:desktop");
-            let personal_expanded = self.expanded_folders.contains("personal");
-            let journal_expanded = self.expanded_folders.contains("personal:journal");
-
-            let mut folders_group = SidebarGroup::new()
-                .label("Folders")
-                .action(
-                    div()
-                        .id("add-folder-btn")
-                        .w(px(20.))
-                        .h(px(20.))
-                        .rounded(px(4.))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor_pointer()
-                        .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
-                        .text_color(theme.muted_foreground)
-                        .child(Icon::new(IconName::Plus).size(px(12.))),
-                );
-
-            folders_group = folders_group.child(
-                FolderTreeItem::new("folder-projects", "Projects")
-                    .depth(0)
-                    .expanded(projects_expanded)
-                    .count(4)
-                    .on_toggle(cx.listener(|this, _, _, cx| {
-                        this.toggle_folder("projects", cx);
-                    }))
-                    .on_right_click(cx.listener(Self::folder_menu_handler(
-                        "projects".to_string(),
-                        "Projects".to_string(),
-                    ))),
-            );
-
-            if projects_expanded {
-                folders_group = folders_group.child(
-                    FolderTreeItem::new("folder-architecture", "Architecture")
-                        .depth(1)
-                        .icon(IconName::Code)
-                        .expanded(arch_expanded)
-                        .count(2)
-                        .on_toggle(cx.listener(|this, _, _, cx| {
-                            this.toggle_folder("projects:architecture", cx);
-                        }))
-                        .on_right_click(cx.listener(Self::folder_menu_handler(
-                            "projects:architecture".to_string(),
-                            "Architecture".to_string(),
-                        ))),
-                );
-
-                if arch_expanded {
-                    folders_group = folders_group.child(
-                        FolderTreeItem::new("folder-arch-core", "Core Engine")
-                            .depth(2)
-                            .icon(IconName::Zap)
-                            .expanded(core_expanded)
-                            .count(1)
-                            .on_toggle(cx.listener(|this, _, _, cx| {
-                                this.toggle_folder("projects:architecture:core", cx);
-                            }))
-                            .on_right_click(cx.listener(Self::folder_menu_handler(
-                                "projects:architecture:core".to_string(),
-                                "Core Engine".to_string(),
-                            ))),
-                    );
-
-                    if core_expanded {
-                        let is_active = selected_note.as_deref() == Some("note-arch-spec");
-                        folders_group = folders_group.child(
-                            NoteTreeItem::new("tree-note-arch-spec", "System Architecture Spec")
-                                .depth(3)
-                                .active(is_active)
-                                .pinned(true)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.select_note("note-arch-spec", cx);
-                                }))
-                                .on_right_click(cx.listener(Self::note_menu_handler(
-                                    "note-arch-spec".to_string(),
-                                    "System Architecture Spec".to_string(),
-                                    true,
-                                    ))),
-                        );
-                    }
-
-                    folders_group = folders_group.child(
-                        FolderTreeItem::new("folder-arch-desktop", "Desktop Shell")
-                            .depth(2)
-                            .icon(IconName::Rocket)
-                            .expanded(desktop_expanded)
-                            .count(1)
-                            .on_toggle(cx.listener(|this, _, _, cx| {
-                                this.toggle_folder("projects:architecture:desktop", cx);
-                            }))
-                            .on_right_click(cx.listener(Self::folder_menu_handler(
-                                "projects:architecture:desktop".to_string(),
-                                "Desktop Shell".to_string(),
-                            ))),
-                    );
-
-                    if desktop_expanded {
-                        let is_active = selected_note.as_deref() == Some("note-desktop-gpui");
-                        folders_group = folders_group.child(
-                            NoteTreeItem::new("tree-note-desktop-gpui", "Desktop Shell & GPUI Architecture")
-                                .depth(3)
-                                .active(is_active)
-                                .pinned(true)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.select_note("note-desktop-gpui", cx);
-                                }))
-                                .on_right_click(cx.listener(Self::note_menu_handler(
-                                    "note-desktop-gpui".to_string(),
-                                    "Desktop Shell & GPUI Architecture".to_string(),
-                                    true,
-                                ))),
-                        );
-                    }
-                }
-
-                let is_db_active = selected_note.as_deref() == Some("note-db-schema");
-                folders_group = folders_group.child(
-                    NoteTreeItem::new("tree-note-db-schema", "Database Schema & Index Design")
-                        .depth(1)
-                        .active(is_db_active)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.select_note("note-db-schema", cx);
-                        }))
-                        .on_right_click(cx.listener(Self::note_menu_handler(
-                            "note-db-schema".to_string(),
-                            "Database Schema & Index Design".to_string(),
-                            false,
-                        ))),
-                );
-
-                let is_ws_active = selected_note.as_deref() == Some("note-ws-sync");
-                folders_group = folders_group.child(
-                    NoteTreeItem::new("tree-note-ws-sync", "WebSocket Sync Protocol")
-                        .depth(1)
-                        .active(is_ws_active)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.select_note("note-ws-sync", cx);
-                        }))
-                        .on_right_click(cx.listener(Self::note_menu_handler(
-                            "note-ws-sync".to_string(),
-                            "WebSocket Sync Protocol".to_string(),
-                            false,
-                        ))),
-                );
-
-                folders_group = folders_group.child(
-                    FolderTreeItem::new("folder-specs", "Specifications")
-                        .depth(1)
-                        .icon(IconName::Briefcase)
-                        .count(0)
-                        .on_right_click(cx.listener(Self::folder_menu_handler(
-                            "specs".to_string(),
-                            "Specifications".to_string(),
-                        ))),
-                );
-            }
-
-            folders_group = folders_group.child(
-                FolderTreeItem::new("folder-personal", "Personal Notes")
-                    .depth(0)
-                    .expanded(personal_expanded)
-                    .count(3)
-                    .on_toggle(cx.listener(|this, _, _, cx| {
-                        this.toggle_folder("personal", cx);
-                    }))
-                    .on_right_click(cx.listener(Self::folder_menu_handler(
-                        "personal".to_string(),
-                        "Personal Notes".to_string(),
-                    ))),
-            );
-
-            if personal_expanded {
-                folders_group = folders_group.child(
-                    FolderTreeItem::new("folder-journal", "Journal")
-                        .depth(1)
-                        .icon(IconName::Bookmark)
-                        .expanded(journal_expanded)
-                        .count(2)
-                        .on_toggle(cx.listener(|this, _, _, cx| {
-                            this.toggle_folder("personal:journal", cx);
-                        }))
-                        .on_right_click(cx.listener(Self::folder_menu_handler(
-                            "personal:journal".to_string(),
-                            "Journal".to_string(),
-                        ))),
-                );
-
-                if journal_expanded {
-                    let is_goals_active = selected_note.as_deref() == Some("note-sprint-goals");
-                    folders_group = folders_group.child(
-                        NoteTreeItem::new("tree-note-sprint-goals", "Weekly Sprint Goals")
-                            .depth(2)
-                            .active(is_goals_active)
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.select_note("note-sprint-goals", cx);
-                            }))
-                            .on_right_click(cx.listener(Self::note_menu_handler(
-                                "note-sprint-goals".to_string(),
-                                "Weekly Sprint Goals".to_string(),
-                                false,
-                            ))),
-                    );
-
-                    let is_inspo_active = selected_note.as_deref() == Some("note-design-inspo");
-                    folders_group = folders_group.child(
-                        NoteTreeItem::new("tree-note-design-inspo", "Design Inspiration: Obsidian x Notion")
-                            .depth(2)
-                            .active(is_inspo_active)
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.select_note("note-design-inspo", cx);
-                            }))
-                            .on_right_click(cx.listener(Self::note_menu_handler(
-                                "note-design-inspo".to_string(),
-                                "Design Inspiration: Obsidian x Notion".to_string(),
-                                false,
-                            ))),
-                    );
-                }
-
-                let is_roadmap_active = selected_note.as_deref() == Some("note-q3-roadmap");
-                folders_group = folders_group.child(
-                    NoteTreeItem::new("tree-note-q3-roadmap", "Q3 Roadmap & Planning")
-                        .depth(1)
-                        .active(is_roadmap_active)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.select_note("note-q3-roadmap", cx);
-                        }))
-                        .on_right_click(cx.listener(Self::note_menu_handler(
-                            "note-q3-roadmap".to_string(),
-                            "Q3 Roadmap & Planning".to_string(),
-                            false,
-                        ))),
-                );
-            }
-
-            for note in self.notes.iter().filter(|n| n.folder_id.is_none()) {
-                let note_id = note.id.clone();
-                let is_active = selected_note.as_deref() == Some(&note_id);
-                let right_click = Self::note_menu_handler(
-                    note.id.clone(),
-                    note.title.clone(),
-                    note.is_pinned,
-                );
-                folders_group = folders_group.child(
-                    NoteTreeItem::new(format!("root-note-{}", note.id), note.title.clone())
-                        .depth(0)
-                        .active(is_active)
-                        .pinned(note.is_pinned)
-                        .on_click(cx.listener({
-                            let note_id = note_id.clone();
-                            move |this, _, _, cx| {
-                                this.select_note(&note_id, cx);
-                            }
-                        }))
-                        .on_right_click(cx.listener(right_click)),
-                );
-            }
-
-            content = content.child(folders_group);
+            content = content.child(self.render_folder_tree(cx));
         }
 
         let footer = SidebarFooter::new().child(
@@ -1221,8 +813,9 @@ mod tests {
     // `gpui::test` attribute macro into scope, shadowing the builtin `#[test]`
     // and breaking compilation of this module.
     use super::{SidebarContextTarget, SidebarView};
+    use crate::store::{NavigationLocation, NoteStore};
     use crate::theme::{ActiveTheme, Theme};
-    use gpui::{MouseButton, MouseDownEvent, TestAppContext, point, px};
+    use gpui::{AppContext, MouseButton, MouseDownEvent, TestAppContext, point, px};
 
     /// Regression loop for "right-click in the sidebar does nothing".
     /// Drives the real event-dispatch path: synthetic right mouse-down events
@@ -1234,7 +827,10 @@ mod tests {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
         cx.run_until_parked();
         cx.update(|window, cx| {
             _ = window.draw(cx);
@@ -1264,10 +860,6 @@ mod tests {
             y += 4.;
         }
 
-        assert!(
-            seen_folders.iter().any(|id| id == "starred"),
-            "expected to hit the Starred row while sweeping, saw: {seen_folders:?}"
-        );
         let (y, state) = opened.expect("right-click should open a context menu on Projects");
         match state.target {
             SidebarContextTarget::Folder { id, .. } => {
@@ -1287,7 +879,11 @@ mod tests {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
         cx.run_until_parked();
         cx.update(|window, cx| {
             _ = window.draw(cx);
@@ -1319,12 +915,13 @@ mod tests {
             menu_position.expect("right-click should open a context menu on note-db-schema");
 
         assert!(
-            !view.read_with(cx, |v, _| v
-                .notes
-                .iter()
-                .find(|n| n.id == "note-db-schema")
-                .map(|n| n.is_pinned)
-                .unwrap_or(true)),
+            !store
+                .read_with(cx, |s, _| s
+                    .active_notes()
+                    .iter()
+                    .find(|n| n.id == "note-db-schema")
+                    .map(|n| n.pinned)
+                    .unwrap_or(true)),
             "note-db-schema should start unpinned"
         );
 
@@ -1344,12 +941,13 @@ mod tests {
         cx.run_until_parked();
 
         assert!(
-            view.read_with(cx, |v, _| v
-                .notes
-                .iter()
-                .find(|n| n.id == "note-db-schema")
-                .map(|n| n.is_pinned)
-                .unwrap_or(false)),
+            store
+                .read_with(cx, |s, _| s
+                    .active_notes()
+                    .iter()
+                    .find(|n| n.id == "note-db-schema")
+                    .map(|n| n.pinned)
+                    .unwrap_or(false)),
             "clicking Pin to Starred should pin note-db-schema"
         );
         assert!(
@@ -1365,7 +963,10 @@ mod tests {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
         cx.run_until_parked();
 
         assert!(!view.read_with(cx, |v, _| v.is_collapsed));
@@ -1384,69 +985,36 @@ mod tests {
     }
 
     #[test]
-    fn navigation_history_stack_operations() {
-        let mut history = super::NavigationHistory::default();
-        assert!(!history.can_go_back());
-        assert!(!history.can_go_forward());
-
-        history.push(Some("note-a"), "note-b");
-        history.push(Some("note-b"), "note-c");
-        assert!(history.can_go_back());
-        assert!(!history.can_go_forward());
-
-        history.push(Some("note-c"), "note-c");
-        assert_eq!(history.back_stack.len(), 2);
-
-        let prev = history.go_back(Some("note-c"));
-        assert_eq!(prev.as_deref(), Some("note-b"));
-        assert!(history.can_go_back());
-        assert!(history.can_go_forward());
-
-        let prev = history.go_back(Some("note-b"));
-        assert_eq!(prev.as_deref(), Some("note-a"));
-        assert!(!history.can_go_back());
-        assert!(history.can_go_forward());
-
-        let next = history.go_forward(Some("note-a"));
-        assert_eq!(next.as_deref(), Some("note-b"));
-        assert!(history.can_go_back());
-        assert!(history.can_go_forward());
-
-        history.push(Some("note-b"), "note-d");
-        assert!(history.can_go_back());
-        assert!(!history.can_go_forward());
-
-        history.remove_note("note-a");
-        assert_eq!(history.back_stack, vec![super::NavigationLocation::Note("note-b".to_string())]);
-    }
-
-    #[test]
     fn sidebar_view_note_navigation_back_and_forward() {
         let mut cx = TestAppContext::single();
         cx.update(|cx| {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-arch-spec".to_string())
         );
-        assert!(!view.read_with(cx, |v, _| v.can_navigate_back()));
-        assert!(!view.read_with(cx, |v, _| v.can_navigate_forward()));
+        assert!(!store.read_with(cx, |s, _| s.can_navigate_back()));
+        assert!(!store.read_with(cx, |s, _| s.can_navigate_forward()));
 
         view.update(cx, |v, cx| {
             v.select_note("note-desktop-gpui", cx);
         });
         cx.run_until_parked();
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-desktop-gpui".to_string())
         );
-        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
-        assert!(!view.read_with(cx, |v, _| v.can_navigate_forward()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_back()));
+        assert!(!store.read_with(cx, |s, _| s.can_navigate_forward()));
 
         view.update(cx, |v, cx| {
             v.select_note("note-db-schema", cx);
@@ -1456,25 +1024,25 @@ mod tests {
         let went_back = view.update(cx, |v, cx| v.navigate_back(cx));
         assert!(went_back);
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-desktop-gpui".to_string())
         );
-        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
-        assert!(view.read_with(cx, |v, _| v.can_navigate_forward()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_back()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_forward()));
 
         let went_back = view.update(cx, |v, cx| v.navigate_back(cx));
         assert!(went_back);
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-arch-spec".to_string())
         );
-        assert!(!view.read_with(cx, |v, _| v.can_navigate_back()));
-        assert!(view.read_with(cx, |v, _| v.can_navigate_forward()));
+        assert!(!store.read_with(cx, |s, _| s.can_navigate_back()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_forward()));
 
         let went_forward = view.update(cx, |v, cx| v.navigate_forward(cx));
         assert!(went_forward);
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-desktop-gpui".to_string())
         );
     }
@@ -1486,11 +1054,15 @@ mod tests {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-arch-spec".to_string())
         );
 
@@ -1500,7 +1072,7 @@ mod tests {
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
+            store.read_with(cx, |s, _| s.selected_note_id()),
             Some("note-arch-spec".to_string())
         );
 
@@ -1510,8 +1082,8 @@ mod tests {
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Starred
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Starred
         );
 
         view.update(cx, |v, cx| {
@@ -1519,8 +1091,8 @@ mod tests {
         });
         cx.run_until_parked();
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Trash
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Trash
         );
 
         view.update(cx, |v, cx| {
@@ -1528,8 +1100,8 @@ mod tests {
         });
         cx.run_until_parked();
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Note("note-desktop-gpui".to_string())
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Note("note-desktop-gpui".to_string())
         );
     }
 
@@ -1540,50 +1112,57 @@ mod tests {
             cx.set_global(ActiveTheme(Theme::dark()));
         });
 
-        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Note("note-arch-spec".to_string())
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Note("note-arch-spec".to_string())
         );
 
         view.update(cx, |v, cx| v.open_starred(cx));
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Starred
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Starred
         );
-        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
-        assert!(!view.read_with(cx, |v, _| v.starred_notes().is_empty()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_back()));
+        assert!(!store.read_with(cx, |s, _| s.starred_notes().is_empty()));
 
         view.update(cx, |v, cx| v.open_trash(cx));
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Trash
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Trash
         );
-        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(store.read_with(cx, |s, _| s.can_navigate_back()));
 
         view.update(cx, |v, cx| {
             assert!(v.navigate_back(cx));
         });
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Starred
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Starred
         );
 
         view.update(cx, |v, cx| {
             assert!(v.navigate_back(cx));
         });
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Note("note-arch-spec".to_string())
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Note("note-arch-spec".to_string())
         );
 
         view.update(cx, |v, cx| {
             v.delete_note("note-arch-spec", cx);
         });
         assert_eq!(
-            view.read_with(cx, |v, _| v.trash_notes().iter().any(|n| n.id == "note-arch-spec")),
+            store.read_with(cx, |s, _| s
+                .trash_notes()
+                .iter()
+                .any(|n| n.id == "note-arch-spec")),
             true
         );
 
@@ -1592,22 +1171,27 @@ mod tests {
             v.restore_note("note-arch-spec", cx);
         });
         assert_eq!(
-            view.read_with(cx, |v, _| v.trash_notes().iter().any(|n| n.id == "note-arch-spec")),
+            store.read_with(cx, |s, _| s
+                .trash_notes()
+                .iter()
+                .any(|n| n.id == "note-arch-spec")),
             false
         );
         assert_eq!(
-            view.read_with(cx, |v, _| v.active_location.clone()),
-            super::NavigationLocation::Trash
+            store.read_with(cx, |s, _| s.active_location().clone()),
+            NavigationLocation::Trash
         );
-        assert!(view.read_with(cx, |v, _| v.notes.iter().any(|n| n.id == "note-arch-spec")));
+        assert!(
+            store.read_with(cx, |s, _| s
+                .active_notes()
+                .iter()
+                .any(|n| n.id == "note-arch-spec"))
+        );
 
         view.update(cx, |v, cx| {
             v.delete_note("note-arch-spec", cx);
             v.empty_trash(cx);
         });
-        assert_eq!(
-            view.read_with(cx, |v, _| v.trash_notes().is_empty()),
-            true
-        );
+        assert!(store.read_with(cx, |s, _| s.trash_notes().is_empty()),);
     }
 }

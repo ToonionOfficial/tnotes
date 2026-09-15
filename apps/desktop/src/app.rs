@@ -6,9 +6,10 @@ use crate::keymap::{
     CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NavigateBack, NavigateForward, NewNote,
     OpenSettings, PinNote, ToggleFps, ToggleSidebar,
 };
+use crate::store::{NavigationLocation, NoteStore};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
 use crate::views::{
-    NavigationLocation, NoteView, SettingsView, SidebarView, StarredView, TrashView,
+    NoteView, SettingsView, SidebarView, StarredView, TrashView,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -19,6 +20,7 @@ pub enum AppScreen {
 }
 
 pub struct Tnotes {
+    store: Entity<NoteStore>,
     sidebar: Entity<SidebarView>,
     note_view: Entity<NoteView>,
     starred_view: Entity<StarredView>,
@@ -51,7 +53,7 @@ impl Render for Tnotes {
 
 impl Tnotes {
     fn render_notes(&self, cx: &Context<Self>) -> impl IntoElement {
-        let active_location = self.sidebar.read(cx).active_location().clone();
+        let active_location = self.store.read(cx).active_location().clone();
         let is_settings = self.active_screen == AppScreen::Settings;
 
         let right_pane = div()
@@ -130,14 +132,14 @@ impl Tnotes {
         }))
         .on_action(cx.listener(|this, _: &PinNote, _window, cx| {
             this.sidebar.update(cx, |sidebar, cx| {
-                if let Some(id) = sidebar.selected_note_id().map(|s| s.to_string()) {
+                if let Some(id) = sidebar.selected_note_id(cx) {
                     sidebar.toggle_note_pin(&id, cx);
                 }
             });
         }))
         .on_action(cx.listener(|this, _: &DeleteNote, _window, cx| {
             this.sidebar.update(cx, |sidebar, cx| {
-                if let Some(id) = sidebar.selected_note_id().map(|s| s.to_string()) {
+                if let Some(id) = sidebar.selected_note_id(cx) {
                     sidebar.delete_note(&id, cx);
                 }
             });
@@ -205,22 +207,27 @@ impl Tnotes {
                         ..Default::default()
                     },
                     |window, cx| {
-                        let sidebar = cx.new(|cx| SidebarView::new(cx));
+                        let store = cx.new(|_| NoteStore::new());
+                        let sidebar = cx.new(|cx| SidebarView::new(store.clone(), cx));
                         let settings_view = cx.new(|cx| SettingsView::new(cx));
-                        let note_view = cx.new(|cx| NoteView::new(sidebar.clone(), cx));
-                        let starred_view = cx.new(|cx| StarredView::new(sidebar.clone(), cx));
-                        let trash_view = cx.new(|cx| TrashView::new(sidebar.clone(), cx));
+                        let note_view = cx.new(|cx| NoteView::new(store.clone(), cx));
+                        let starred_view = cx.new(|cx| StarredView::new(store.clone(), cx));
+                        let trash_view = cx.new(|cx| TrashView::new(store.clone(), cx));
                         let focus_handle = cx.focus_handle();
                         window.focus(&focus_handle);
 
                         cx.new(|cx| {
                             let mut subscriptions = Vec::new();
 
+                            subscriptions.push(cx.observe(&store, |_, _, cx| {
+                                cx.notify();
+                            }));
                             subscriptions.push(cx.observe(&sidebar, |_, _, cx| {
                                 cx.notify();
                             }));
 
                             Tnotes {
+                                store,
                                 sidebar,
                                 note_view,
                                 starred_view,

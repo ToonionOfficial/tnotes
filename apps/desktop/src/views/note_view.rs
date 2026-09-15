@@ -1,20 +1,20 @@
 use gpui::*;
 use crate::components::{Icon, IconName, NavButtons};
+use crate::store::{NoteStore, format_relative_time, snippet_from_body};
 use crate::theme::ThemeExt;
-use crate::views::SidebarView;
 
 pub struct NoteView {
-    sidebar: Entity<SidebarView>,
+    store: Entity<NoteStore>,
     _subscription: Subscription,
 }
 
 impl NoteView {
-    pub fn new(sidebar: Entity<SidebarView>, cx: &mut Context<Self>) -> Self {
-        let subscription = cx.observe(&sidebar, |_, _, cx| {
+    pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+        let subscription = cx.observe(&store, |_, _, cx| {
             cx.notify();
         });
         Self {
-            sidebar,
+            store,
             _subscription: subscription,
         }
     }
@@ -22,33 +22,38 @@ impl NoteView {
 
 impl Render for NoteView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (note, can_back, can_forward) = {
-            let sidebar = self.sidebar.read(cx);
+        let (note, folder_label, can_back, can_forward) = {
+            let store = self.store.read(cx);
+            let note = store.selected_note();
+            let folder_label = note
+                .as_ref()
+                .and_then(|n| store.folder_name(n.folder_id.as_deref()))
+                .unwrap_or("Notes")
+                .to_string();
             (
-                sidebar.selected_note().cloned(),
-                sidebar.can_navigate_back(),
-                sidebar.can_navigate_forward(),
+                note,
+                folder_label,
+                store.can_navigate_back(),
+                store.can_navigate_forward(),
             )
         };
         let theme = cx.theme().clone();
 
         let nav_buttons = NavButtons::new(can_back, can_forward)
             .on_back(cx.listener(|this, _, _window, cx| {
-                this.sidebar.update(cx, |s, cx| {
+                this.store.update(cx, |s, cx| {
                     s.navigate_back(cx);
                 });
             }))
             .on_forward(cx.listener(|this, _, _window, cx| {
-                this.sidebar.update(cx, |s, cx| {
+                this.store.update(cx, |s, cx| {
                     s.navigate_forward(cx);
                 });
             }));
 
         if let Some(note) = note {
-            let folder_label = note
-                .folder_name
-                .clone()
-                .unwrap_or_else(|| "Notes".to_string());
+            let updated = format_relative_time(note.updated_at);
+            let body = snippet_from_body(&note.searchable_text, 2000);
 
             div()
                 .flex_1()
@@ -103,7 +108,7 @@ impl Render for NoteView {
                                 .justify_center()
                                 .cursor_pointer()
                                 .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
-                                .text_color(if note.is_pinned {
+                                .text_color(if note.pinned {
                                     theme.primary
                                 } else {
                                     theme.muted_foreground
@@ -112,7 +117,7 @@ impl Render for NoteView {
                                 .on_click(cx.listener({
                                     let note_id = note.id.clone();
                                     move |this, _, _window, cx| {
-                                        this.sidebar.update(cx, |s, cx| {
+                                        this.store.update(cx, |s, cx| {
                                             s.toggle_note_pin(&note_id, cx);
                                         });
                                     }
@@ -148,7 +153,7 @@ impl Render for NoteView {
                                         .gap_2()
                                         .text_size(px(12.))
                                         .text_color(theme.muted_foreground)
-                                        .child(format!("Last edited {}", note.updated_at)),
+                                        .child(format!("Last edited {updated}")),
                                 )
                                 .child(div().w_full().h(px(1.)).bg(theme.border))
                                 .child(
@@ -156,7 +161,7 @@ impl Render for NoteView {
                                         .text_size(px(15.))
                                         .text_color(theme.foreground)
                                         .line_height(px(24.))
-                                        .child(note.snippet.clone()),
+                                        .child(body),
                                 ),
                         ),
                 )
@@ -214,6 +219,7 @@ impl Render for NoteView {
 mod tests {
     use super::*;
     use core::prelude::v1::test;
+    use gpui::AppContext;
     use crate::theme::{ActiveTheme, Theme};
 
     #[test]
@@ -224,8 +230,8 @@ mod tests {
         });
 
         let (_view, cx) = cx.add_window_view(|_, cx| {
-            let sidebar = cx.new(|cx| SidebarView::new(cx));
-            NoteView::new(sidebar, cx)
+            let store = cx.new(|_| NoteStore::new());
+            NoteView::new(store, cx)
         });
         cx.run_until_parked();
     }

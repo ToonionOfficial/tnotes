@@ -1,21 +1,22 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
+use tnotes_core::models::note::Note;
 use crate::components::{Icon, IconName, NavButtons};
+use crate::store::{NoteStore, format_relative_time, snippet_from_body};
 use crate::theme::ThemeExt;
-use crate::views::{NoteItem, SidebarView};
 
 pub struct TrashView {
-    sidebar: Entity<SidebarView>,
+    store: Entity<NoteStore>,
     _subscription: Subscription,
 }
 
 impl TrashView {
-    pub fn new(sidebar: Entity<SidebarView>, cx: &mut Context<Self>) -> Self {
-        let subscription = cx.observe(&sidebar, |_, _, cx| {
+    pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+        let subscription = cx.observe(&store, |_, _, cx| {
             cx.notify();
         });
         Self {
-            sidebar,
+            store,
             _subscription: subscription,
         }
     }
@@ -23,12 +24,22 @@ impl TrashView {
 
 impl Render for TrashView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (trash_notes, can_back, can_forward) = {
-            let sidebar = self.sidebar.read(cx);
+        let (trash_notes, can_back, can_forward, folder_names) = {
+            let store = self.store.read(cx);
+            let notes = store.trash_notes();
+            let names: Vec<Option<String>> = notes
+                .iter()
+                .map(|n| {
+                    store
+                        .folder_name(n.folder_id.as_deref())
+                        .map(|s| s.to_string())
+                })
+                .collect();
             (
-                sidebar.trash_notes().into_iter().cloned().collect::<Vec<NoteItem>>(),
-                sidebar.can_navigate_back(),
-                sidebar.can_navigate_forward(),
+                notes,
+                store.can_navigate_back(),
+                store.can_navigate_forward(),
+                names,
             )
         };
         let theme = cx.theme().clone();
@@ -36,12 +47,12 @@ impl Render for TrashView {
 
         let nav_buttons = NavButtons::new(can_back, can_forward)
             .on_back(cx.listener(|this, _, _window, cx| {
-                this.sidebar.update(cx, |s, cx| {
+                this.store.update(cx, |s, cx| {
                     s.navigate_back(cx);
                 });
             }))
             .on_forward(cx.listener(|this, _, _window, cx| {
-                this.sidebar.update(cx, |s, cx| {
+                this.store.update(cx, |s, cx| {
                     s.navigate_forward(cx);
                 });
             }));
@@ -111,7 +122,7 @@ impl Render for TrashView {
                                         .text_color(theme.muted_foreground)
                                         .child("Empty Trash")
                                         .on_click(cx.listener(|this, _, _window, cx| {
-                                            this.sidebar.update(cx, |s, cx| {
+                                            this.store.update(cx, |s, cx| {
                                                 s.empty_trash(cx);
                                             });
                                         })),
@@ -215,112 +226,8 @@ impl Render for TrashView {
                                         .flex()
                                         .flex_col()
                                         .gap_2p5()
-                                        .children(trash_notes.iter().map(|note| {
-                                            let note_id = note.id.clone();
-                                            div()
-                                                .id(SharedString::from(format!("trash-card-{}", note.id)))
-                                                .w_full()
-                                                .p(px(14.))
-                                                .rounded(px(8.))
-                                                .bg(theme.card)
-                                                .border_1()
-                                                .border_color(theme.border)
-                                                .child(
-                                                    div()
-                                                        .flex()
-                                                        .flex_col()
-                                                        .gap_1p5()
-                                                        .child(
-                                                            div()
-                                                                .flex()
-                                                                .items_center()
-                                                                .justify_between()
-                                                                .child(
-                                                                    div()
-                                                                        .flex()
-                                                                        .items_center()
-                                                                        .gap_2()
-                                                                        .child(Icon::new(IconName::FileText).size(px(13.)).color(theme.muted_foreground))
-                                                                        .child(
-                                                                            div()
-                                                                                .text_size(px(14.))
-                                                                                .font_weight(FontWeight::SEMIBOLD)
-                                                                                .text_color(theme.foreground)
-                                                                                .child(note.title.clone()),
-                                                                        ),
-                                                                )
-                                                                .children(note.folder_name.as_ref().map(|f| {
-                                                                    div()
-                                                                        .px_2()
-                                                                        .py(px(1.5))
-                                                                        .rounded(px(4.))
-                                                                        .bg(theme.muted)
-                                                                        .text_size(px(11.))
-                                                                        .text_color(theme.muted_foreground)
-                                                                        .child(f.clone())
-                                                                })),
-                                                        )
-                                                        .child(
-                                                            div()
-                                                                .text_size(px(12.5))
-                                                                .text_color(theme.muted_foreground)
-                                                                .line_clamp(2)
-                                                                .child(note.snippet.clone()),
-                                                        )
-                                                        .child(
-                                                            div()
-                                                                .flex()
-                                                                .items_center()
-                                                                .justify_between()
-                                                                .pt_1()
-                                                                .child(
-                                                                    div()
-                                                                        .text_size(px(11.))
-                                                                        .text_color(theme.muted_foreground)
-                                                                        .child(format!("Deleted • {}", note.updated_at)),
-                                                                )
-                                                                .child(
-                                                                    div()
-                                                                        .flex()
-                                                                        .items_center()
-                                                                        .gap_3()
-                                                                        .child(
-                                                                            div()
-                                                                                .id(SharedString::from(format!("restore-btn-{}", note.id)))
-                                                                                .cursor_pointer()
-                                                                                .hover(|s| s.text_color(theme.foreground))
-                                                                                .text_size(px(12.))
-                                                                                .text_color(theme.primary)
-                                                                                .child("Restore")
-                                                                                .on_click(cx.listener({
-                                                                                    let note_id = note_id.clone();
-                                                                                    move |this, _, _window, cx| {
-                                                                                        this.sidebar.update(cx, |s, cx| {
-                                                                                            s.restore_note(&note_id, cx);
-                                                                                        });
-                                                                                    }
-                                                                                })),
-                                                                        )
-                                                                        .child(
-                                                                            div()
-                                                                                .id(SharedString::from(format!("delete-perm-btn-{}", note.id)))
-                                                                                .cursor_pointer()
-                                                                                .hover(|s| s.text_color(theme.destructive))
-                                                                                .text_size(px(12.))
-                                                                                .text_color(theme.muted_foreground)
-                                                                                .child("Delete Permanently")
-                                                                                .on_click(cx.listener({
-                                                                                    let note_id = note_id.clone();
-                                                                                    move |this, _, _window, cx| {
-                                                                                        this.sidebar.update(cx, |s, cx| {
-                                                                                            s.permanently_delete_note(&note_id, cx);
-                                                                                        });
-                                                                                    }
-                                                                                })),
-                                                                        ),
-                                                                ),
-                                                        ),
-                                                )
+                                        .children(trash_notes.iter().zip(folder_names.iter()).map(|(note, folder)| {
+                                            render_trash_card(cx, &self.store, note, folder.clone(), &theme)
                                         })),
                                 )
                             }),
@@ -329,10 +236,135 @@ impl Render for TrashView {
     }
 }
 
+fn render_trash_card(
+    cx: &mut Context<TrashView>,
+    store: &Entity<NoteStore>,
+    note: &Note,
+    folder: Option<String>,
+    theme: &crate::theme::Theme,
+) -> gpui::AnyElement {
+    let snippet = snippet_from_body(&note.searchable_text, 160);
+    let updated = format_relative_time(note.updated_at);
+    let restore_store = store.clone();
+    let delete_store = store.clone();
+    let restore_id = note.id.clone();
+    let delete_id = note.id.clone();
+    div()
+        .id(SharedString::from(format!("trash-card-{}", note.id)))
+        .w_full()
+        .p(px(14.))
+        .rounded(px(8.))
+        .bg(theme.card)
+        .border_1()
+        .border_color(theme.border)
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap_1p5()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .child(Icon::new(IconName::FileText).size(px(13.)).color(theme.muted_foreground))
+                                .child(
+                                    div()
+                                        .text_size(px(14.))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(theme.foreground)
+                                        .child(note.title.clone()),
+                                ),
+                        )
+                        .children(folder.as_ref().map(|f| {
+                            div()
+                                .px_2()
+                                .py(px(1.5))
+                                .rounded(px(4.))
+                                .bg(theme.muted)
+                                .text_size(px(11.))
+                                .text_color(theme.muted_foreground)
+                                .child(f.clone())
+                        })),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.5))
+                        .text_color(theme.muted_foreground)
+                        .line_clamp(2)
+                        .child(snippet),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .pt_1()
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(theme.muted_foreground)
+                                .child(format!("Deleted • {updated}")),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_3()
+                                .child(
+                                    div()
+                                        .id(SharedString::from(format!("restore-btn-{}", note.id)))
+                                        .cursor_pointer()
+                                        .hover(|s| s.text_color(theme.foreground))
+                                        .text_size(px(12.))
+                                        .text_color(theme.primary)
+                                        .child("Restore")
+                                        .on_click(cx.listener(move |this, _, _window, cx| {
+                                            let _ = this;
+                                            let note_id = restore_id.clone();
+                                            let restore_store = restore_store.clone();
+                                            restore_store.update(cx, |s, cx| {
+                                                s.restore_note(&note_id, cx);
+                                            });
+                                        })),
+                                )
+                                .child(
+                                    div()
+                                        .id(SharedString::from(format!("delete-perm-btn-{}", note.id)))
+                                        .cursor_pointer()
+                                        .hover(|s| s.text_color(theme.destructive))
+                                        .text_size(px(12.))
+                                        .text_color(theme.muted_foreground)
+                                        .child("Delete Permanently")
+                                        .on_click(cx.listener({
+                                            let delete_store = delete_store.clone();
+                                            let delete_id = delete_id.clone();
+                                            move |this, _, _window, cx| {
+                                                let _ = this;
+                                                let note_id = delete_id.clone();
+                                                let delete_store = delete_store.clone();
+                                                delete_store.update(cx, |s, cx| {
+                                                    s.permanently_delete_note(&note_id, cx);
+                                                });
+                                            }
+                                        })),
+                                ),
+                        ),
+                ),
+        )
+        .into_any_element()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use core::prelude::v1::test;
+    use gpui::AppContext;
     use crate::theme::{ActiveTheme, Theme};
 
     #[test]
@@ -343,8 +375,8 @@ mod tests {
         });
 
         let (_view, cx) = cx.add_window_view(|_, cx| {
-            let sidebar = cx.new(|cx| SidebarView::new(cx));
-            TrashView::new(sidebar, cx)
+            let store = cx.new(|_| NoteStore::new());
+            TrashView::new(store, cx)
         });
         cx.run_until_parked();
     }
