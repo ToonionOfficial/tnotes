@@ -1,5 +1,11 @@
+mod about;
+mod account;
+mod appearance;
 mod components;
-mod sections;
+mod developer;
+mod keybindings;
+mod storage;
+mod sync;
 
 pub use components::{SettingsRow, SettingsSection, SettingsSectionId};
 
@@ -43,6 +49,10 @@ impl SettingsView {
 
     #[cfg(test)]
     pub fn test_store(&self) -> Entity<NoteStore> {
+        self.store()
+    }
+
+    pub(crate) fn store(&self) -> Entity<NoteStore> {
         self.store.clone()
     }
 
@@ -101,13 +111,13 @@ impl SettingsView {
     fn render_content(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme().clone();
         let body = match self.active_section {
-            SettingsSectionId::Account => sections::render_account(self, cx),
-            SettingsSectionId::Sync => sections::render_sync(self, cx),
-            SettingsSectionId::Appearance => sections::render_appearance(self, cx),
-            SettingsSectionId::Storage => sections::render_storage(self, cx),
-            SettingsSectionId::Keybindings => sections::render_keybindings(self, cx),
-            SettingsSectionId::Developer => sections::render_developer(self, cx),
-            SettingsSectionId::About => sections::render_about(self, cx),
+            SettingsSectionId::Account => account::render(self, cx),
+            SettingsSectionId::Sync => sync::render(self, cx),
+            SettingsSectionId::Appearance => appearance::render(self, cx),
+            SettingsSectionId::Storage => storage::render(self, cx),
+            SettingsSectionId::Keybindings => keybindings::render(self, cx),
+            SettingsSectionId::Developer => developer::render(self, cx),
+            SettingsSectionId::About => about::render(self, cx),
         };
         div()
             .flex_1()
@@ -265,6 +275,27 @@ mod tests {
             view.read_with(cx, |v, _| v.active_section()),
             SettingsSectionId::About
         );
+    }
+
+    #[test]
+    fn settings_account_renders_rows() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        let store = view.read_with(cx, |v, _| v.test_store());
+
+        assert_eq!(
+            store.read_with(cx, |s, _| s.user_id().to_string()),
+            crate::store::LOCAL_USER_ID
+        );
+        assert!(store.read_with(cx, |s, _| s.active_notes().is_empty()));
+        assert!(store.read_with(cx, |s, _| s.folder_tree().is_empty()));
     }
 
     #[test]

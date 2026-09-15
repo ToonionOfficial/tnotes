@@ -118,6 +118,7 @@ impl RenderOnce for SettingsSection {
 
 /// One settings row: icon + title/subtitle on the left, and a value, chevron,
 /// or toggle switch on the right.
+#[derive(IntoElement)]
 pub struct SettingsRow {
     id: ElementId,
     icon: Option<IconName>,

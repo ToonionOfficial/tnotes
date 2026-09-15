@@ -263,6 +263,11 @@ impl NoteStore {
 
     // ---- navigation ----
 
+    /// The vault owner's id (owning user of the loaded notes/folders).
+    pub fn user_id(&self) -> &str {
+        &self.user_id
+    }
+
     pub fn active_location(&self) -> &NavigationLocation {
         &self.active_location
     }
