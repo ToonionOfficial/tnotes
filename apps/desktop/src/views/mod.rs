@@ -9,4 +9,4 @@ pub use note_list::{NoteListView, NoteSummary};
 #[allow(unused_imports)]
 pub use settings::SettingsView;
 #[allow(unused_imports)]
-pub use sidebar::{NoteItem, SidebarView};
+pub use sidebar::{NavigationLocation, NoteItem, SidebarView};

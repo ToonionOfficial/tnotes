@@ -38,6 +38,7 @@ pub struct Button {
     disabled: bool,
     full_width: bool,
     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_right_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -55,6 +56,7 @@ impl Button {
             disabled: false,
             full_width: false,
             on_click: None,
+            on_right_click: None,
         }
     }
 
@@ -147,6 +149,14 @@ impl Button {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_click = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_right_click(
+        mut self,
+        handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_right_click = Some(Box::new(handler));
         self
     }
 }
@@ -319,7 +329,20 @@ impl RenderOnce for Button {
 
         if let Some(on_click) = self.on_click {
             if !self.disabled {
-                el = el.on_click(move |ev, window, cx| on_click(ev, window, cx));
+                el = el.on_click(move |ev, window, cx| {
+                    if ev.is_right_click() {
+                        return;
+                    }
+                    on_click(ev, window, cx);
+                });
+            }
+        }
+
+        if let Some(on_right_click) = self.on_right_click {
+            if !self.disabled {
+                el = el.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
+                    on_right_click(ev, window, cx);
+                });
             }
         }
 

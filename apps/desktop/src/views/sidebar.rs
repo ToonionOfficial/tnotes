@@ -20,10 +20,67 @@ pub struct NoteItem {
     pub is_pinned: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NavigationLocation {
+    Note(String),
+    Starred,
+    Trash,
+}
+
+impl NavigationLocation {
+    pub fn as_note_id(&self) -> Option<&str> {
+        match self {
+            Self::Note(id) => Some(id.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Note(id) => id.as_str(),
+            Self::Starred => "starred",
+            Self::Trash => "trash",
+        }
+    }
+}
+
+impl std::ops::Deref for NavigationLocation {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl From<&str> for NavigationLocation {
+    fn from(s: &str) -> Self {
+        match s {
+            "starred" => Self::Starred,
+            "trash" => Self::Trash,
+            other => Self::Note(other.to_string()),
+        }
+    }
+}
+
+impl From<String> for NavigationLocation {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "starred" => Self::Starred,
+            "trash" => Self::Trash,
+            _ => Self::Note(s),
+        }
+    }
+}
+
+impl From<&NavigationLocation> for NavigationLocation {
+    fn from(loc: &NavigationLocation) -> Self {
+        loc.clone()
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NavigationHistory {
-    pub back_stack: Vec<String>,
-    pub forward_stack: Vec<String>,
+    pub back_stack: Vec<NavigationLocation>,
+    pub forward_stack: Vec<NavigationLocation>,
 }
 
 impl NavigationHistory {
@@ -35,34 +92,37 @@ impl NavigationHistory {
         !self.forward_stack.is_empty()
     }
 
-    pub fn push(&mut self, current: Option<&str>, next: &str) {
+    pub fn push(&mut self, current: Option<impl Into<NavigationLocation>>, next: impl Into<NavigationLocation>) {
+        let next = next.into();
         if let Some(cur) = current {
+            let cur = cur.into();
             if cur != next {
-                self.back_stack.push(cur.to_string());
+                self.back_stack.push(cur);
                 self.forward_stack.clear();
             }
         }
     }
 
-    pub fn go_back(&mut self, current: Option<&str>) -> Option<String> {
+    pub fn go_back(&mut self, current: Option<impl Into<NavigationLocation>>) -> Option<NavigationLocation> {
         let prev = self.back_stack.pop()?;
         if let Some(cur) = current {
-            self.forward_stack.push(cur.to_string());
+            self.forward_stack.push(cur.into());
         }
         Some(prev)
     }
 
-    pub fn go_forward(&mut self, current: Option<&str>) -> Option<String> {
+    pub fn go_forward(&mut self, current: Option<impl Into<NavigationLocation>>) -> Option<NavigationLocation> {
         let next = self.forward_stack.pop()?;
         if let Some(cur) = current {
-            self.back_stack.push(cur.to_string());
+            self.back_stack.push(cur.into());
         }
         Some(next)
     }
 
     pub fn remove_note(&mut self, note_id: &str) {
-        self.back_stack.retain(|id| id != note_id);
-        self.forward_stack.retain(|id| id != note_id);
+        let target = NavigationLocation::Note(note_id.to_string());
+        self.back_stack.retain(|id| id != &target);
+        self.forward_stack.retain(|id| id != &target);
     }
 }
 
@@ -70,12 +130,11 @@ pub struct SidebarView {
     is_collapsed: bool,
     search_state: InputState,
     search_focus: FocusHandle,
-    selected_section: String,
-    selected_note_id: Option<String>,
+    active_location: NavigationLocation,
     history: NavigationHistory,
     expanded_folders: HashSet<String>,
-    starred_expanded: bool,
     notes: Vec<NoteItem>,
+    deleted_notes: Vec<NoteItem>,
     context_menu: Option<SidebarContextMenu>,
     context_menu_focus: FocusHandle,
 }
@@ -169,18 +228,17 @@ impl SidebarView {
             },
         ];
 
-        let selected_note_id = Some("note-arch-spec".to_string());
+        let active_location = NavigationLocation::Note("note-arch-spec".to_string());
 
         Self {
             is_collapsed: false,
             search_state: InputState::new(""),
             search_focus: cx.focus_handle(),
-            selected_section: String::new(),
-            selected_note_id,
+            active_location,
             history: NavigationHistory::default(),
             expanded_folders,
-            starred_expanded: false,
             notes,
+            deleted_notes: Vec::new(),
             context_menu: None,
             context_menu_focus: cx.focus_handle(),
         }
@@ -210,9 +268,6 @@ impl SidebarView {
         cx.notify();
     }
 
-    pub fn selected_note_id(&self) -> Option<&str> {
-        self.selected_note_id.as_deref()
-    }
 
     pub fn toggle_collapsed(&mut self, cx: &mut Context<Self>) {
         self.is_collapsed = !self.is_collapsed;
@@ -229,29 +284,74 @@ impl SidebarView {
         cx.notify();
     }
 
-    pub fn toggle_starred(&mut self, cx: &mut Context<Self>) {
-        self.starred_expanded = !self.starred_expanded;
+    pub fn active_location(&self) -> &NavigationLocation {
+        &self.active_location
+    }
+
+    pub fn selected_note_id(&self) -> Option<&str> {
+        self.active_location.as_note_id()
+    }
+
+    pub fn selected_note(&self) -> Option<&NoteItem> {
+        let id = self.selected_note_id()?;
+        self.notes.iter().find(|n| &n.id == id)
+    }
+
+    pub fn starred_notes(&self) -> Vec<&NoteItem> {
+        self.notes.iter().filter(|n| n.is_pinned).collect()
+    }
+
+    pub fn trash_notes(&self) -> Vec<&NoteItem> {
+        self.deleted_notes.iter().collect()
+    }
+
+    pub fn open_starred(&mut self, cx: &mut Context<Self>) {
+        let next = NavigationLocation::Starred;
+        if self.active_location == next {
+            return;
+        }
+        self.history.push(Some(&self.active_location), next.clone());
+        self.active_location = next;
         cx.notify();
     }
 
-    pub fn select_section(&mut self, section_id: &str, cx: &mut Context<Self>) {
-        self.selected_section = section_id.to_string();
+    #[allow(dead_code)]
+    pub fn toggle_starred(&mut self, cx: &mut Context<Self>) {
+        self.open_starred(cx);
+    }
+
+    pub fn open_trash(&mut self, cx: &mut Context<Self>) {
+        let next = NavigationLocation::Trash;
+        if self.active_location == next {
+            return;
+        }
+        self.history.push(Some(&self.active_location), next.clone());
+        self.active_location = next;
         cx.notify();
+    }
+
+    #[allow(dead_code)]
+    pub fn select_section(&mut self, section_id: &str, cx: &mut Context<Self>) {
+        match section_id {
+            "starred" => self.open_starred(cx),
+            "trash" => self.open_trash(cx),
+            _ => cx.notify(),
+        }
     }
 
     pub fn select_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        if self.selected_note_id.as_deref() == Some(note_id) {
+        let next = NavigationLocation::Note(note_id.to_string());
+        if self.active_location == next {
             return;
         }
-        self.history.push(self.selected_note_id.as_deref(), note_id);
-        self.selected_note_id = Some(note_id.to_string());
-        self.selected_section.clear();
+        self.history.push(Some(&self.active_location), next.clone());
+        self.active_location = next;
         cx.notify();
     }
 
     pub fn navigate_back(&mut self, cx: &mut Context<Self>) -> bool {
-        if let Some(prev) = self.history.go_back(self.selected_note_id.as_deref()) {
-            self.selected_note_id = Some(prev);
+        if let Some(prev) = self.history.go_back(Some(&self.active_location)) {
+            self.active_location = prev;
             cx.notify();
             true
         } else {
@@ -260,8 +360,8 @@ impl SidebarView {
     }
 
     pub fn navigate_forward(&mut self, cx: &mut Context<Self>) -> bool {
-        if let Some(next) = self.history.go_forward(self.selected_note_id.as_deref()) {
-            self.selected_note_id = Some(next);
+        if let Some(next) = self.history.go_forward(Some(&self.active_location)) {
+            self.active_location = next;
             cx.notify();
             true
         } else {
@@ -275,11 +375,6 @@ impl SidebarView {
 
     pub fn can_navigate_forward(&self) -> bool {
         self.history.can_go_forward()
-    }
-
-    pub fn selected_note(&self) -> Option<&NoteItem> {
-        let id = self.selected_note_id.as_ref()?;
-        self.notes.iter().find(|n| &n.id == id)
     }
 
     pub fn create_new_note(&mut self, cx: &mut Context<Self>) {
@@ -330,12 +425,39 @@ impl SidebarView {
     }
 
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.notes.retain(|n| n.id != note_id);
+        if let Some(pos) = self.notes.iter().position(|n| n.id == note_id) {
+            let note = self.notes.remove(pos);
+            self.deleted_notes.push(note);
+        }
         self.history.remove_note(note_id);
-        if self.selected_note_id.as_deref() == Some(note_id) {
-            self.selected_note_id = self.history.back_stack.pop().or_else(|| self.notes.first().map(|n| n.id.clone()));
+        if self.active_location == NavigationLocation::Note(note_id.to_string()) {
+            if let Some(prev) = self.history.back_stack.pop() {
+                self.active_location = prev;
+            } else if let Some(first) = self.notes.first() {
+                self.active_location = NavigationLocation::Note(first.id.clone());
+            } else {
+                self.active_location = NavigationLocation::Starred;
+            }
         }
         self.context_menu = None;
+        cx.notify();
+    }
+
+    pub fn restore_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
+        if let Some(pos) = self.deleted_notes.iter().position(|n| n.id == note_id) {
+            let note = self.deleted_notes.remove(pos);
+            self.notes.push(note);
+            cx.notify();
+        }
+    }
+
+    pub fn permanently_delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
+        self.deleted_notes.retain(|n| n.id != note_id);
+        cx.notify();
+    }
+
+    pub fn empty_trash(&mut self, cx: &mut Context<Self>) {
+        self.deleted_notes.clear();
         cx.notify();
     }
 
@@ -578,7 +700,7 @@ impl SidebarView {
 impl Render for SidebarView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let selected_note = self.selected_note_id.clone();
+        let selected_note = self.selected_note_id().map(|s| s.to_string());
         let query = self.search_state.value().trim().to_string();
 
         let rail = SidebarRail::new("main-sidebar-collapsed")
@@ -711,19 +833,20 @@ impl Render for SidebarView {
 
             content = content.child(group);
         } else {
-            let starred_notes: Vec<&NoteItem> = self.notes.iter().filter(|n| n.is_pinned).collect();
-            let starred_count = starred_notes.len();
+            let is_starred_active = self.active_location == NavigationLocation::Starred;
+            let is_trash_active = self.active_location == NavigationLocation::Trash;
+            let starred_count = self.notes.iter().filter(|n| n.is_pinned).count();
+            let trash_count = self.deleted_notes.len();
 
             let mut nav_group = SidebarGroup::new();
 
             nav_group = nav_group.child(
-                FolderTreeItem::new("nav-starred", "Starred")
-                    .depth(0)
-                    .icon(IconName::Star)
-                    .expanded(self.starred_expanded)
+                Button::sidebar("nav-starred", "Starred")
+                    .leading_icon(IconName::Star)
                     .count(starred_count)
-                    .on_toggle(cx.listener(|this, _, _, cx| {
-                        this.toggle_starred(cx);
+                    .active(is_starred_active)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.open_starred(cx);
                     }))
                     .on_right_click(cx.listener(Self::folder_menu_handler(
                         "starred".to_string(),
@@ -731,37 +854,13 @@ impl Render for SidebarView {
                     ))),
             );
 
-            if self.starred_expanded {
-                for note in starred_notes {
-                    let note_id = note.id.clone();
-                    let is_active = selected_note.as_deref() == Some(&note_id);
-                    let right_click = Self::note_menu_handler(
-                        note.id.clone(),
-                        note.title.clone(),
-                        note.is_pinned,
-                    );
-                    nav_group = nav_group.child(
-                        NoteTreeItem::new(format!("starred-note-{}", note.id), note.title.clone())
-                            .depth(1)
-                            .active(is_active)
-                            .pinned(true)
-                            .on_click(cx.listener({
-                                let note_id = note_id.clone();
-                                move |this, _, _, cx| {
-                                    this.select_note(&note_id, cx);
-                                }
-                            }))
-                            .on_right_click(cx.listener(right_click)),
-                    );
-                }
-            }
-
             nav_group = nav_group.child(
-                Button::sidebar("trash", "Trash")
+                Button::sidebar("nav-trash", "Trash")
                     .leading_icon(IconName::Trash2)
-                    .count(0)
+                    .count(trash_count)
+                    .active(is_trash_active)
                     .on_click(cx.listener(|this, _, _, cx| {
-                        this.select_section("trash", cx);
+                        this.open_trash(cx);
                     })),
             );
 
@@ -1318,7 +1417,7 @@ mod tests {
         assert!(!history.can_go_forward());
 
         history.remove_note("note-a");
-        assert_eq!(history.back_stack, vec!["note-b".to_string()]);
+        assert_eq!(history.back_stack, vec![super::NavigationLocation::Note("note-b".to_string())]);
     }
 
     #[test]
@@ -1406,26 +1505,22 @@ mod tests {
         );
 
         view.update(cx, |v, cx| {
-            v.toggle_starred(cx);
+            v.open_starred(cx);
         });
         cx.run_until_parked();
 
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_note_id().map(|s| s.to_string())),
-            Some("note-arch-spec".to_string())
-        );
-        assert_ne!(
-            view.read_with(cx, |v, _| v.selected_section.clone()),
-            "starred"
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Starred
         );
 
         view.update(cx, |v, cx| {
-            v.select_section("trash", cx);
+            v.open_trash(cx);
         });
         cx.run_until_parked();
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_section.clone()),
-            "trash"
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Trash
         );
 
         view.update(cx, |v, cx| {
@@ -1433,8 +1528,86 @@ mod tests {
         });
         cx.run_until_parked();
         assert_eq!(
-            view.read_with(cx, |v, _| v.selected_section.clone()),
-            ""
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Note("note-desktop-gpui".to_string())
+        );
+    }
+
+    #[test]
+    fn test_starred_and_trash_navigation_and_item_actions() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| SidebarView::new(cx));
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Note("note-arch-spec".to_string())
+        );
+
+        view.update(cx, |v, cx| v.open_starred(cx));
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Starred
+        );
+        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
+        assert!(!view.read_with(cx, |v, _| v.starred_notes().is_empty()));
+
+        view.update(cx, |v, cx| v.open_trash(cx));
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Trash
+        );
+        assert!(view.read_with(cx, |v, _| v.can_navigate_back()));
+
+        view.update(cx, |v, cx| {
+            assert!(v.navigate_back(cx));
+        });
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Starred
+        );
+
+        view.update(cx, |v, cx| {
+            assert!(v.navigate_back(cx));
+        });
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Note("note-arch-spec".to_string())
+        );
+
+        view.update(cx, |v, cx| {
+            v.delete_note("note-arch-spec", cx);
+        });
+        assert_eq!(
+            view.read_with(cx, |v, _| v.trash_notes().iter().any(|n| n.id == "note-arch-spec")),
+            true
+        );
+
+        view.update(cx, |v, cx| {
+            v.open_trash(cx);
+            v.restore_note("note-arch-spec", cx);
+        });
+        assert_eq!(
+            view.read_with(cx, |v, _| v.trash_notes().iter().any(|n| n.id == "note-arch-spec")),
+            false
+        );
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_location.clone()),
+            super::NavigationLocation::Trash
+        );
+        assert!(view.read_with(cx, |v, _| v.notes.iter().any(|n| n.id == "note-arch-spec")));
+
+        view.update(cx, |v, cx| {
+            v.delete_note("note-arch-spec", cx);
+            v.empty_trash(cx);
+        });
+        assert_eq!(
+            view.read_with(cx, |v, _| v.trash_notes().is_empty()),
+            true
         );
     }
 }
