@@ -5,6 +5,7 @@ pub mod folder_item;
 pub mod fps;
 pub mod icon;
 pub mod input;
+pub mod nav_buttons;
 pub mod note_card;
 pub mod pairing_dialog;
 pub mod sidebar;
@@ -26,6 +27,8 @@ pub use fps::{fps_monitor, FpsAnchor, FpsMonitor, FpsOverlay, FpsStyle, Headline
 pub use icon::{Icon, IconName};
 #[allow(unused_imports)]
 pub use input::{Input, InputSize, InputState, InputVariant};
+#[allow(unused_imports)]
+pub use nav_buttons::NavButtons;
 #[allow(unused_imports)]
 pub use note_card::NoteCard;
 #[allow(unused_imports)]
