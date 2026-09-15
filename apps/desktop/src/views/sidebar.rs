@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use gpui::*;
 use crate::components::{
     Button, ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel,
-    ContextMenuSeparator, FolderTreeItem, Icon, IconName, Input, NoteTreeItem, Sidebar,
+    ContextMenuSeparator, FolderTreeItem, Icon, IconName, Input, InputState, NoteTreeItem, Sidebar,
     SidebarCollapsible, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarRail,
     SidebarRailItem, SidebarToggleButton,
 };
@@ -22,7 +22,7 @@ pub struct NoteItem {
 
 pub struct SidebarView {
     is_collapsed: bool,
-    search_query: String,
+    search_state: InputState,
     search_focus: FocusHandle,
     selected_section: String,
     selected_note_id: Option<String>,
@@ -126,7 +126,7 @@ impl SidebarView {
 
         Self {
             is_collapsed: false,
-            search_query: String::new(),
+            search_state: InputState::new(""),
             search_focus: cx.focus_handle(),
             selected_section: "projects".to_string(),
             selected_note_id,
@@ -138,39 +138,19 @@ impl SidebarView {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn search_query(&self) -> &str {
+        self.search_state.value()
+    }
+
     fn handle_search_key(
         &mut self,
         event: &KeyDownEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let key = &event.keystroke.key;
-        if key == "backspace" {
-            self.search_query.pop();
+        if self.search_state.handle_key(event, window, cx) {
             cx.notify();
-        } else if key == "escape" {
-            self.search_query.clear();
-            window.blur();
-            cx.notify();
-        } else if key == "enter" {
-            window.blur();
-            cx.notify();
-        } else if !event.keystroke.modifiers.platform
-            && !event.keystroke.modifiers.control
-            && !event.keystroke.modifiers.alt
-        {
-            if let Some(ref text) = event.keystroke.key_char {
-                if !text.is_empty() && !text.chars().all(|c| c.is_control()) {
-                    self.search_query.push_str(text);
-                    cx.notify();
-                }
-            } else if key == "space" {
-                self.search_query.push(' ');
-                cx.notify();
-            } else if key.chars().count() == 1 {
-                self.search_query.push_str(key);
-                cx.notify();
-            }
         }
     }
 
@@ -485,7 +465,7 @@ impl SidebarView {
     }
 
     pub fn matching_search_notes(&self) -> Vec<&NoteItem> {
-        let query = self.search_query.trim().to_lowercase();
+        let query = self.search_state.value().trim().to_lowercase();
         if query.is_empty() {
             return Vec::new();
         }
@@ -508,7 +488,7 @@ impl Render for SidebarView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let selected_note = self.selected_note_id.clone();
-        let query = self.search_query.trim().to_string();
+        let query = self.search_state.value().trim().to_string();
 
         let rail = SidebarRail::new("main-sidebar-collapsed")
             .top_item(
@@ -579,13 +559,13 @@ impl Render for SidebarView {
             )
             .child(
                 Input::sidebar_search("sidebar-search-input")
-                    .value(self.search_query.clone())
+                    .state(&self.search_state)
                     .focus_handle(self.search_focus.clone())
                     .on_key_down(cx.listener(|this, event, window, cx| {
                         this.handle_search_key(event, window, cx);
                     }))
                     .on_clear(cx.listener(|this, _, _, cx| {
-                        this.search_query.clear();
+                        this.search_state.clear();
                         cx.notify();
                     })),
             );

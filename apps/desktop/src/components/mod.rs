@@ -22,7 +22,7 @@ pub use folder_item::{FolderTreeItem, NoteTreeItem};
 #[allow(unused_imports)]
 pub use icon::{Icon, IconName};
 #[allow(unused_imports)]
-pub use input::{Input, InputSize, InputVariant};
+pub use input::{Input, InputSize, InputState, InputVariant};
 #[allow(unused_imports)]
 pub use note_card::NoteCard;
 #[allow(unused_imports)]
