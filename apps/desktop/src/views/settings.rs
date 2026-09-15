@@ -1,29 +1,16 @@
 use gpui::*;
 use crate::components::{Icon, IconName};
+use crate::keymap::CloseSettings;
 use crate::theme::ThemeExt;
-
-pub type OnBackCallback = Box<dyn Fn(&mut Window, &mut App) + 'static>;
 
 pub struct SettingsView {
     focus_handle: FocusHandle,
-    on_back: Option<OnBackCallback>,
 }
 
 impl SettingsView {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
-            on_back: None,
-        }
-    }
-
-    pub fn set_on_back(&mut self, handler: impl Fn(&mut Window, &mut App) + 'static) {
-        self.on_back = Some(Box::new(handler));
-    }
-
-    pub fn trigger_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(ref on_back) = self.on_back {
-            on_back(window, cx);
         }
     }
 
@@ -43,15 +30,15 @@ impl Render for SettingsView {
             .bg(theme.background)
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle)
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+            .on_key_down(cx.listener(|_this, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key.eq_ignore_ascii_case("escape") {
-                    this.trigger_back(window, cx);
+                    window.dispatch_action(Box::new(CloseSettings), cx);
                 }
             }))
             .on_mouse_down(
                 MouseButton::Navigate(NavigationDirection::Back),
-                cx.listener(|this, _event, window, cx| {
-                    this.trigger_back(window, cx);
+                cx.listener(|_this, _event, window, cx| {
+                    window.dispatch_action(Box::new(CloseSettings), cx);
                 }),
             )
             .child(
@@ -89,8 +76,8 @@ impl Render for SettingsView {
                                     .gap_2()
                                     .cursor_pointer()
                                     .hover(|s| s.bg(theme.secondary))
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.trigger_back(window, cx);
+                                    .on_click(cx.listener(|_this, _, window, cx| {
+                                        window.dispatch_action(Box::new(CloseSettings), cx);
                                     }))
                                     .child(
                                         Icon::new(IconName::ArrowLeft)
@@ -142,55 +129,20 @@ impl Render for SettingsView {
 #[cfg(test)]
 mod tests {
     use super::SettingsView;
+    use crate::keymap::KeymapConfig;
     use crate::theme::{ActiveTheme, Theme};
     use gpui::TestAppContext;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
 
     #[test]
-    fn settings_view_trigger_back_invokes_on_back_callback() {
+    fn settings_view_escape_dispatches_close_settings() {
         let mut cx = TestAppContext::single();
         cx.update(|cx| {
             cx.set_global(ActiveTheme(Theme::dark()));
+            KeymapConfig::default_config().bind_to_gpui(cx);
         });
-
-        let called = Arc::new(AtomicBool::new(false));
-        let called_clone = called.clone();
-
-        let (view, cx) = cx.add_window_view(|_, cx| {
-            let mut settings = SettingsView::new(cx);
-            settings.set_on_back(move |_, _| {
-                called_clone.store(true, Ordering::SeqCst);
-            });
-            settings
-        });
-        cx.run_until_parked();
-
-        cx.update(|window, cx| {
-            view.update(cx, |v, cx| {
-                v.trigger_back(window, cx);
-            });
-        });
-        cx.run_until_parked();
-
-        assert!(called.load(Ordering::SeqCst), "trigger_back should invoke on_back");
-    }
-
-    #[test]
-    fn settings_view_escape_key_invokes_on_back() {
-        let mut cx = TestAppContext::single();
-        cx.update(|cx| {
-            cx.set_global(ActiveTheme(Theme::dark()));
-        });
-
-        let called = Arc::new(AtomicBool::new(false));
-        let called_clone = called.clone();
 
         let (_view, cx) = cx.add_window_view(|window, cx| {
-            let mut settings = SettingsView::new(cx);
-            settings.set_on_back(move |_, _| {
-                called_clone.store(true, Ordering::SeqCst);
-            });
+            let settings = SettingsView::new(cx);
             settings.focus(window);
             settings
         });
@@ -198,27 +150,17 @@ mod tests {
 
         cx.simulate_keystrokes("escape");
         cx.run_until_parked();
-
-        assert!(called.load(Ordering::SeqCst), "escape keystroke should invoke on_back");
     }
 
     #[test]
-    fn settings_view_mouse_back_button_invokes_on_back() {
+    fn settings_view_mouse_back_dispatches_close_settings() {
         let mut cx = TestAppContext::single();
         cx.update(|cx| {
             cx.set_global(ActiveTheme(Theme::dark()));
+            KeymapConfig::default_config().bind_to_gpui(cx);
         });
 
-        let called = Arc::new(AtomicBool::new(false));
-        let called_clone = called.clone();
-
-        let (_view, cx) = cx.add_window_view(|_, cx| {
-            let mut settings = SettingsView::new(cx);
-            settings.set_on_back(move |_, _| {
-                called_clone.store(true, Ordering::SeqCst);
-            });
-            settings
-        });
+        let (_view, cx) = cx.add_window_view(|_, cx| SettingsView::new(cx));
         cx.run_until_parked();
 
         cx.simulate_event(gpui::MouseDownEvent {
@@ -229,7 +171,5 @@ mod tests {
             first_mouse: false,
         });
         cx.run_until_parked();
-
-        assert!(called.load(Ordering::SeqCst), "mouse back button should invoke on_back");
     }
 }
