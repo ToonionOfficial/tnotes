@@ -1,27 +1,146 @@
+mod components;
+mod sections;
+
+pub use components::{SettingsRow, SettingsSection, SettingsSectionId};
+
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use crate::components::{Icon, IconName};
 use crate::keymap::CloseSettings;
+use crate::store::NoteStore;
 use crate::theme::ThemeExt;
 
 pub struct SettingsView {
+    store: Entity<NoteStore>,
+    active_section: SettingsSectionId,
     focus_handle: FocusHandle,
+    _store_subscription: Subscription,
 }
 
 impl SettingsView {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+        let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
         Self {
+            store,
+            active_section: SettingsSectionId::Account,
             focus_handle: cx.focus_handle(),
+            _store_subscription: store_sub,
         }
     }
 
     pub fn focus(&self, window: &mut Window) {
         window.focus(&self.focus_handle);
     }
+
+    pub fn active_section(&self) -> SettingsSectionId {
+        self.active_section
+    }
+
+    pub fn select_section(&mut self, section: SettingsSectionId, cx: &mut Context<Self>) {
+        self.active_section = section;
+        cx.notify();
+    }
+
+    #[cfg(test)]
+    pub fn test_store(&self) -> Entity<NoteStore> {
+        self.store.clone()
+    }
+
+    fn render_nav(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = cx.theme().clone();
+        div()
+            .flex_1()
+            .flex()
+            .flex_col()
+            .gap(px(2.))
+            .children(SettingsSectionId::ALL.iter().map(|section| {
+                let active = *section == self.active_section;
+                let section = *section;
+                div()
+                    .id(SharedString::from(format!(
+                        "settings-nav-{}",
+                        section.title().to_lowercase()
+                    )))
+                    .w_full()
+                    .h(px(34.))
+                    .px_2()
+                    .rounded(px(6.))
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .cursor_pointer()
+                    .bg(if active {
+                        theme.secondary
+                    } else {
+                        gpui::transparent_black()
+                    })
+                    .hover(|s| s.bg(theme.secondary))
+                    .text_color(if active {
+                        theme.foreground
+                    } else {
+                        theme.muted_foreground
+                    })
+                    .child(Icon::new(section.icon()).size(px(14.)))
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .font_weight(if active {
+                                FontWeight::MEDIUM
+                            } else {
+                                FontWeight::NORMAL
+                            })
+                            .child(section.title()),
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.select_section(section, cx);
+                    }))
+            }))
+            .into_any_element()
+    }
+
+    fn render_content(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = cx.theme().clone();
+        let body = match self.active_section {
+            SettingsSectionId::Account => sections::render_account(self, cx),
+            SettingsSectionId::Sync => sections::render_sync(self, cx),
+            SettingsSectionId::Appearance => sections::render_appearance(self, cx),
+            SettingsSectionId::Storage => sections::render_storage(self, cx),
+            SettingsSectionId::Keybindings => sections::render_keybindings(self, cx),
+            SettingsSectionId::Developer => sections::render_developer(self, cx),
+            SettingsSectionId::About => sections::render_about(self, cx),
+        };
+        div()
+            .flex_1()
+            .h_full()
+            .id("settings-content-scroll")
+            .overflow_y_scroll()
+            .bg(theme.background)
+            .child(
+                div()
+                    .max_w(px(640.))
+                    .w_full()
+                    .mx_auto()
+                    .px(px(32.))
+                    .py(px(28.))
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(
+                        div()
+                            .text_size(px(20.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.foreground)
+                            .child(self.active_section.title()),
+                    )
+                    .child(body),
+            )
+            .into_any_element()
+    }
 }
 
 impl Render for SettingsView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
+        let theme = cx.theme().clone();
 
         div()
             .id("settings-screen")
@@ -43,7 +162,7 @@ impl Render for SettingsView {
             )
             .child(
                 div()
-                    .id("settings-sidebar-placeholder")
+                    .id("settings-sidebar")
                     .w(px(240.))
                     .h_full()
                     .flex()
@@ -56,7 +175,8 @@ impl Render for SettingsView {
                         div()
                             .id("settings-sidebar-nav")
                             .flex_1()
-                            .p_2(),
+                            .p_2()
+                            .child(self.render_nav(cx)),
                     )
                     .child(
                         div()
@@ -101,37 +221,51 @@ impl Render for SettingsView {
                     .h_full()
                     .flex()
                     .flex_col()
-                    .items_center()
-                    .justify_center()
-                    .gap_3()
-                    .bg(theme.background)
-                    .child(
-                        Icon::new(IconName::Settings)
-                            .size(px(36.))
-                            .color(theme.muted_foreground),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(18.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Settings"),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(13.))
-                            .text_color(theme.muted_foreground)
-                            .child("Settings screen with dedicated sidebar coming soon"),
-                    ),
+                    .child(self.render_content(cx)),
             )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SettingsView;
+    use super::{SettingsSectionId, SettingsView};
     use crate::keymap::KeymapConfig;
+    use crate::store::NoteStore;
     use crate::theme::{ActiveTheme, Theme};
-    use gpui::TestAppContext;
+    use gpui::{AppContext, Entity, TestAppContext};
+
+    fn add_settings(cx: &mut TestAppContext) -> Entity<SettingsView> {
+        let (view, _) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SettingsView::new(store, cx)
+        });
+        view
+    }
+
+    #[test]
+    fn settings_nav_lists_all_sections() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_section()),
+            SettingsSectionId::Account
+        );
+        view.update(cx, |v, cx| {
+            v.select_section(SettingsSectionId::About, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v.active_section()),
+            SettingsSectionId::About
+        );
+    }
 
     #[test]
     fn settings_view_escape_dispatches_close_settings() {
@@ -142,7 +276,8 @@ mod tests {
         });
 
         let (_view, cx) = cx.add_window_view(|window, cx| {
-            let settings = SettingsView::new(cx);
+            let store = cx.new(|_| NoteStore::new());
+            let settings = SettingsView::new(store, cx);
             settings.focus(window);
             settings
         });
@@ -160,7 +295,10 @@ mod tests {
             KeymapConfig::default_config().bind_to_gpui(cx);
         });
 
-        let (_view, cx) = cx.add_window_view(|_, cx| SettingsView::new(cx));
+        let (_view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SettingsView::new(store, cx)
+        });
         cx.run_until_parked();
 
         cx.simulate_event(gpui::MouseDownEvent {

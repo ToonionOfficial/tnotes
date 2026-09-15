@@ -38,6 +38,10 @@ pub enum IconName {
     ShoppingCart,
     ArrowLeft,
     ArrowRight,
+    User,
+    Database,
+    Keyboard,
+    CircleInfo,
 }
 
 #[allow(dead_code)]
@@ -78,6 +82,10 @@ impl IconName {
             Self::ShoppingCart => "icons/shopping-cart.svg",
             Self::ArrowLeft => "icons/arrow-left.svg",
             Self::ArrowRight => "icons/arrow-right.svg",
+            Self::User => "icons/user.svg",
+            Self::Database => "icons/database.svg",
+            Self::Keyboard => "icons/keyboard.svg",
+            Self::CircleInfo => "icons/info.svg",
         }
         .into()
     }
@@ -118,6 +126,10 @@ impl IconName {
             "music" => Some(Self::Music),
             "zap" => Some(Self::Zap),
             "shopping-cart" => Some(Self::ShoppingCart),
+            "user" => Some(Self::User),
+            "database" => Some(Self::Database),
+            "keyboard" => Some(Self::Keyboard),
+            "info" | "circle-info" => Some(Self::CircleInfo),
             _ => None,
         }
     }

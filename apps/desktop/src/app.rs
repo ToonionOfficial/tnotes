@@ -220,7 +220,7 @@ impl Tnotes {
                             }
                         });
                         let sidebar = cx.new(|cx| SidebarView::new(store.clone(), cx));
-                        let settings_view = cx.new(|cx| SettingsView::new(cx));
+                        let settings_view = cx.new(|cx| SettingsView::new(store.clone(), cx));
                         let note_view = cx.new(|cx| NoteView::new(store.clone(), cx));
                         let starred_view = cx.new(|cx| StarredView::new(store.clone(), cx));
                         let trash_view = cx.new(|cx| TrashView::new(store.clone(), cx));
