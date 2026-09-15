@@ -175,7 +175,7 @@ impl SidebarView {
             is_collapsed: false,
             search_state: InputState::new(""),
             search_focus: cx.focus_handle(),
-            selected_section: "projects".to_string(),
+            selected_section: String::new(),
             selected_note_id,
             history: NavigationHistory::default(),
             expanded_folders,
@@ -245,6 +245,7 @@ impl SidebarView {
         }
         self.history.push(self.selected_note_id.as_deref(), note_id);
         self.selected_note_id = Some(note_id.to_string());
+        self.selected_section.clear();
         cx.notify();
     }
 
@@ -759,7 +760,6 @@ impl Render for SidebarView {
                 Button::sidebar("trash", "Trash")
                     .leading_icon(IconName::Trash2)
                     .count(0)
-                    .active(self.selected_section == "trash")
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.select_section("trash", cx);
                     })),
@@ -1417,6 +1417,24 @@ mod tests {
         assert_ne!(
             view.read_with(cx, |v, _| v.selected_section.clone()),
             "starred"
+        );
+
+        view.update(cx, |v, cx| {
+            v.select_section("trash", cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_section.clone()),
+            "trash"
+        );
+
+        view.update(cx, |v, cx| {
+            v.select_note("note-desktop-gpui", cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v.selected_section.clone()),
+            ""
         );
     }
 }
