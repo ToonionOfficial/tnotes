@@ -2,4 +2,4 @@ pub mod format;
 pub mod note_store;
 
 pub use format::{format_relative_time, snippet_from_body};
-pub use note_store::{NoteStore, NavigationHistory, NavigationLocation, LOCAL_DEVICE_ID, LOCAL_USER_ID};
+pub use note_store::{NoteStore, NavigationLocation, LOCAL_USER_ID};

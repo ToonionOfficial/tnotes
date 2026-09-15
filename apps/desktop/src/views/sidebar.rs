@@ -18,7 +18,70 @@ pub struct SidebarView {
     expanded_folders: HashSet<String>,
     context_menu: Option<SidebarContextMenu>,
     context_menu_focus: FocusHandle,
+    renaming: Option<RenameState>,
+    picking_icon_for: Option<String>,
     _store_subscription: Subscription,
+}
+
+/// Inline rename session for one folder or note row.
+#[derive(Clone, Debug)]
+pub struct RenameState {
+    kind: RenameKind,
+    id: String,
+    input: InputState,
+    focus: FocusHandle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenameKind {
+    Folder,
+    Note,
+}
+
+/// Folder icon options (mobile parity) with their stored lowercase names.
+pub const FOLDER_ICON_OPTIONS: &[(&str, IconName)] = &[
+    ("folder", IconName::Folder),
+    ("briefcase", IconName::Briefcase),
+    ("lightbulb", IconName::Lightbulb),
+    ("file-text", IconName::FileText),
+    ("rocket", IconName::Rocket),
+    ("target", IconName::Target),
+    ("graduation-cap", IconName::GraduationCap),
+    ("palette", IconName::Palette),
+    ("home", IconName::Home),
+    ("wallet", IconName::Wallet),
+    ("star", IconName::Star),
+    ("heart", IconName::Heart),
+    ("bookmark", IconName::Bookmark),
+    ("code", IconName::Code),
+    ("music", IconName::Music),
+    ("zap", IconName::Zap),
+    ("shopping-cart", IconName::ShoppingCart),
+];
+
+pub fn folder_icon_name(icon: IconName) -> &'static str {
+    FOLDER_ICON_OPTIONS
+        .iter()
+        .find(|(_, candidate)| *candidate == icon)
+        .map(|(name, _)| *name)
+        .unwrap_or("folder")
+}
+
+pub fn folder_icon_from_name(name: &str) -> Option<IconName> {
+    FOLDER_ICON_OPTIONS
+        .iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name.trim()))
+        .map(|(_, icon)| *icon)
+}
+
+/// Resolve a stored `Folder.icon` value to a renderable icon, falling back to
+/// the open/closed folder glyph for legacy (emoji) or unknown values.
+pub fn folder_icon_for(stored: &str, expanded: bool) -> IconName {
+    folder_icon_from_name(stored).unwrap_or(if expanded {
+        IconName::FolderOpen
+    } else {
+        IconName::Folder
+    })
 }
 
 /// Right-click target for the sidebar context menu.
@@ -48,6 +111,8 @@ impl SidebarView {
             expanded_folders,
             context_menu: None,
             context_menu_focus: cx.focus_handle(),
+            renaming: None,
+            picking_icon_for: None,
             _store_subscription: store_sub,
         }
     }
@@ -174,9 +239,116 @@ impl SidebarView {
         self.store.update(cx, |store, cx| store.empty_trash(cx));
     }
 
-    pub fn rename_note(&mut self, _note_id: &str, cx: &mut Context<Self>) {
-        // TODO: open an inline rename editor for the note.
+    pub fn begin_rename_note(&mut self, note_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let title = self
+            .store
+            .read(cx)
+            .active_notes()
+            .into_iter()
+            .find(|n| n.id == note_id)
+            .map(|n| n.title);
+        if let Some(title) = title {
+            self.renaming = Some(RenameState {
+                kind: RenameKind::Note,
+                id: note_id.to_string(),
+                input: InputState::new(title),
+                focus: cx.focus_handle(),
+            });
+            self.context_menu = None;
+            self.picking_icon_for = None;
+            if let Some(state) = self.renaming.as_ref() {
+                window.focus(&state.focus);
+            }
+            cx.notify();
+        }
+    }
+
+    pub fn begin_rename_folder(
+        &mut self,
+        folder_id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let name = self
+            .store
+            .read(cx)
+            .folder_tree()
+            .iter()
+            .find(|n| n.folder.id == folder_id)
+            .map(|n| n.folder.name.clone());
+        if let Some(name) = name {
+            self.renaming = Some(RenameState {
+                kind: RenameKind::Folder,
+                id: folder_id.to_string(),
+                input: InputState::new(name),
+                focus: cx.focus_handle(),
+            });
+            self.context_menu = None;
+            self.picking_icon_for = None;
+            if let Some(state) = self.renaming.as_ref() {
+                window.focus(&state.focus);
+            }
+            cx.notify();
+        }
+    }
+
+    pub fn commit_rename(&mut self, cx: &mut Context<Self>) {
+        if let Some(state) = self.renaming.take() {
+            let value = state.input.value().to_string();
+            match state.kind {
+                RenameKind::Folder => self
+                    .store
+                    .update(cx, |store, cx| store.rename_folder(&state.id, &value, cx)),
+                RenameKind::Note => self
+                    .store
+                    .update(cx, |store, cx| store.rename_note(&state.id, &value, cx)),
+            }
+            cx.notify();
+        }
+    }
+
+    pub fn cancel_rename(&mut self, cx: &mut Context<Self>) {
+        if self.renaming.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    fn handle_rename_key(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let key = event.keystroke.key.as_str();
+        if key == "enter" {
+            self.commit_rename(cx);
+        } else if key == "escape" {
+            self.cancel_rename(cx);
+        } else if let Some(state) = self.renaming.as_mut()
+            && state.input.handle_key(event, window, cx)
+        {
+            cx.notify();
+        }
+    }
+
+    pub fn toggle_icon_picker(&mut self, folder_id: &str, cx: &mut Context<Self>) {
+        if self.picking_icon_for.as_deref() == Some(folder_id) {
+            self.picking_icon_for = None;
+        } else {
+            self.picking_icon_for = Some(folder_id.to_string());
+            self.renaming = None;
+        }
         self.context_menu = None;
+        cx.notify();
+    }
+
+    pub fn pick_folder_icon(&mut self, folder_id: &str, icon: IconName, cx: &mut Context<Self>) {
+        let folder_id = folder_id.to_string();
+        let name = folder_icon_name(icon);
+        self.store.update(cx, |store, cx| {
+            store.set_folder_icon(&folder_id, name, cx)
+        });
+        self.picking_icon_for = None;
         cx.notify();
     }
 
@@ -191,12 +363,6 @@ impl SidebarView {
         self.store.update(cx, |store, cx| {
             store.create_folder("Untitled Folder", Some(folder_id), cx);
         });
-        self.context_menu = None;
-        cx.notify();
-    }
-
-    pub fn rename_folder(&mut self, _folder_id: &str, cx: &mut Context<Self>) {
-        // TODO: open an inline rename editor for the folder.
         self.context_menu = None;
         cx.notify();
     }
@@ -221,7 +387,9 @@ impl SidebarView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // Clamp so the ~200px wide menu stays inside the viewport.
+        // A new menu takes focus; any inline rename or icon picking ends.
+        self.renaming = None;
+        self.picking_icon_for = None;
         let viewport = window.viewport_size();
         let max_x = (viewport.width - px(300.)).max(px(0.));
         let max_y = (viewport.height - px(260.)).max(px(0.));
@@ -286,6 +454,8 @@ impl SidebarView {
                 let new_note_entity = entity.clone();
                 let subfolder_id = id.clone();
                 let subfolder_entity = entity.clone();
+                let icon_id = id.clone();
+                let icon_entity = entity.clone();
                 let rename_id = id.clone();
                 let rename_entity = entity.clone();
                 let delete_id = id.clone();
@@ -312,11 +482,20 @@ impl SidebarView {
                     )
                     .child(ContextMenuSeparator)
                     .child(
+                        ContextMenuItem::new("ctx-folder-icon", "Change Icon")
+                            .icon(IconName::Palette)
+                            .on_select(move |_, _, cx| {
+                                icon_entity.update(cx, |this, cx| {
+                                    this.toggle_icon_picker(&icon_id, cx);
+                                });
+                            }),
+                    )
+                    .child(
                         ContextMenuItem::new("ctx-folder-rename", "Rename")
                             .icon(IconName::Pencil)
-                            .on_select(move |_, _, cx| {
+                            .on_select(move |_, window, cx| {
                                 rename_entity.update(cx, |this, cx| {
-                                    this.rename_folder(&rename_id, cx);
+                                    this.begin_rename_folder(&rename_id, window, cx);
                                 });
                             }),
                     )
@@ -366,9 +545,9 @@ impl SidebarView {
                     .child(
                         ContextMenuItem::new("ctx-note-rename", "Rename")
                             .icon(IconName::Pencil)
-                            .on_select(move |_, _, cx| {
+                            .on_select(move |_, window, cx| {
                                 rename_entity.update(cx, |this, cx| {
-                                    this.rename_note(&rename_id, cx);
+                                    this.begin_rename_note(&rename_id, window, cx);
                                 });
                             }),
                     )
@@ -411,15 +590,97 @@ impl SidebarView {
         self.store.read(cx).search_notes(&query)
     }
 
-    fn icon_for_folder(folder_id: &str) -> Option<IconName> {
-        match folder_id {
-            "projects:architecture" => Some(IconName::Code),
-            "projects:architecture:core" => Some(IconName::Zap),
-            "projects:architecture:desktop" => Some(IconName::Rocket),
-            "specs" => Some(IconName::Briefcase),
-            "personal:journal" => Some(IconName::Bookmark),
-            _ => None,
+    /// Inline rename editor for the folder/note row with `id`, or `None` when
+    /// no rename session targets it.
+    fn rename_editor_row(
+        &self,
+        id: &str,
+        indent: Pixels,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let state = self.renaming.as_ref()?;
+        if state.id != id {
+            return None;
         }
+        let input = state.input.clone();
+        let focus = state.focus.clone();
+        Some(
+            div()
+                .pl(indent)
+                .pr_2()
+                .py(px(1.))
+                .child(
+                    Input::new(SharedString::from(format!("rename-{id}")))
+                        .state(&input)
+                        .focus_handle(focus)
+                        .placeholder("Name")
+                        .on_key_down(cx.listener(|this, event, window, cx| {
+                            this.handle_rename_key(event, window, cx);
+                        })),
+                )
+                .into_any_element(),
+        )
+    }
+
+    fn render_icon_strip(
+        &self,
+        folder_id: &str,
+        current_icon: &str,
+        depth: usize,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let indent = px(6.0 + (depth as f32 * 12.0));
+        let theme = cx.theme().clone();
+        div()
+            .id(SharedString::from(format!(
+                "folder-icons-{}",
+                folder_id.replace(':', "-")
+            )))
+            .pl(indent)
+            .pr_2()
+            .py(px(2.))
+            .flex()
+            .flex_wrap()
+            .gap_1()
+            .children(FOLDER_ICON_OPTIONS.iter().map(|(name, icon)| {
+                let selected = current_icon.eq_ignore_ascii_case(name);
+                let icon = *icon;
+                let folder_id = folder_id.to_string();
+                div()
+                    .id(SharedString::from(format!(
+                        "folder-icon-{}-{name}",
+                        folder_id.replace(':', "-")
+                    )))
+                    .w(px(28.))
+                    .h(px(28.))
+                    .rounded(px(6.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .bg(if selected {
+                        theme.secondary
+                    } else {
+                        gpui::transparent_black()
+                    })
+                    .border_1()
+                    .border_color(if selected {
+                        theme.ring
+                    } else {
+                        theme.border
+                    })
+                    .hover(|s| s.bg(theme.secondary))
+                    .text_color(if selected {
+                        theme.foreground
+                    } else {
+                        theme.muted_foreground
+                    })
+                    .child(Icon::new(icon).size(px(14.)))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.pick_folder_icon(&folder_id, icon, cx);
+                    }))
+            }))
+            .into_any_element()
     }
 
     fn render_folder_tree(
@@ -430,19 +691,26 @@ impl SidebarView {
         // building listeners below.
         let (folders, selected_note, counts) = {
             let store = self.store.read(cx);
-            let folders: Vec<(String, String, usize)> = store
+            let folders: Vec<(String, String, String, usize)> = store
                 .folder_tree()
                 .iter()
-                .map(|n| (n.folder.id.clone(), n.folder.name.clone(), n.depth as usize))
+                .map(|n| {
+                    (
+                        n.folder.id.clone(),
+                        n.folder.name.clone(),
+                        n.folder.icon.clone(),
+                        n.depth as usize,
+                    )
+                })
                 .collect();
             let selected = store.selected_note_id();
             let counts: std::collections::HashMap<String, usize> = folders
                 .iter()
-                .map(|(id, _, _)| (id.clone(), store.note_count_in_folder(id)))
+                .map(|(id, _, _, _)| (id.clone(), store.note_count_in_folder(id)))
                 .collect();
             let folder_notes: Vec<(String, Vec<Note>)> = folders
                 .iter()
-                .map(|(id, _, _)| (id.clone(), store.notes_in_folder(id)))
+                .map(|(id, _, _, _)| (id.clone(), store.notes_in_folder(id)))
                 .collect();
             let root_notes = store.notes_without_folder();
             (folders, selected, (counts, folder_notes, root_notes))
@@ -473,7 +741,7 @@ impl SidebarView {
             );
 
         let mut skip_below: Option<usize> = None;
-        for (folder_id, folder_name, depth) in &folders {
+        for (folder_id, folder_name, folder_icon, depth) in &folders {
             if let Some(max_depth) = skip_below {
                 if *depth > max_depth {
                     continue;
@@ -484,33 +752,51 @@ impl SidebarView {
 
             let expanded = self.is_folder_expanded(folder_id);
             let count = counts.get(folder_id).copied().unwrap_or(0);
-            let mut item = FolderTreeItem::new(
-                SharedString::from(format!("folder-{}", folder_id.replace(':', "-"))),
-                folder_name.clone(),
-            )
-            .depth(*depth)
-            .expanded(expanded)
-            .count(count)
-            .on_toggle(cx.listener({
-                let folder_id = folder_id.clone();
-                move |this, _, _, cx| {
-                    this.toggle_folder(&folder_id, cx);
-                }
-            }))
-            .on_right_click(cx.listener(Self::folder_menu_handler(
-                folder_id.clone(),
-                folder_name.clone(),
-            )));
-            if let Some(icon) = Self::icon_for_folder(folder_id) {
-                item = item.icon(icon);
+            if let Some(editor) =
+                self.rename_editor_row(folder_id, px(6.0 + (*depth as f32 * 12.0)), cx)
+            {
+                group = group.child(editor);
+            } else {
+                let item = FolderTreeItem::new(
+                    SharedString::from(format!("folder-{}", folder_id.replace(':', "-"))),
+                    folder_name.clone(),
+                )
+                .depth(*depth)
+                .expanded(expanded)
+                .count(count)
+                .icon(folder_icon_for(folder_icon, expanded))
+                .on_toggle(cx.listener({
+                    let folder_id = folder_id.clone();
+                    move |this, _, _, cx| {
+                        this.toggle_folder(&folder_id, cx);
+                    }
+                }))
+                .on_right_click(cx.listener(Self::folder_menu_handler(
+                    folder_id.clone(),
+                    folder_name.clone(),
+                )));
+                group = group.child(item);
             }
-            group = group.child(item);
+
+            if self.picking_icon_for.as_deref() == Some(folder_id.as_str()) {
+                group = group.child(
+                    self.render_icon_strip(folder_id, folder_icon, depth + 1, cx),
+                );
+            }
 
             if expanded {
                 if let Some(notes) = notes_by_folder.get(folder_id) {
                     for note in notes {
                         let note_id = note.id.clone();
                         let is_active = selected_note.as_deref() == Some(&note_id);
+                        if let Some(editor) = self.rename_editor_row(
+                            &note_id,
+                            px(12.0 + ((*depth + 1) as f32 * 16.0)),
+                            cx,
+                        ) {
+                            group = group.child(editor);
+                            continue;
+                        }
                         group = group.child(
                             NoteTreeItem::new(
                                 format!("tree-note-{}", note_id),
@@ -541,6 +827,10 @@ impl SidebarView {
         for note in &root_notes {
             let note_id = note.id.clone();
             let is_active = selected_note.as_deref() == Some(&note_id);
+            if let Some(editor) = self.rename_editor_row(&note_id, px(12.0), cx) {
+                group = group.child(editor);
+                continue;
+            }
             group = group.child(
                 NoteTreeItem::new(format!("root-note-{}", note.id), note.title.clone())
                     .depth(0)
@@ -686,6 +976,10 @@ impl Render for SidebarView {
                 for note in matches {
                     let note_id = note.id.clone();
                     let is_active = selected_note.as_deref() == Some(&note_id);
+                    if let Some(editor) = self.rename_editor_row(&note_id, px(12.0), cx) {
+                        group = group.child(editor);
+                        continue;
+                    }
                     let right_click = Self::note_menu_handler(
                         note.id.clone(),
                         note.title.clone(),
@@ -826,10 +1120,128 @@ mod tests {
     // NOTE: no glob imports here on purpose. `use gpui::*` would pull the
     // `gpui::test` attribute macro into scope, shadowing the builtin `#[test]`
     // and breaking compilation of this module.
-    use super::{SidebarContextTarget, SidebarView};
+    use super::{
+        SidebarContextTarget, SidebarView, folder_icon_for, folder_icon_from_name,
+        folder_icon_name, FOLDER_ICON_OPTIONS,
+    };
+    use crate::components::IconName;
     use crate::store::{NavigationLocation, NoteStore};
     use crate::theme::{ActiveTheme, Theme};
     use gpui::{AppContext, MouseButton, MouseDownEvent, TestAppContext, point, px};
+
+    #[test]
+    fn folder_icon_table_roundtrips_and_falls_back() {
+        assert_eq!(FOLDER_ICON_OPTIONS.len(), 17);
+        assert_eq!(folder_icon_name(IconName::Briefcase), "briefcase");
+        assert_eq!(folder_icon_from_name("rocket"), Some(IconName::Rocket));
+        assert_eq!(folder_icon_from_name("  STAR  "), Some(IconName::Star));
+        assert_eq!(folder_icon_from_name("nope"), None);
+        // Legacy emoji + unknown values fall back to open/closed glyphs.
+        assert_eq!(folder_icon_for("📁", true), IconName::FolderOpen);
+        assert_eq!(folder_icon_for("???", false), IconName::Folder);
+        assert_eq!(folder_icon_for("code", false), IconName::Code);
+    }
+
+    #[test]
+    fn icon_picker_toggle_and_pick_flow() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
+        cx.run_until_parked();
+
+        assert!(view.read_with(cx, |v, _| v.picking_icon_for.is_none()));
+
+        view.update(cx, |v, cx| v.toggle_icon_picker("projects", cx));
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v.picking_icon_for.clone()),
+            Some("projects".to_string())
+        );
+
+        view.update(cx, |v, cx| v.toggle_icon_picker("projects", cx));
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.picking_icon_for.is_none()));
+
+        view.update(cx, |v, cx| {
+            v.toggle_icon_picker("projects", cx);
+            v.pick_folder_icon("projects", IconName::Rocket, cx);
+        });
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.picking_icon_for.is_none()));
+        assert_eq!(
+            store.read_with(cx, |s, _| s
+                .folder_tree()
+                .iter()
+                .find(|n| n.folder.id == "projects")
+                .map(|n| n.folder.icon.clone())),
+            Some("rocket".to_string())
+        );
+    }
+
+    #[test]
+    fn rename_commit_and_cancel_flow() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
+        cx.run_until_parked();
+
+        // Folder rename: begin → type → commit.
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| v.begin_rename_folder("projects", window, cx));
+        });
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.renaming.is_some()));
+        view.update(cx, |v, cx| {
+            if let Some(state) = v.renaming.as_mut() {
+                state.input.set_value("Renamed");
+            }
+            v.commit_rename(cx);
+        });
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.renaming.is_none()));
+        assert_eq!(
+            store.read_with(cx, |s, _| s
+                .folder_tree()
+                .iter()
+                .find(|n| n.folder.id == "projects")
+                .map(|n| n.folder.name.clone())),
+            Some("Renamed".to_string())
+        );
+
+        // Note rename: begin → cancel leaves the title untouched.
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| v.begin_rename_note("note-db-schema", window, cx));
+        });
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.renaming.is_some()));
+        view.update(cx, |v, cx| v.cancel_rename(cx));
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.renaming.is_none()));
+        assert_eq!(
+            store.read_with(cx, |s, _| s
+                .active_notes()
+                .into_iter()
+                .find(|n| n.id == "note-db-schema")
+                .map(|n| n.title)),
+            Some("Database Schema & Index Design".to_string())
+        );
+    }
 
     /// Regression loop for "right-click in the sidebar does nothing".
     /// Drives the real event-dispatch path: synthetic right mouse-down events

@@ -424,6 +424,26 @@ impl NoteStore {
         self.select_note(&target, cx);
     }
 
+    pub fn rename_note(&mut self, note_id: &str, title: &str, cx: &mut Context<Self>) {
+        let title = title.trim();
+        if title.is_empty() {
+            return;
+        }
+        if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id)
+            && note.title != title
+        {
+            let (body, searchable, folder) = (
+                note.body.clone(),
+                note.searchable_text.clone(),
+                note.folder_id.clone(),
+            );
+            note.update(title, body, searchable, folder, LOCAL_DEVICE_ID);
+            let updated = note.clone();
+            self.persist_note(&updated);
+        }
+        cx.notify();
+    }
+
     pub fn toggle_note_pin(&mut self, note_id: &str, cx: &mut Context<Self>) {
         if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id) {
             let pinned = !note.pinned;
@@ -735,6 +755,40 @@ impl NoteStore {
         }
         cx.notify();
     }
+
+    /// Rename a folder; blank names are ignored. Unknown ids are no-ops.
+    pub fn rename_folder(&mut self, folder_id: &str, name: &str, cx: &mut Context<Self>) {
+        let name = name.trim();
+        if name.is_empty() {
+            return;
+        }
+        if let Some(node) = self.folders.iter_mut().find(|n| n.folder.id == folder_id)
+            && node.folder.name != name
+        {
+            node.folder.rename(name, LOCAL_DEVICE_ID);
+            let updated = node.folder.clone();
+            self.persist_folder(&updated);
+        }
+        cx.notify();
+    }
+
+    /// Set the folder icon (a lowercase name like `"briefcase"`; see the
+    /// sidebar's icon table). Blank values are ignored; rendering falls back
+    /// to the default folder icon for unknown names.
+    pub fn set_folder_icon(&mut self, folder_id: &str, icon: &str, cx: &mut Context<Self>) {
+        let icon = icon.trim();
+        if icon.is_empty() {
+            return;
+        }
+        if let Some(node) = self.folders.iter_mut().find(|n| n.folder.id == folder_id)
+            && node.folder.icon != icon
+        {
+            node.folder.set_icon(icon, LOCAL_DEVICE_ID);
+            let updated = node.folder.clone();
+            self.persist_folder(&updated);
+        }
+        cx.notify();
+    }
 }
 
 impl Default for NoteStore {
@@ -1040,6 +1094,86 @@ mod tests {
             let s = store.read(cx);
             let note = s.active_notes().into_iter().find(|n| n.id == nid).unwrap();
             assert_eq!(note.folder_id, None);
+        });
+    }
+    #[test]
+    fn rename_folder_trims_and_ignores_blank() {
+        let mut cx = TestAppContext::single();
+        let store = test_store(&mut cx);
+        let fid = cx.update(|cx| {
+            store.update(cx, |s, cx| s.create_folder("Work", None, cx))
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.rename_folder(&fid, "  Play  ", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let node = s.folder_tree().iter().find(|n| n.folder.id == fid).unwrap();
+            assert_eq!(node.folder.name, "Play");
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.rename_folder(&fid, "   ", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let node = s.folder_tree().iter().find(|n| n.folder.id == fid).unwrap();
+            assert_eq!(node.folder.name, "Play");
+        });
+    }
+
+    #[test]
+    fn rename_note_keeps_body_and_folder() {
+        let mut cx = TestAppContext::single();
+        let store = test_store(&mut cx);
+        let nid = cx.update(|cx| {
+            store.update(cx, |s, cx| {
+                let fid = s.create_folder("F", None, cx);
+                s.create_note_in_folder(Some(fid), cx);
+                s.selected_note_id().unwrap()
+            })
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.rename_note(&nid, "  New Title ", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let note = s.active_notes().into_iter().find(|n| n.id == nid).unwrap();
+            assert_eq!(note.title, "New Title");
+            assert_eq!(note.body, "Start typing your note here...");
+            assert!(note.folder_id.is_some());
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.rename_note(&nid, "  ", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let note = s.active_notes().into_iter().find(|n| n.id == nid).unwrap();
+            assert_eq!(note.title, "New Title");
+        });
+    }
+
+    #[test]
+    fn set_folder_icon_stores_lowercase_name() {
+        let mut cx = TestAppContext::single();
+        let store = test_store(&mut cx);
+        let fid = cx.update(|cx| {
+            store.update(cx, |s, cx| s.create_folder("Work", None, cx))
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.set_folder_icon(&fid, "briefcase", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let node = s.folder_tree().iter().find(|n| n.folder.id == fid).unwrap();
+            assert_eq!(node.folder.icon, "briefcase");
+        });
+        cx.update(|cx| {
+            store.update(cx, |s, cx| s.set_folder_icon(&fid, "  ", cx));
+        });
+        cx.update(|cx| {
+            let s = store.read(cx);
+            let node = s.folder_tree().iter().find(|n| n.folder.id == fid).unwrap();
+            assert_eq!(node.folder.icon, "briefcase");
         });
     }
     /// Deterministic fixture for view tests: one folder with three notes
