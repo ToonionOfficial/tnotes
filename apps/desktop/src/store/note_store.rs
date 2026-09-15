@@ -156,6 +156,21 @@ pub struct NoteStore {
     user_id: String,
 }
 
+/// Read-only sync status snapshot for the Sync settings section.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SyncSummary {
+    /// Epoch-ms of the last successful sync, or `None` if never synced.
+    pub last_sync_at: Option<i64>,
+    /// Paired server URL, or `None` when this vault has never been paired.
+    pub server_url: Option<String>,
+}
+
+impl SyncSummary {
+    pub fn is_paired(&self) -> bool {
+        self.server_url.as_deref().is_some_and(|u| !u.is_empty())
+    }
+}
+
 impl NoteStore {
     /// Empty in-memory store. The default location is Starred so first boot
     /// shows a valid empty state instead of a dangling note reference.
@@ -258,6 +273,29 @@ impl NoteStore {
                 Ok(tree) => self.folders = tree,
                 Err(e) => eprintln!("tnotes: failed to reload folder tree: {e}"),
             }
+        }
+    }
+
+    /// Read-only sync status for the Sync settings section. `last_sync_at`
+    /// comes from `sync_meta` when a database is open (0/None = never synced);
+    /// `paired` is true once a server URL has been stored there.
+    pub fn sync_summary(&self) -> SyncSummary {
+        let (last_sync_at, server_url) = match self.conn.as_ref() {
+            Some(conn) => {
+                let last = tnotes_core::db::sync::get_last_sync_at(conn).unwrap_or(0);
+                let url = tnotes_core::db::sync::get_sync_meta(conn, "server_url")
+                    .unwrap_or(None);
+                (last, url)
+            }
+            None => (0, None),
+        };
+        SyncSummary {
+            last_sync_at: if last_sync_at > 0 {
+                Some(last_sync_at)
+            } else {
+                None
+            },
+            server_url,
         }
     }
 
@@ -894,6 +932,51 @@ mod tests {
 
         assert_eq!(store.active_notes().len(), 1);
         assert_eq!(store.trashed_notes().len(), 1);
+    }
+
+    #[test]
+    fn sync_summary_defaults_to_unpaired_never_synced() {
+        let store = NoteStore::new();
+        let summary = store.sync_summary();
+        assert_eq!(summary.last_sync_at, None);
+        assert_eq!(summary.server_url, None);
+        assert!(!summary.is_paired());
+    }
+
+    #[test]
+    fn sync_summary_reads_sync_meta_from_sqlite() {
+        use tnotes_core::db::sync::{get_last_sync_at, set_last_sync_at, set_sync_meta};
+
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("tnotes-sync-test-{nanos}.db"));
+
+        let store = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        assert!(!store.sync_summary().is_paired());
+        assert_eq!(store.sync_summary().last_sync_at, None);
+
+        // Write sync_meta directly (no sync client exists yet on desktop).
+        if let Some(conn) = store.conn.as_ref() {
+            set_sync_meta(conn, "server_url", "https://sync.example.com").unwrap();
+            set_last_sync_at(conn, 1_700_000_000_000).unwrap();
+            assert_eq!(get_last_sync_at(conn).unwrap(), 1_700_000_000_000);
+        } else {
+            panic!("expected an open database connection");
+        }
+        let summary = store.sync_summary();
+        assert!(summary.is_paired());
+        assert_eq!(
+            summary.server_url.as_deref(),
+            Some("https://sync.example.com")
+        );
+        assert_eq!(summary.last_sync_at, Some(1_700_000_000_000));
+
+        drop(store);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
     }
 
     #[test]
