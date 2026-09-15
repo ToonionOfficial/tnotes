@@ -14,6 +14,7 @@ pub struct FolderTreeItem {
     count: Option<usize>,
     on_toggle: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
     on_select: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_right_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -29,6 +30,7 @@ impl FolderTreeItem {
             count: None,
             on_toggle: None,
             on_select: None,
+            on_right_click: None,
         }
     }
 
@@ -70,6 +72,14 @@ impl FolderTreeItem {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_select = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_right_click(
+        mut self,
+        handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_right_click = Some(Box::new(handler));
         self
     }
 }
@@ -116,6 +126,7 @@ impl RenderOnce for FolderTreeItem {
 
         let on_toggle = self.on_toggle;
         let on_select = self.on_select;
+        let on_right_click = self.on_right_click;
 
         let mut row = div()
             .id(self.id)
@@ -156,6 +167,11 @@ impl RenderOnce for FolderTreeItem {
 
         if on_toggle.is_some() || on_select.is_some() {
             row = row.on_click(move |ev, window, cx| {
+                // Right-clicks are handled by `on_right_click` below so the
+                // row doesn't toggle/select when opening the context menu.
+                if ev.is_right_click() {
+                    return;
+                }
                 if let Some(ref toggle) = on_toggle {
                     toggle(ev, window, cx);
                 }
@@ -163,6 +179,13 @@ impl RenderOnce for FolderTreeItem {
                     select(ev, window, cx);
                 }
             });
+        }
+
+        if let Some(on_right_click) = on_right_click {
+            row = row.on_mouse_down(
+                MouseButton::Right,
+                move |ev, window, cx| on_right_click(ev, window, cx),
+            );
         }
 
         row
@@ -178,6 +201,7 @@ pub struct NoteTreeItem {
     is_active: bool,
     is_pinned: bool,
     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_right_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -191,6 +215,7 @@ impl NoteTreeItem {
             is_active: false,
             is_pinned: false,
             on_click: None,
+            on_right_click: None,
         }
     }
 
@@ -214,6 +239,14 @@ impl NoteTreeItem {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_click = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_right_click(
+        mut self,
+        handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_right_click = Some(Box::new(handler));
         self
     }
 }
@@ -277,7 +310,20 @@ impl RenderOnce for NoteTreeItem {
         }
 
         if let Some(on_click) = self.on_click {
-            row = row.on_click(move |ev, window, cx| on_click(ev, window, cx));
+            row = row.on_click(move |ev, window, cx| {
+                // Right-clicks open the context menu instead of selecting.
+                if ev.is_right_click() {
+                    return;
+                }
+                on_click(ev, window, cx)
+            });
+        }
+
+        if let Some(on_right_click) = self.on_right_click {
+            row = row.on_mouse_down(
+                MouseButton::Right,
+                move |ev, window, cx| on_right_click(ev, window, cx),
+            );
         }
 
         row

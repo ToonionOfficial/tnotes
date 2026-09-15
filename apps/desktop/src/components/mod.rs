@@ -1,5 +1,6 @@
 pub mod badge;
 pub mod button;
+pub mod context_menu;
 pub mod folder_item;
 pub mod icon;
 pub mod input;
@@ -13,6 +14,10 @@ pub use badge::{Badge, BadgeVariant, KbdBadge};
 #[allow(unused_imports)]
 pub use button::{Button, ButtonSize, ButtonVariant};
 #[allow(unused_imports)]
+pub use context_menu::{
+    ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator,
+};
+#[allow(unused_imports)]
 pub use folder_item::{FolderTreeItem, NoteTreeItem};
 #[allow(unused_imports)]
 pub use icon::{Icon, IconName};
@@ -21,4 +26,7 @@ pub use input::{Input, InputSize, InputVariant};
 #[allow(unused_imports)]
 pub use note_card::NoteCard;
 #[allow(unused_imports)]
-pub use sidebar::{Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader};
+pub use sidebar::{
+    Sidebar, SidebarCollapsible, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader,
+    SidebarMenu, SidebarMenuItem, SidebarRail, SidebarRailItem, SidebarSide, SidebarToggleButton,
+};
