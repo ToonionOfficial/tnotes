@@ -1,16 +1,19 @@
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use crate::assets::DesktopAssets;
-use crate::components::{Icon, IconName};
+use crate::components::{fps_monitor, Icon, IconName};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
 use crate::views::SidebarView;
 
 pub struct Tnotes {
     sidebar: Entity<SidebarView>,
+    show_fps: bool,
+    focus_handle: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
 impl Render for Tnotes {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
         let right_pane = if let Some(note) = self.sidebar.read(cx).selected_note() {
@@ -148,12 +151,26 @@ impl Render for Tnotes {
         };
 
         div()
+            .relative()
             .size_full()
             .flex()
             .bg(theme.background)
             .text_color(theme.foreground)
+            .track_focus(&self.focus_handle)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
+                if event.keystroke.key.eq_ignore_ascii_case("f3")
+                    || event.keystroke.key == "f12"
+                    || ((event.keystroke.modifiers.control || event.keystroke.modifiers.platform)
+                        && event.keystroke.modifiers.shift
+                        && event.keystroke.key == "f")
+                {
+                    this.show_fps = !this.show_fps;
+                    cx.notify();
+                }
+            }))
             .child(self.sidebar.clone())
             .child(right_pane)
+            .when(self.show_fps, |this| this.child(fps_monitor(window, cx)))
     }
 }
 
@@ -183,6 +200,8 @@ impl Tnotes {
 
                             Tnotes {
                                 sidebar,
+                                show_fps: false,
+                                focus_handle: cx.focus_handle(),
                                 _subscriptions: subscriptions,
                             }
                         })
