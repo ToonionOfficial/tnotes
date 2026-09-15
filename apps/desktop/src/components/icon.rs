@@ -36,6 +36,7 @@ pub enum IconName {
     Music,
     Zap,
     ShoppingCart,
+    ArrowLeft,
 }
 
 #[allow(dead_code)]
@@ -74,12 +75,14 @@ impl IconName {
             Self::Music => "icons/music.svg",
             Self::Zap => "icons/zap.svg",
             Self::ShoppingCart => "icons/shopping-cart.svg",
+            Self::ArrowLeft => "icons/arrow-left.svg",
         }
         .into()
     }
 
     pub fn from_slug(slug: &str) -> Option<Self> {
         match slug {
+            "arrow-left" => Some(Self::ArrowLeft),
             "folder" => Some(Self::Folder),
             "folder-open" => Some(Self::FolderOpen),
             "file-text" => Some(Self::FileText),

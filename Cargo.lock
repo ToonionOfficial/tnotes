@@ -6152,8 +6152,11 @@ dependencies = [
 name = "tnotes-desktop"
 version = "0.1.0"
 dependencies = [
+ "dirs 5.0.1",
  "gpui",
  "rust-embed",
+ "serde",
+ "serde_json",
  "tnotes-core",
  "twrite",
 ]

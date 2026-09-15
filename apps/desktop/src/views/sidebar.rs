@@ -154,6 +154,18 @@ impl SidebarView {
         }
     }
 
+    pub fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_collapsed {
+            self.is_collapsed = false;
+        }
+        window.focus(&self.search_focus);
+        cx.notify();
+    }
+
+    pub fn selected_note_id(&self) -> Option<&str> {
+        self.selected_note_id.as_deref()
+    }
+
     pub fn toggle_collapsed(&mut self, cx: &mut Context<Self>) {
         self.is_collapsed = !self.is_collapsed;
         self.context_menu = None;
@@ -504,7 +516,12 @@ impl Render for SidebarView {
                         this.create_new_note(cx);
                     })),
             )
-            .bottom_item(SidebarRailItem::new("sidebar-settings-rail-btn", IconName::Settings));
+            .bottom_item(
+                SidebarRailItem::new("sidebar-settings-rail-btn", IconName::Settings)
+                    .on_click(cx.listener(|_this, _, window, cx| {
+                        window.dispatch_action(Box::new(crate::keymap::OpenSettings), cx);
+                    })),
+            );
 
         let header = SidebarHeader::new()
             .child(
@@ -974,11 +991,19 @@ impl Render for SidebarView {
 
         let footer = SidebarFooter::new().child(
             div()
+                .id("sidebar-footer-settings-btn")
                 .w_full()
+                .h(px(34.))
+                .px_2()
+                .rounded(px(6.))
                 .flex()
                 .items_center()
                 .justify_between()
-                .px_1()
+                .cursor_pointer()
+                .hover(|s| s.bg(theme.secondary))
+                .on_click(cx.listener(|_this, _, window, cx| {
+                    window.dispatch_action(Box::new(crate::keymap::OpenSettings), cx);
+                }))
                 .child(
                     div()
                         .flex()
@@ -986,10 +1011,10 @@ impl Render for SidebarView {
                         .gap_2()
                         .child(
                             div()
-                                .w(px(24.))
-                                .h(px(24.))
+                                .w(px(22.))
+                                .h(px(22.))
                                 .rounded_full()
-                                .bg(theme.secondary)
+                                .bg(theme.muted)
                                 .flex()
                                 .items_center()
                                 .justify_center()
@@ -1008,15 +1033,9 @@ impl Render for SidebarView {
                 )
                 .child(
                     div()
-                        .id("sidebar-footer-settings-btn")
-                        .w(px(24.))
-                        .h(px(24.))
-                        .rounded(px(4.))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .cursor_pointer()
-                        .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
                         .text_color(theme.muted_foreground)
                         .child(Icon::new(IconName::Settings).size(px(14.))),
                 ),

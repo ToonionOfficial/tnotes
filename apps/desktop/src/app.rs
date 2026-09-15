@@ -2,11 +2,26 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use crate::assets::DesktopAssets;
 use crate::components::{fps_monitor, Icon, IconName};
+use crate::keymap::{
+    DeleteNote, FocusSearch, KeymapConfig, NewNote, OpenSettings, PinNote, ToggleFps,
+    ToggleSidebar,
+};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
-use crate::views::SidebarView;
+use crate::views::{SettingsEvent, SettingsView, SidebarView};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum AppScreen {
+    #[default]
+    Notes,
+    Settings,
+}
 
 pub struct Tnotes {
     sidebar: Entity<SidebarView>,
+    settings_view: Entity<SettingsView>,
+    active_screen: AppScreen,
+    #[allow(dead_code)]
+    keymap: KeymapConfig,
     show_fps: bool,
     focus_handle: FocusHandle,
     _subscriptions: Vec<Subscription>,
@@ -150,6 +165,18 @@ impl Render for Tnotes {
                 )
         };
 
+        let content = match self.active_screen {
+            AppScreen::Notes => div()
+                .size_full()
+                .flex()
+                .child(self.sidebar.clone())
+                .child(right_pane),
+            AppScreen::Settings => div()
+                .size_full()
+                .flex()
+                .child(self.settings_view.clone()),
+        };
+
         div()
             .relative()
             .size_full()
@@ -157,9 +184,44 @@ impl Render for Tnotes {
             .bg(theme.background)
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, _: &ToggleFps, _window, cx| {
+                this.show_fps = !this.show_fps;
+                cx.notify();
+            }))
+            .on_action(cx.listener(|this, _: &ToggleSidebar, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    sidebar.toggle_collapsed(cx);
+                });
+            }))
+            .on_action(cx.listener(|this, _: &NewNote, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    sidebar.create_new_note(cx);
+                });
+            }))
+            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    sidebar.focus_search(window, cx);
+                });
+            }))
+            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+                this.open_settings(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &PinNote, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    if let Some(id) = sidebar.selected_note_id().map(|s| s.to_string()) {
+                        sidebar.toggle_note_pin(&id, cx);
+                    }
+                });
+            }))
+            .on_action(cx.listener(|this, _: &DeleteNote, _window, cx| {
+                this.sidebar.update(cx, |sidebar, cx| {
+                    if let Some(id) = sidebar.selected_note_id().map(|s| s.to_string()) {
+                        sidebar.delete_note(&id, cx);
+                    }
+                });
+            }))
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
-                if event.keystroke.key.eq_ignore_ascii_case("f3")
-                    || event.keystroke.key == "f12"
+                if event.keystroke.key == "f12"
                     || ((event.keystroke.modifiers.control || event.keystroke.modifiers.platform)
                         && event.keystroke.modifiers.shift
                         && event.keystroke.key == "f")
@@ -168,18 +230,26 @@ impl Render for Tnotes {
                     cx.notify();
                 }
             }))
-            .child(self.sidebar.clone())
-            .child(right_pane)
+            .child(content)
             .when(self.show_fps, |this| this.child(fps_monitor(window, cx)))
     }
 }
 
 impl Tnotes {
+    pub fn open_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.active_screen = AppScreen::Settings;
+        self.settings_view.read(cx).focus(window);
+        cx.notify();
+    }
+
     pub fn run_app() {
         Application::new()
             .with_assets(DesktopAssets)
             .run(|cx: &mut App| {
                 cx.set_global(ActiveTheme(Theme::dark()));
+
+                let keymap = KeymapConfig::load();
+                keymap.bind_to_gpui(cx);
 
                 let bounds = Bounds::centered(None, size(px(1080.), px(720.)), cx);
 
@@ -188,9 +258,13 @@ impl Tnotes {
                         window_bounds: Some(WindowBounds::Windowed(bounds)),
                         ..Default::default()
                     },
-                    |_, cx| {
+                    |window, cx| {
                         let sidebar = cx.new(|cx| SidebarView::new(cx));
+                        let settings_view = cx.new(|cx| SettingsView::new(cx));
+                        let focus_handle = cx.focus_handle();
+                        window.focus(&focus_handle);
 
+                        let app_keymap = keymap.clone();
                         cx.new(|cx| {
                             let mut subscriptions = Vec::new();
 
@@ -198,10 +272,23 @@ impl Tnotes {
                                 cx.notify();
                             }));
 
+                            subscriptions.push(cx.subscribe(
+                                &settings_view,
+                                |this: &mut Tnotes, _view, event: &SettingsEvent, cx| match event {
+                                    SettingsEvent::Back => {
+                                        this.active_screen = AppScreen::Notes;
+                                        cx.notify();
+                                    }
+                                },
+                            ));
+
                             Tnotes {
                                 sidebar,
+                                settings_view,
+                                active_screen: AppScreen::Notes,
+                                keymap: app_keymap,
                                 show_fps: false,
-                                focus_handle: cx.focus_handle(),
+                                focus_handle,
                                 _subscriptions: subscriptions,
                             }
                         })
