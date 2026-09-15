@@ -2,16 +2,9 @@ use gpui::*;
 use crate::components::{Icon, IconName};
 use crate::theme::ThemeExt;
 
-#[derive(Clone, Debug)]
-pub enum SettingsEvent {
-    Back,
-}
-
 pub struct SettingsView {
     focus_handle: FocusHandle,
 }
-
-impl EventEmitter<SettingsEvent> for SettingsView {}
 
 impl SettingsView {
     pub fn new(cx: &mut Context<Self>) -> Self {
@@ -36,9 +29,9 @@ impl Render for SettingsView {
             .bg(theme.background)
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle)
-            .on_key_down(cx.listener(|_this, event: &KeyDownEvent, _window, cx| {
+            .on_key_down(cx.listener(|_this, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key.eq_ignore_ascii_case("escape") {
-                    cx.emit(SettingsEvent::Back);
+                    window.dispatch_action(Box::new(crate::keymap::CloseSettings), cx);
                 }
             }))
             .child(
@@ -76,8 +69,8 @@ impl Render for SettingsView {
                                     .gap_2()
                                     .cursor_pointer()
                                     .hover(|s| s.bg(theme.secondary))
-                                    .on_click(cx.listener(|_this, _, _window, cx| {
-                                        cx.emit(SettingsEvent::Back);
+                                    .on_click(cx.listener(|_this, _, window, cx| {
+                                        window.dispatch_action(Box::new(crate::keymap::CloseSettings), cx);
                                     }))
                                     .child(
                                         Icon::new(IconName::ArrowLeft)

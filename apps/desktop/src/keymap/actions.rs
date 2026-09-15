@@ -10,6 +10,7 @@ actions!(tnotes, [
     Save,
     SaveAndClose,
     OpenSettings,
+    CloseSettings,
 ]);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,6 +110,7 @@ pub fn create_binding(id: &str, raw_keystrokes: &str, context: Option<&str>) -> 
         "tnotes::DeleteNote" => Some(KeyBinding::new(&normalized, DeleteNote, context)),
         "tnotes::Save" => Some(KeyBinding::new(&normalized, Save, context)),
         "tnotes::SaveAndClose" => Some(KeyBinding::new(&normalized, SaveAndClose, context)),
+        "tnotes::CloseSettings" => Some(KeyBinding::new(&normalized, CloseSettings, context)),
         _ => None,
     }
 }

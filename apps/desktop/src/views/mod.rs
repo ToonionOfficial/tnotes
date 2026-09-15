@@ -7,6 +7,6 @@ pub mod sidebar;
 #[allow(unused_imports)]
 pub use note_list::{NoteListView, NoteSummary};
 #[allow(unused_imports)]
-pub use settings::{SettingsEvent, SettingsView};
+pub use settings::SettingsView;
 #[allow(unused_imports)]
 pub use sidebar::{NoteItem, SidebarView};

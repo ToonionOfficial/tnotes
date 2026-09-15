@@ -3,11 +3,11 @@ use gpui::*;
 use crate::assets::DesktopAssets;
 use crate::components::{fps_monitor, Icon, IconName};
 use crate::keymap::{
-    DeleteNote, FocusSearch, KeymapConfig, NewNote, OpenSettings, PinNote, ToggleFps,
-    ToggleSidebar,
+    CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NewNote, OpenSettings, PinNote,
+    ToggleFps, ToggleSidebar,
 };
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
-use crate::views::{SettingsEvent, SettingsView, SidebarView};
+use crate::views::{SettingsView, SidebarView};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum AppScreen {
@@ -165,17 +165,11 @@ impl Render for Tnotes {
                 )
         };
 
-        let content = match self.active_screen {
-            AppScreen::Notes => div()
-                .size_full()
-                .flex()
-                .child(self.sidebar.clone())
-                .child(right_pane),
-            AppScreen::Settings => div()
-                .size_full()
-                .flex()
-                .child(self.settings_view.clone()),
-        };
+        let main_content = div()
+            .size_full()
+            .flex()
+            .child(self.sidebar.clone())
+            .child(right_pane);
 
         div()
             .relative()
@@ -206,6 +200,9 @@ impl Render for Tnotes {
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
                 this.open_settings(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &CloseSettings, window, cx| {
+                this.close_settings(window, cx);
+            }))
             .on_action(cx.listener(|this, _: &PinNote, _window, cx| {
                 this.sidebar.update(cx, |sidebar, cx| {
                     if let Some(id) = sidebar.selected_note_id().map(|s| s.to_string()) {
@@ -230,7 +227,16 @@ impl Render for Tnotes {
                     cx.notify();
                 }
             }))
-            .child(content)
+            .child(main_content)
+            .when(self.active_screen == AppScreen::Settings, |this| {
+                this.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .bg(theme.background)
+                        .child(self.settings_view.clone()),
+                )
+            })
             .when(self.show_fps, |this| this.child(fps_monitor(window, cx)))
     }
 }
@@ -239,6 +245,12 @@ impl Tnotes {
     pub fn open_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.active_screen = AppScreen::Settings;
         self.settings_view.read(cx).focus(window);
+        cx.notify();
+    }
+
+    pub fn close_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.active_screen = AppScreen::Notes;
+        window.focus(&self.focus_handle);
         cx.notify();
     }
 
@@ -271,16 +283,6 @@ impl Tnotes {
                             subscriptions.push(cx.observe(&sidebar, |_, _, cx| {
                                 cx.notify();
                             }));
-
-                            subscriptions.push(cx.subscribe(
-                                &settings_view,
-                                |this: &mut Tnotes, _view, event: &SettingsEvent, cx| match event {
-                                    SettingsEvent::Back => {
-                                        this.active_screen = AppScreen::Notes;
-                                        cx.notify();
-                                    }
-                                },
-                            ));
 
                             Tnotes {
                                 sidebar,
