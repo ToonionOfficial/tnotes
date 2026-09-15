@@ -85,6 +85,7 @@ impl RenderOnce for FolderTreeItem {
                 IconName::ChevronRight
             };
             div()
+                .flex_shrink_0()
                 .w(px(16.))
                 .h(px(16.))
                 .flex()
@@ -92,7 +93,7 @@ impl RenderOnce for FolderTreeItem {
                 .justify_center()
                 .child(Icon::new(chevron_icon).size(px(12.)).color(theme.muted_foreground))
         } else {
-            div().w(px(16.)).h(px(16.))
+            div().flex_shrink_0().w(px(16.)).h(px(16.))
         };
 
         let on_toggle = self.on_toggle;
@@ -100,6 +101,7 @@ impl RenderOnce for FolderTreeItem {
 
         let mut row = div()
             .id(self.id)
+            .w_full()
             .h(px(28.))
             .pl(indent)
             .pr_2()
@@ -117,18 +119,36 @@ impl RenderOnce for FolderTreeItem {
                     .flex()
                     .items_center()
                     .gap_1p5()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
                     .child(chevron)
                     .child(
-                        Icon::new(item_icon)
-                            .size(px(14.))
-                            .color(theme.muted_foreground),
+                        div()
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                Icon::new(item_icon)
+                                    .size(px(14.))
+                                    .color(theme.muted_foreground),
+                            ),
                     )
-                    .child(div().line_clamp(1).child(self.name)),
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(self.name),
+                    ),
             );
 
         if let Some(count) = self.count {
             row = row.child(
                 div()
+                    .flex_shrink_0()
+                    .ml_1()
                     .text_size(px(11.))
                     .text_color(theme.muted_foreground)
                     .child(count.to_string()),
@@ -244,14 +264,24 @@ impl RenderOnce for NoteTreeItem {
                     .items_center()
                     .gap_2()
                     .flex_1()
+                    .min_w_0()
                     .overflow_hidden()
                     .child(
-                        Icon::new(IconName::FileText)
-                            .size(px(14.))
-                            .color(icon_color),
+                        div()
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                Icon::new(IconName::FileText)
+                                    .size(px(14.))
+                                    .color(icon_color),
+                            ),
                     )
                     .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .text_size(px(13.))
                             .font_weight(if self.is_active {
                                 FontWeight::MEDIUM
@@ -259,16 +289,21 @@ impl RenderOnce for NoteTreeItem {
                                 FontWeight::NORMAL
                             })
                             .text_color(text_color)
-                            .line_clamp(1)
+                            .truncate()
                             .child(self.title),
                     ),
             );
 
         if self.is_pinned {
             row = row.child(
-                Icon::new(IconName::Star)
-                    .size(px(11.))
-                    .color(theme.primary),
+                div()
+                    .flex_shrink_0()
+                    .ml_1()
+                    .child(
+                        Icon::new(IconName::Star)
+                            .size(px(11.))
+                            .color(theme.primary),
+                    ),
             );
         }
 
@@ -290,5 +325,54 @@ impl RenderOnce for NoteTreeItem {
         }
 
         row
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FolderTreeItem, NoteTreeItem};
+    use crate::theme::{ActiveTheme, Theme};
+    use gpui::{
+        div, AnyElement, Context, IntoElement, ParentElement, Render, TestAppContext, Window,
+    };
+
+    struct TestWrapper(Box<dyn Fn() -> AnyElement>);
+
+    impl Render for TestWrapper {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            (self.0)()
+        }
+    }
+
+    #[test]
+    fn folder_tree_item_and_note_tree_item_render_with_long_title() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (_, cx) = cx.add_window_view(|_, _| {
+            TestWrapper(Box::new(|| {
+                div()
+                    .child(
+                        FolderTreeItem::new(
+                            "test-folder",
+                            "Very long folder title that should truncate properly with ellipsis and not overflow",
+                        )
+                        .count(42)
+                        .expanded(true),
+                    )
+                    .child(
+                        NoteTreeItem::new(
+                            "test-note",
+                            "Very long note title that should truncate properly with ellipsis and not overflow",
+                        )
+                        .pinned(true)
+                        .active(true),
+                    )
+                    .into_any_element()
+            }))
+        });
+        cx.run_until_parked();
     }
 }

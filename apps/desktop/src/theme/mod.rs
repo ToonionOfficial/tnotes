@@ -25,6 +25,7 @@ pub struct Theme {
     pub input: Hsla,
     pub ring: Hsla,
     pub success: Hsla,
+    pub is_dark: bool,
 }
 
 #[allow(dead_code)]
@@ -51,6 +52,7 @@ impl Theme {
             input: rgb(0x302e36).into(),
             ring: rgb(0xcabeff).into(),
             success: rgb(0xa6e3a1).into(),
+            is_dark: true,
         }
     }
 
@@ -76,7 +78,12 @@ impl Theme {
             input: rgb(0xe6e0e9).into(),
             ring: rgb(0x65558f).into(),
             success: rgb(0x2e7d32).into(),
+            is_dark: false,
         }
+    }
+
+    pub fn is_dark(&self) -> bool {
+        self.is_dark
     }
 
     pub fn to_twrite_theme(&self) -> EditorTheme {

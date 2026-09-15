@@ -576,6 +576,70 @@ impl NoteStore {
         cx.notify();
     }
 
+    pub fn vacuum(&self) -> CoreResult<()> {
+        if let Some(conn) = self.conn.as_ref() {
+            conn.execute_batch("VACUUM;")?;
+        }
+        Ok(())
+    }
+
+    pub fn create_benchmark_notes(&mut self, count: usize, cx: &mut Context<Self>) -> (usize, usize) {
+        let folder_count = (count + 9) / 10;
+        let mut folder_ids = Vec::with_capacity(folder_count);
+        for i in 0..folder_count {
+            let folder_name = format!("__tnotes_benchmark_folder_v1__:Benchmark Folder {}", i + 1);
+            let fid = self.create_folder(&folder_name, None, cx);
+            folder_ids.push(fid);
+        }
+        for i in 0..count {
+            let target_folder = if !folder_ids.is_empty() {
+                Some(folder_ids[i % folder_ids.len()].clone())
+            } else {
+                None
+            };
+            let title = format!("Benchmark Note {}", i + 1);
+            let body = format!("__tnotes_benchmark_note_v1__:This is benchmark note number {} generated for performance testing.", i + 1);
+            let note = Note::new(
+                &title,
+                &body,
+                &body,
+                target_folder,
+                LOCAL_DEVICE_ID,
+                self.user_id.clone(),
+            );
+            self.persist_note(&note);
+            self.notes.insert(0, note);
+        }
+        cx.notify();
+        (count, folder_count)
+    }
+
+    pub fn delete_benchmark_notes(&mut self, cx: &mut Context<Self>) -> usize {
+        let benchmark_note_ids: Vec<String> = self
+            .notes
+            .iter()
+            .filter(|n| n.searchable_text.starts_with("__tnotes_benchmark_note_v1__:") || n.title.starts_with("Benchmark Note"))
+            .map(|n| n.id.clone())
+            .collect();
+        let count = benchmark_note_ids.len();
+        self.notes.retain(|n| !benchmark_note_ids.contains(&n.id));
+        for id in &benchmark_note_ids {
+            self.delete_persisted_note(id);
+            self.history.remove_note(id);
+        }
+        let benchmark_folder_ids: Vec<String> = self
+            .folders
+            .iter()
+            .filter(|f| f.folder.name.starts_with("__tnotes_benchmark_folder_v1__:") || f.folder.name.starts_with("Benchmark Folder"))
+            .map(|f| f.folder.id.clone())
+            .collect();
+        for fid in benchmark_folder_ids {
+            self.delete_folder(&fid, cx);
+        }
+        cx.notify();
+        count
+    }
+
     // ---- folders ----
 
     pub fn folder_tree(&self) -> &[FolderNode] {

@@ -763,6 +763,7 @@ impl RenderOnce for SidebarMenuItem {
 
         let mut row = div()
             .id(self.id)
+            .w_full()
             .h(px(28.))
             .pl(indent)
             .pr_2()
@@ -780,20 +781,38 @@ impl RenderOnce for SidebarMenuItem {
                     .flex()
                     .items_center()
                     .gap_1p5()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
                     .child(chevron)
                     .when_some(self.icon, |this, icon| {
                         this.child(
-                            Icon::new(icon)
-                                .size(px(14.))
-                                .color(if self.active { theme.primary } else { theme.muted_foreground }),
+                            div()
+                                .flex_shrink_0()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    Icon::new(icon)
+                                        .size(px(14.))
+                                        .color(if self.active { theme.primary } else { theme.muted_foreground }),
+                                ),
                         )
                     })
-                    .child(div().line_clamp(1).child(self.label)),
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(self.label),
+                    ),
             );
 
         if let Some(count) = self.count {
             row = row.child(
                 div()
+                    .flex_shrink_0()
+                    .ml_1()
                     .text_size(px(11.))
                     .text_color(theme.muted_foreground)
                     .child(count.to_string()),
@@ -801,12 +820,14 @@ impl RenderOnce for SidebarMenuItem {
         } else if let Some(badge) = self.badge {
             row = row.child(
                 div()
+                    .flex_shrink_0()
+                    .ml_1()
                     .text_size(px(11.))
                     .text_color(theme.muted_foreground)
                     .child(badge),
             );
         } else if let Some(action) = self.action {
-            row = row.child(action);
+            row = row.child(div().flex_shrink_0().ml_1().child(action));
         }
 
         if let Some(on_click) = self.on_click {

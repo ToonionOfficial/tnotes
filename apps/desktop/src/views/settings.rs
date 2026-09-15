@@ -10,8 +10,9 @@ mod sync;
 
 pub use components::SettingsSectionId;
 
+use gpui::prelude::FluentBuilder;
 use gpui::*;
-use crate::components::{Icon, IconName};
+use crate::components::{Icon, IconName, Input, InputSize, InputState, InputVariant, KbdBadge};
 use crate::keymap::{CloseSettings, KeymapConfig, ALL_ACTIONS};
 use crate::store::NoteStore;
 use crate::theme::ThemeExt;
@@ -22,6 +23,8 @@ pub struct SettingsView {
     keymap: KeymapConfig,
     capturing: Option<keybinding_capture::KeybindingCapture>,
     focus_handle: FocusHandle,
+    search_state: InputState,
+    search_focus: FocusHandle,
     _store_subscription: Subscription,
 }
 
@@ -34,6 +37,8 @@ impl SettingsView {
             keymap: KeymapConfig::load(),
             capturing: None,
             focus_handle: cx.focus_handle(),
+            search_state: InputState::new(""),
+            search_focus: cx.focus_handle(),
             _store_subscription: store_sub,
         }
     }
@@ -142,14 +147,76 @@ impl SettingsView {
         self.store.clone()
     }
 
-    fn render_nav(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn section_matches_query(&self, section: SettingsSectionId, query: &str) -> bool {
+        if query.is_empty() {
+            return true;
+        }
+        let q = query.to_lowercase();
+        match section {
+            SettingsSectionId::Account => "account profile user local offline vault".contains(&q),
+            SettingsSectionId::Sync => {
+                "sync server connect websocket cloud backend url disconnect auto".contains(&q)
+            }
+            SettingsSectionId::Appearance => {
+                "theme appearance dark mode oled font typography reading preview".contains(&q)
+            }
+            SettingsSectionId::Storage => {
+                "data storage database sqlite export backup markdown json vacuum trash".contains(&q)
+            }
+            SettingsSectionId::Keybindings => {
+                "keybindings shortcuts keyboard capture actions keys".contains(&q)
+            }
+            SettingsSectionId::Developer => {
+                "flags benchmark dev developer performance test tools hud fps".contains(&q)
+            }
+            SettingsSectionId::About => {
+                "about version tnotes github repo license source".contains(&q)
+            }
+        }
+    }
+
+    fn handle_search_key(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.search_state.handle_key(event, window, cx) {
+            let query = self.search_state.value().trim().to_string();
+            if !query.is_empty() && !self.section_matches_query(self.active_section, &query) {
+                if let Some(&first) = SettingsSectionId::ALL
+                    .iter()
+                    .find(|&&s| self.section_matches_query(s, &query))
+                {
+                    self.select_section(first, cx);
+                }
+            }
+            cx.notify();
+        }
+    }
+
+    fn render_nav_group(
+        &self,
+        group_label: &'static str,
+        sections: &[SettingsSectionId],
+        cx: &mut Context<Self>,
+    ) -> Div {
         let theme = cx.theme().clone();
         div()
-            .flex_1()
             .flex()
             .flex_col()
             .gap(px(2.))
-            .children(SettingsSectionId::ALL.iter().map(|section| {
+            .child(
+                div()
+                    .px_2()
+                    .pt(px(8.))
+                    .pb(px(4.))
+                    .text_size(px(10.5))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(theme.muted_foreground)
+                    .child(group_label),
+            )
+            .children(sections.iter().map(|section| {
                 let active = *section == self.active_section;
                 let section = *section;
                 div()
@@ -176,7 +243,15 @@ impl SettingsView {
                     } else {
                         theme.muted_foreground
                     })
-                    .child(Icon::new(section.icon()).size(px(14.)))
+                    .child(
+                        Icon::new(section.icon())
+                            .size(px(14.))
+                            .color(if active {
+                                theme.primary
+                            } else {
+                                theme.muted_foreground
+                            }),
+                    )
                     .child(
                         div()
                             .text_size(px(13.))
@@ -191,11 +266,69 @@ impl SettingsView {
                         this.select_section(section, cx);
                     }))
             }))
+    }
+
+    fn render_nav(&self, cx: &mut Context<Self>) -> AnyElement {
+        let query = self.search_state.value().trim().to_string();
+        let ws_matching: Vec<SettingsSectionId> = SettingsSectionId::WORKSPACE
+            .iter()
+            .copied()
+            .filter(|&s| self.section_matches_query(s, &query))
+            .collect();
+        let sys_matching: Vec<SettingsSectionId> = SettingsSectionId::SYSTEM
+            .iter()
+            .copied()
+            .filter(|&s| self.section_matches_query(s, &query))
+            .collect();
+
+        div()
+            .flex_1()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .when(!ws_matching.is_empty(), |this| {
+                this.child(self.render_nav_group("WORKSPACE", &ws_matching, cx))
+            })
+            .when(!sys_matching.is_empty(), |this| {
+                this.child(self.render_nav_group("SYSTEM & ENGINE", &sys_matching, cx))
+            })
             .into_any_element()
     }
 
     fn render_content(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme().clone();
+        let query = self.search_state.value().trim().to_string();
+        let has_any_match = query.is_empty()
+            || SettingsSectionId::ALL
+                .iter()
+                .any(|&s| self.section_matches_query(s, &query));
+
+        if !has_any_match {
+            return div()
+                .flex_1()
+                .h_full()
+                .bg(theme.background)
+                .flex()
+                .flex_col()
+                .items_center()
+                .justify_center()
+                .gap_2()
+                .child(
+                    div()
+                        .text_size(px(17.))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(theme.foreground)
+                        .child("No Results"),
+                )
+                .child(
+                    div()
+                        .text_size(px(14.))
+                        .text_color(theme.muted_foreground)
+                        .child(format!("No settings match “{}”", query)),
+                )
+                .into_any_element();
+        }
+
         let body = match self.active_section {
             SettingsSectionId::Account => account::render(self, cx),
             SettingsSectionId::Sync => sync::render(self, cx),
@@ -220,13 +353,25 @@ impl SettingsView {
                     .py(px(28.))
                     .flex()
                     .flex_col()
-                    .gap_4()
+                    .gap_5()
                     .child(
                         div()
-                            .text_size(px(20.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(theme.foreground)
-                            .child(self.active_section.title()),
+                            .flex()
+                            .flex_col()
+                            .gap(px(3.))
+                            .child(
+                                div()
+                                    .text_size(px(22.))
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(theme.foreground)
+                                    .child(self.active_section.title()),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(12.5))
+                                    .text_color(theme.muted_foreground)
+                                    .child(self.active_section.description()),
+                            ),
                     )
                     .child(body),
             )
@@ -272,6 +417,74 @@ impl Render for SettingsView {
                     .border_color(theme.border)
                     .child(
                         div()
+                            .flex()
+                            .flex_col()
+                            .child(
+                                div()
+                                    .id("settings-sidebar-header")
+                                    .px_3()
+                                    .py(px(12.))
+                                    .border_b_1()
+                                    .border_color(theme.border)
+                                    .flex()
+                                    .items_center()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(
+                                                div()
+                                                    .w(px(22.))
+                                                    .h(px(22.))
+                                                    .rounded(px(6.))
+                                                    .bg(theme.primary)
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .child(
+                                                        Icon::new(IconName::Settings)
+                                                            .size(px(12.))
+                                                            .color(theme.primary_foreground),
+                                                    ),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_size(px(13.5))
+                                                    .font_weight(FontWeight::BOLD)
+                                                    .text_color(theme.foreground)
+                                                    .child("Settings"),
+                                            ),
+                                    )
+                                    .child(KbdBadge::new("Esc")),
+                            )
+                            .child(
+                                div()
+                                    .id("settings-sidebar-search")
+                                    .px_2()
+                                    .pt(px(6.))
+                                    .pb(px(4.))
+                                    .child(
+                                        Input::new("settings-search-bar")
+                                            .placeholder("Search settings...")
+                                            .leading_icon(IconName::Search)
+                                            .variant(InputVariant::Sidebar)
+                                            .size(InputSize::Sm)
+                                            .state(&self.search_state)
+                                            .focus_handle(self.search_focus.clone())
+                                            .on_key_down(cx.listener(|this, event, window, cx| {
+                                                this.handle_search_key(event, window, cx);
+                                            }))
+                                            .on_clear(cx.listener(|this, _, _, cx| {
+                                                this.search_state.clear();
+                                                cx.notify();
+                                            })),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        div()
                             .id("settings-sidebar-nav")
                             .flex_1()
                             .p_2()
@@ -292,23 +505,32 @@ impl Render for SettingsView {
                                     .rounded(px(6.))
                                     .flex()
                                     .items_center()
-                                    .gap_2()
+                                    .justify_between()
                                     .cursor_pointer()
                                     .hover(|s| s.bg(theme.secondary))
                                     .on_click(cx.listener(|_this, _, window, cx| {
                                         window.dispatch_action(Box::new(CloseSettings), cx);
                                     }))
                                     .child(
-                                        Icon::new(IconName::ArrowLeft)
-                                            .size(px(14.))
-                                            .color(theme.muted_foreground),
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(
+                                                Icon::new(IconName::ArrowLeft)
+                                                    .size(px(14.))
+                                                    .color(theme.muted_foreground),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_size(px(13.))
+                                                    .font_weight(FontWeight::MEDIUM)
+                                                    .text_color(theme.foreground)
+                                                    .child("Back to Notes"),
+                                            ),
                                     )
                                     .child(
-                                        div()
-                                            .text_size(px(13.))
-                                            .font_weight(FontWeight::MEDIUM)
-                                            .text_color(theme.foreground)
-                                            .child("Back to Notes"),
+                                        crate::components::KbdBadge::new("Esc"),
                                     ),
                             ),
                     ),
@@ -482,5 +704,86 @@ mod tests {
             first_mouse: false,
         });
         cx.run_until_parked();
+    }
+
+    #[test]
+    fn settings_nav_supports_all_sections_and_workspace_groups() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        for section in SettingsSectionId::ALL {
+            view.update(cx, |v, cx| {
+                v.select_section(section, cx);
+            });
+            cx.run_until_parked();
+            assert_eq!(view.read_with(cx, |v, _| v.active_section()), section);
+        }
+
+        assert_eq!(SettingsSectionId::WORKSPACE.len(), 3);
+        assert_eq!(SettingsSectionId::SYSTEM.len(), 4);
+    }
+
+    #[test]
+    fn settings_theme_toggle_switches_mode() {
+        let dark = Theme::dark();
+        assert!(dark.is_dark());
+
+        let light = Theme::light();
+        assert!(!light.is_dark());
+    }
+
+    #[test]
+    fn settings_search_matches_query_filters_sections() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Sync, "sync")));
+        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Appearance, "theme")));
+        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Storage, "sqlite")));
+        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Developer, "benchmark")));
+        assert!(!view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Account, "xyznonexistent")));
+    }
+
+    #[test]
+    fn settings_benchmark_creation_and_deletion() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        let store = view.read_with(cx, |v, _| v.test_store());
+
+        store.update(cx, |s, cx| {
+            let (notes, folders) = s.create_benchmark_notes(25, cx);
+            assert_eq!(notes, 25);
+            assert_eq!(folders, 3);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(store.read_with(cx, |s, _| s.active_notes().len()), 25);
+
+        store.update(cx, |s, cx| {
+            let deleted = s.delete_benchmark_notes(cx);
+            assert_eq!(deleted, 25);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(store.read_with(cx, |s, _| s.active_notes().len()), 0);
     }
 }

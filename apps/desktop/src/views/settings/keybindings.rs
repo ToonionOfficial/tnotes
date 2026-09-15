@@ -7,7 +7,6 @@ use super::SettingsView;
 
 pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let theme = cx.theme().clone();
-    // Entity first: `render_element` needs `&mut App` while rows borrow `cx`.
     let entity = cx.entity();
 
     let mut content: Vec<AnyElement> = Vec::new();
@@ -17,7 +16,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
             (Some(keys), Some(conflict)) => format!(
                 "Bound to {keys} — also used by {conflict}. Press Esc to dismiss."
             ),
-            _ => format!("Press keys for “{}” — Esc to cancel", capture.label),
+            _ => format!("Press keystroke for “{}”", capture.label),
         };
         content.push(
             div()
@@ -30,13 +29,29 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                 .py(px(12.))
                 .flex()
                 .items_center()
+                .justify_between()
                 .gap_3()
                 .child(
                     div()
-                        .text_size(px(13.))
-                        .text_color(theme.foreground)
-                        .child(hint),
+                        .flex()
+                        .items_center()
+                        .gap_3()
+                        .child(
+                            div()
+                                .w(px(8.))
+                                .h(px(8.))
+                                .rounded_full()
+                                .bg(theme.primary),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(13.))
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(theme.foreground)
+                                .child(hint),
+                        ),
                 )
+                .child(KbdBadge::new("Esc to cancel"))
                 .into_any_element(),
         );
     }
@@ -62,15 +77,33 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                 SharedString::from(format!("settings-key-{}", action.id.replace("tnotes::", "")));
             let action_id = action.id.to_string();
             let label = action.label.to_string();
-            // `on_press` gets (&mut Window, &mut App) but capture needs the
-            // view entity: captured above before any `&mut App` reborrow.
             let row_entity = entity.clone();
+            let bound_for_badge = bound.clone();
             let row = super::components::SettingsRow::new(row_id, action.label)
                 .subtitle(action.description)
                 .value(if is_capturing {
                     "Press keys…".to_string()
                 } else {
                     bound
+                })
+                .custom_trailing(if is_capturing {
+                    div()
+                        .px_2()
+                        .py(px(3.))
+                        .rounded(px(4.))
+                        .bg(theme.primary)
+                        .text_size(px(11.5))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(theme.primary_foreground)
+                        .child("Press keys…")
+                        .into_any_element()
+                } else {
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .child(KbdBadge::new(bound_for_badge))
+                        .into_any_element()
                 })
                 .on_press(move |window, cx| {
                     row_entity.update(cx, |this, cx| {
@@ -84,7 +117,6 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         content.push(section.render_element(cx_app));
     }
 
-    // Footer: reset + conflict-aware note, then KbdBadge legend.
     content.push(
         div()
             .w_full()
