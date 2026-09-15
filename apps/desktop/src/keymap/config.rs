@@ -127,7 +127,22 @@ impl KeymapConfig {
         None
     }
 
-    #[allow(dead_code)]
+    /// All actions bound to `keystroke` (normalized comparison), with their
+    /// contexts. Used for conflict display in the keybindings editor.
+    pub fn actions_for_keystroke(&self, keystroke: &str) -> Vec<(String, Option<String>)> {
+        let wanted = normalize_keystroke(keystroke);
+        self.0
+            .iter()
+            .flat_map(|section| {
+                section
+                    .bindings
+                    .iter()
+                    .filter(|(key, _)| normalize_keystroke(key) == wanted)
+                    .map(|(_, act)| (act.clone(), section.context.clone()))
+            })
+            .collect()
+    }
+
     pub fn set_key_for_action(
         &mut self,
         action_id: &str,
@@ -152,6 +167,12 @@ impl KeymapConfig {
             });
         }
     }
+}
+
+/// Normalize a keystroke string the same way `create_binding` does, so
+/// conflict checks compare apples to apples.
+fn normalize_keystroke(raw: &str) -> String {
+    raw.trim().replace('+', "-").to_lowercase()
 }
 
 #[cfg(test)]

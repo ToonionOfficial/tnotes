@@ -3,6 +3,7 @@ mod account;
 mod appearance;
 mod components;
 mod developer;
+mod keybinding_capture;
 mod keybindings;
 mod storage;
 mod sync;
@@ -11,13 +12,15 @@ pub use components::SettingsSectionId;
 
 use gpui::*;
 use crate::components::{Icon, IconName};
-use crate::keymap::CloseSettings;
+use crate::keymap::{CloseSettings, KeymapConfig, ALL_ACTIONS};
 use crate::store::NoteStore;
 use crate::theme::ThemeExt;
 
 pub struct SettingsView {
     store: Entity<NoteStore>,
     active_section: SettingsSectionId,
+    keymap: KeymapConfig,
+    capturing: Option<keybinding_capture::KeybindingCapture>,
     focus_handle: FocusHandle,
     _store_subscription: Subscription,
 }
@@ -28,6 +31,8 @@ impl SettingsView {
         Self {
             store,
             active_section: SettingsSectionId::Account,
+            keymap: KeymapConfig::load(),
+            capturing: None,
             focus_handle: cx.focus_handle(),
             _store_subscription: store_sub,
         }
@@ -44,6 +49,87 @@ impl SettingsView {
 
     pub fn select_section(&mut self, section: SettingsSectionId, cx: &mut Context<Self>) {
         self.active_section = section;
+        self.capturing = None;
+        cx.notify();
+    }
+
+    pub(crate) fn keymap(&self) -> &KeymapConfig {
+        &self.keymap
+    }
+
+    #[cfg(test)]
+    pub(crate) fn keymap_mut_for_test(
+        &mut self,
+        action_id: &str,
+        key: &str,
+        context: Option<&str>,
+    ) {
+        self.keymap.set_key_for_action(action_id, key, context);
+    }
+
+    pub(crate) fn capturing(&self) -> Option<&keybinding_capture::KeybindingCapture> {
+        self.capturing.as_ref()
+    }
+
+    pub(crate) fn begin_capture(&mut self, action_id: &str, label: &str, cx: &mut Context<Self>) {
+        self.capturing = Some(keybinding_capture::KeybindingCapture::new(
+            action_id, label,
+        ));
+        cx.notify();
+    }
+
+    pub(crate) fn cancel_capture(&mut self, cx: &mut Context<Self>) {
+        if self.capturing.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Feed a key event into an in-progress capture. Returns true when the
+    /// event was consumed (Escape cancels, anything else commits).
+    /// Must run before the view-level Escape-to-close handler.
+    fn handle_capture_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) -> bool {
+        if self.capturing.is_none() {
+            return false;
+        }
+        if event.keystroke.key.eq_ignore_ascii_case("escape") {
+            self.cancel_capture(cx);
+            return true;
+        }
+        let Some(keystroke) = keybinding_capture::keystroke_from_event(event) else {
+            return true;
+        };
+        // Single-keystroke bindings commit on press, like VS Code.
+        let capture = self.capturing.take().unwrap();
+        let context = ALL_ACTIONS
+            .iter()
+            .find(|a| a.id == capture.action_id)
+            .and_then(|a| a.default_context);
+        let conflicts = keybinding_capture::apply_captured_keystroke(
+            &mut self.keymap,
+            &capture.action_id,
+            context,
+            &keystroke,
+            cx,
+        );
+        if !conflicts.is_empty() {
+            self.capturing = Some(keybinding_capture::KeybindingCapture {
+                conflict: Some(conflicts.join(", ")),
+                preview: Some(keystroke),
+                ..capture
+            });
+        }
+        cx.notify();
+        true
+    }
+
+    pub(crate) fn reset_keymap(&mut self, cx: &mut Context<Self>) {
+        self.keymap = KeymapConfig::default_config();
+        if let Err(e) = self.keymap.save() {
+            eprintln!("[keymap] failed to persist keymap: {e}");
+        }
+        cx.clear_key_bindings();
+        self.keymap.bind_to_gpui(cx);
+        self.capturing = None;
         cx.notify();
     }
 
@@ -159,7 +245,10 @@ impl Render for SettingsView {
             .bg(theme.background)
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle)
-            .on_key_down(cx.listener(|_this, event: &KeyDownEvent, window, cx| {
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if this.handle_capture_key(event, cx) {
+                    return;
+                }
                 if event.keystroke.key.eq_ignore_ascii_case("escape") {
                     window.dispatch_action(Box::new(CloseSettings), cx);
                 }
@@ -296,6 +385,59 @@ mod tests {
         );
         assert!(store.read_with(cx, |s, _| s.active_notes().is_empty()));
         assert!(store.read_with(cx, |s, _| s.folder_tree().is_empty()));
+    }
+
+    #[test]
+    fn settings_keybinding_capture_and_reset_flow() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let view = add_settings(&mut cx);
+        let cx = &mut cx;
+        cx.run_until_parked();
+
+        // Begin capture on one action.
+        view.update(cx, |v, cx| {
+            v.begin_capture("tnotes::ToggleFps", "Toggle Performance HUD", cx);
+        });
+        cx.run_until_parked();
+        assert!(
+            view.read_with(cx, |v, _| v.capturing().is_some()),
+            "capture should be active"
+        );
+
+        // Escape cancels without touching the keymap.
+        let before = view.read_with(cx, |v, _| {
+            v.keymap()
+                .get_key_for_action("tnotes::ToggleFps")
+                .map(|(k, _)| k)
+        });
+        view.update(cx, |v, cx| v.cancel_capture(cx));
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |v, _| v.capturing().is_none()));
+        assert_eq!(
+            view.read_with(cx, |v, _| v
+                .keymap()
+                .get_key_for_action("tnotes::ToggleFps")
+                .map(|(k, _)| k)),
+            before
+        );
+
+        // Reset restores defaults from a mutated config.
+        view.update(cx, |v, cx| {
+            v.keymap_mut_for_test("tnotes::ToggleFps", "f9", None);
+            v.reset_keymap(cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |v, _| v
+                .keymap()
+                .get_key_for_action("tnotes::ToggleFps")
+                .map(|(k, _)| k)),
+            Some("f3".to_string())
+        );
     }
 
     #[test]
