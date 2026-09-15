@@ -7,9 +7,8 @@ mod keybindings;
 mod storage;
 mod sync;
 
-pub use components::{SettingsRow, SettingsSection, SettingsSectionId};
+pub use components::SettingsSectionId;
 
-use gpui::prelude::FluentBuilder;
 use gpui::*;
 use crate::components::{Icon, IconName};
 use crate::keymap::CloseSettings;
@@ -38,6 +37,7 @@ impl SettingsView {
         window.focus(&self.focus_handle);
     }
 
+    #[cfg(test)]
     pub fn active_section(&self) -> SettingsSectionId {
         self.active_section
     }

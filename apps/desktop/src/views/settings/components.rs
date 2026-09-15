@@ -166,26 +166,31 @@ impl SettingsRow {
         self
     }
 
+    #[allow(dead_code)]
     pub fn destructive(mut self, destructive: bool) -> Self {
         self.destructive = destructive;
         self
     }
 
+    #[allow(dead_code)]
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
+    #[allow(dead_code)]
     pub fn switch(mut self, on: bool) -> Self {
         self.switch_on = Some(on);
         self
     }
 
+    #[allow(dead_code)]
     pub fn on_toggle(mut self, handler: impl Fn(bool, &mut Window, &mut App) + 'static) -> Self {
         self.on_toggle = Some(Box::new(handler));
         self
     }
 
+    #[allow(dead_code)]
     pub fn on_press(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_press = Some(Box::new(handler));
         self

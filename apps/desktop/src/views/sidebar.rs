@@ -5,9 +5,9 @@ mod folder_tree;
 mod model;
 mod rename;
 
-pub use folder_icons::{
-    FOLDER_ICON_OPTIONS, folder_icon_for, folder_icon_from_name, folder_icon_name,
-};
+pub use folder_icons::FOLDER_ICON_OPTIONS;
+#[allow(unused_imports)]
+pub(crate) use folder_icons::{folder_icon_for, folder_icon_from_name, folder_icon_name};
 pub use model::{
     RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget, SidebarView,
 };
@@ -151,14 +151,6 @@ impl SidebarView {
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| store.delete_note(note_id, cx));
         self.context_menu = None;
-    }
-
-    pub fn restore_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.restore_note(note_id, cx));
-    }
-
-    pub fn empty_trash(&mut self, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.empty_trash(cx));
     }
 
     pub fn create_top_level_folder(&mut self, cx: &mut Context<Self>) {
@@ -714,7 +706,9 @@ mod tests {
 
         view.update(cx, |v, cx| {
             v.open_trash(cx);
-            v.restore_note("note-arch-spec", cx);
+        });
+        store.update(cx, |s, cx| {
+            s.restore_note("note-arch-spec", cx);
         });
         assert_eq!(
             store.read_with(cx, |s, _| s
@@ -736,7 +730,9 @@ mod tests {
 
         view.update(cx, |v, cx| {
             v.delete_note("note-arch-spec", cx);
-            v.empty_trash(cx);
+        });
+        store.update(cx, |s, cx| {
+            s.empty_trash(cx);
         });
         assert!(store.read_with(cx, |s, _| s.trash_notes().is_empty()),);
     }
