@@ -1,7 +1,11 @@
+use std::path::Path;
+
 use gpui::*;
+use tnotes_core::db::{folders, migrations, notes};
 use tnotes_core::db::folders::FolderNode;
-use tnotes_core::models::folder::Folder;
 use tnotes_core::models::note::Note;
+use tnotes_core::models::user::User;
+use tnotes_core::{Connection, Result as CoreResult};
 
 pub const LOCAL_USER_ID: &str = "local-user";
 pub const LOCAL_DEVICE_ID: &str = "desktop-local";
@@ -138,171 +142,102 @@ impl NavigationHistory {
 
 /// Central data entity: owns notes, the folder tree, and navigation state.
 /// Views hold an `Entity<NoteStore>` and read/mutate through it.
+///
+/// When opened via [`NoteStore::open`], every mutation is written through to
+/// SQLite; otherwise the store is a plain in-memory container (used by tests
+/// and as a fallback when the database cannot be opened).
 pub struct NoteStore {
     notes: Vec<Note>,
     folders: Vec<FolderNode>,
     active_location: NavigationLocation,
     history: NavigationHistory,
+    conn: Option<Connection>,
+    user_id: String,
 }
 
 impl NoteStore {
+    /// Empty in-memory store. The default location is Starred so first boot
+    /// shows a valid empty state instead of a dangling note reference.
     pub fn new() -> Self {
-        let now = tnotes_core::models::current_time_ms();
-        let minute = 60_000i64;
-        let hour = 3_600_000i64;
-        let day = 86_400_000i64;
-
-        let mk = |id: &str,
-                  title: &str,
-                  body: &str,
-                      folder_id: Option<&str>,
-                      pinned: bool,
-                      updated_at: i64| {
-            let mut note = Note::new(
-                title,
-                body,
-                body,
-                folder_id.map(|s| s.to_string()),
-                LOCAL_DEVICE_ID,
-                LOCAL_USER_ID,
-            );
-            note.id = id.to_string();
-            note.pinned = pinned;
-            note.updated_at = updated_at;
-            note.created_at = updated_at;
-            note
-        };
-
-        let notes = vec![
-            mk(
-                "note-arch-spec",
-                "System Architecture Spec",
-                "Local-first SQLite with FTS5, CRDT synchronization, and DankeShell token design system.",
-                Some("projects:architecture:core"),
-                true,
-                now,
-            ),
-            mk(
-                "note-desktop-gpui",
-                "Desktop Shell & GPUI Architecture",
-                "Unified Obsidian-style sidebar, borderless notes, twrite rope canvas rendering.",
-                Some("projects:architecture:desktop"),
-                true,
-                now - 15 * minute,
-            ),
-            mk(
-                "note-db-schema",
-                "Database Schema & Index Design",
-                "Tables for notes, folders, tags, sync operations log, and tokenized full-text search indexes.",
-                Some("projects"),
-                false,
-                now - 2 * hour,
-            ),
-            mk(
-                "note-ws-sync",
-                "WebSocket Sync Protocol",
-                "Bidirectional binary and JSON delta streaming between mobile client and desktop server.",
-                Some("projects"),
-                false,
-                now - 26 * hour,
-            ),
-            mk(
-                "note-q3-roadmap",
-                "Q3 Roadmap & Planning",
-                "Offline-first conflict resolution, canvas mode, graph view, and end-to-end encryption.",
-                Some("personal"),
-                false,
-                now - 3 * day,
-            ),
-            mk(
-                "note-sprint-goals",
-                "Weekly Sprint Goals",
-                "Implement single-sidebar layout, DankeShell active states, and twrite editor integration.",
-                Some("personal:journal"),
-                false,
-                now - 5 * day,
-            ),
-            mk(
-                "note-design-inspo",
-                "Design Inspiration: Obsidian x Notion",
-                "Collapsible sidebar rail, clean hierarchy, distraction-free markdown canvas, quiet chrome.",
-                Some("personal:journal"),
-                false,
-                now - 7 * day,
-            ),
-        ];
-
-        let folders = Self::mock_folders(now);
-
         Self {
-            notes,
-            folders,
-            active_location: NavigationLocation::Note("note-arch-spec".to_string()),
+            notes: Vec::new(),
+            folders: Vec::new(),
+            active_location: NavigationLocation::Starred,
             history: NavigationHistory::default(),
+            conn: None,
+            user_id: LOCAL_USER_ID.to_string(),
         }
     }
 
-    fn mock_folders(now: i64) -> Vec<FolderNode> {
-        // Depth-ordered to match the previous hardcoded tree.
-        let defs: &[(&str, Option<&str>, &str, i64, &str)] = &[
-            ("projects", None, "Projects", 0, "/Projects"),
-            (
-                "projects:architecture",
-                Some("projects"),
-                "Architecture",
-                1,
-                "/Projects/Architecture",
-            ),
-            (
-                "projects:architecture:core",
-                Some("projects:architecture"),
-                "Core Engine",
-                2,
-                "/Projects/Architecture/Core Engine",
-            ),
-            (
-                "projects:architecture:desktop",
-                Some("projects:architecture"),
-                "Desktop Shell",
-                2,
-                "/Projects/Architecture/Desktop Shell",
-            ),
-            (
-                "specs",
-                Some("projects"),
-                "Specifications",
-                1,
-                "/Projects/Specifications",
-            ),
-            ("personal", None, "Personal Notes", 0, "/Personal Notes"),
-            (
-                "personal:journal",
-                Some("personal"),
-                "Journal",
-                1,
-                "/Personal Notes/Journal",
-            ),
-        ];
+    /// Open (creating if needed) the SQLite database at `db_path` and load
+    /// this user's notes and folder tree into memory.
+    pub fn open(db_path: &Path, user_id: &str) -> CoreResult<Self> {
+        let conn = migrations::open_connection(db_path)?;
+        Self::ensure_local_user(&conn, user_id)?;
 
-        defs.iter()
-            .map(|(id, parent, name, depth, path)| FolderNode {
-                folder: Folder {
-                    id: id.to_string(),
-                    user_id: LOCAL_USER_ID.to_string(),
-                    parent_id: parent.map(|s| s.to_string()),
-                    name: name.to_string(),
-                    icon: "📁".to_string(),
-                    sort_order: 0,
-                    version: 1,
-                    updated_at: now,
-                    created_at: now,
-                    deleted_at: None,
-                    device_id: LOCAL_DEVICE_ID.to_string(),
-                },
-                depth: *depth,
-                path: path.to_string(),
-            })
-            .collect()
+        let mut stored_notes = notes::list_active_notes(&conn, user_id)?;
+        stored_notes.extend(notes::list_trashed_notes(&conn, user_id)?);
+        let stored_folders = folders::get_folder_tree(&conn, user_id)?;
+
+        // Default to the most recently updated active note, if any.
+        let active_location = stored_notes
+            .iter()
+            .filter(|n| !n.trashed)
+            .max_by_key(|n| n.updated_at)
+            .map(|n| NavigationLocation::Note(n.id.clone()))
+            .unwrap_or(NavigationLocation::Starred);
+
+        Ok(Self {
+            notes: stored_notes,
+            folders: stored_folders,
+            active_location,
+            history: NavigationHistory::default(),
+            conn: Some(conn),
+            user_id: user_id.to_string(),
+        })
+    }
+
+    /// `notes.user_id` / `folders.user_id` are FKs into `users`, so the local
+    /// vault user must exist before any note can be persisted.
+    fn ensure_local_user(conn: &Connection, user_id: &str) -> CoreResult<()> {
+        use tnotes_core::db::users::get_user_by_id;
+
+        if get_user_by_id(conn, user_id)?.is_none() {
+            let now = tnotes_core::models::current_time_ms();
+            // `users.id` is the FK target for notes/folders; a bare local
+            // vault user (no password) is enough until auth lands.
+            let user = User {
+                id: user_id.to_string(),
+                username: "local".to_string(),
+                password_hash: String::new(),
+                created_at: now,
+            };
+            if let Err(e) = tnotes_core::db::users::create_user(conn, &user) {
+                // Tolerate a concurrent first-boot race; anything else propagates.
+                if get_user_by_id(conn, user_id)?.is_none() {
+                    return Err(e.into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Best-effort write-through: the in-memory state is authoritative for the
+    /// UI, a persistence failure must not break interaction (it is logged).
+    fn persist_note(&self, note: &Note) {
+        if let Some(conn) = self.conn.as_ref()
+            && let Err(e) = notes::upsert_note(conn, note)
+        {
+            eprintln!("tnotes: failed to persist note {}: {e}", note.id);
+        }
+    }
+
+    fn delete_persisted_note(&self, note_id: &str) {
+        if let Some(conn) = self.conn.as_ref()
+            && let Err(e) = notes::delete_note_permanently(conn, note_id)
+        {
+            eprintln!("tnotes: failed to delete note {note_id}: {e}");
+        }
     }
 
     // ---- navigation ----
@@ -401,8 +336,25 @@ impl NoteStore {
         self.trashed_notes()
     }
 
-    /// In-memory search; signature is ready for an FTS5 swap in Phase 6.
+    /// Full-text search over SQLite FTS5 when a database is open,
+    /// in-memory substring filter otherwise (tests, db fallback).
+    /// Returned notes are owned clones in both cases.
     pub fn search_notes(&self, query: &str) -> Vec<Note> {
+        if query.trim().is_empty() {
+            return Vec::new();
+        }
+        if let Some(conn) = self.conn.as_ref() {
+            match notes::search_notes(conn, &self.user_id, query) {
+                Ok(found) => return found,
+                Err(e) => {
+                    eprintln!("tnotes: FTS search failed ({e}); using in-memory filter");
+                }
+            }
+        }
+        self.search_in_memory(query)
+    }
+
+    fn search_in_memory(&self, query: &str) -> Vec<Note> {
         let query = query.trim().to_lowercase();
         if query.is_empty() {
             return Vec::new();
@@ -422,7 +374,7 @@ impl NoteStore {
             .collect()
     }
 
-    // ---- mutations (write through to SQLite in Phase 6) ----
+    // ---- mutations (written through to SQLite when open) ----
 
     pub fn create_new_note(&mut self, cx: &mut Context<Self>) {
         self.create_note_in_folder(None, cx);
@@ -433,17 +385,16 @@ impl NoteStore {
         folder_id: Option<String>,
         cx: &mut Context<Self>,
     ) {
-        let mut note = Note::new(
+        let note = Note::new(
             "Untitled Note",
             "Start typing your note here...",
             "Start typing your note here...",
             folder_id,
             LOCAL_DEVICE_ID,
-            LOCAL_USER_ID,
+            self.user_id.clone(),
         );
-        // Keep the human-friendly `note-N` prefix used by existing tests.
-        note.id = format!("note-{}", self.notes.len() + 1);
         let target = note.id.clone();
+        self.persist_note(&note);
         self.notes.insert(0, note);
         self.select_note(&target, cx);
     }
@@ -452,6 +403,8 @@ impl NoteStore {
         if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id) {
             let pinned = !note.pinned;
             note.set_pinned(pinned, LOCAL_DEVICE_ID);
+            let updated = note.clone();
+            self.persist_note(&updated);
         }
         cx.notify();
     }
@@ -459,16 +412,16 @@ impl NoteStore {
     pub fn duplicate_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         if let Some(index) = self.notes.iter().position(|n| n.id == note_id) {
             let source = self.notes[index].clone();
-            let mut copy = Note::new(
+            let copy = Note::new(
                 format!("{} (copy)", source.title),
                 source.body.clone(),
                 source.searchable_text.clone(),
                 source.folder_id.clone(),
                 LOCAL_DEVICE_ID,
-                LOCAL_USER_ID,
+                self.user_id.clone(),
             );
-            copy.id = format!("note-{}-copy", self.notes.len() + 1);
             let new_id = copy.id.clone();
+            self.persist_note(&copy);
             self.notes.insert(index + 1, copy);
             self.select_note(&new_id, cx);
         }
@@ -477,6 +430,8 @@ impl NoteStore {
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id) {
             note.trash(LOCAL_DEVICE_ID);
+            let updated = note.clone();
+            self.persist_note(&updated);
         }
         self.history.remove_note(note_id);
         if self.active_location == NavigationLocation::Note(note_id.to_string()) {
@@ -494,6 +449,8 @@ impl NoteStore {
     pub fn restore_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         if let Some(note) = self.notes.iter_mut().find(|n| n.id == note_id) {
             note.restore(LOCAL_DEVICE_ID);
+            let updated = note.clone();
+            self.persist_note(&updated);
             cx.notify();
         }
     }
@@ -501,6 +458,7 @@ impl NoteStore {
     pub fn permanently_delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
         self.notes.retain(|n| n.id != note_id);
         self.history.remove_note(note_id);
+        self.delete_persisted_note(note_id);
         cx.notify();
     }
 
@@ -512,8 +470,9 @@ impl NoteStore {
             .map(|n| n.id.clone())
             .collect();
         self.notes.retain(|n| !n.trashed);
-        for id in trashed {
-            self.history.remove_note(&id);
+        for id in &trashed {
+            self.delete_persisted_note(id);
+            self.history.remove_note(id);
         }
         cx.notify();
     }
@@ -649,8 +608,137 @@ mod tests {
 
     #[test]
     fn trash_is_a_filter_not_a_second_collection() {
-        let store = NoteStore::new();
-        assert_eq!(store.trashed_notes().len(), 0);
-        assert_eq!(store.active_notes().len(), 7);
+        let mut store = NoteStore::new();
+        assert!(store.active_notes().is_empty());
+        assert!(store.trashed_notes().is_empty());
+
+        let now = tnotes_core::models::current_time_ms();
+        let mut active = Note::new(
+            "Active",
+            "body",
+            "body",
+            None,
+            LOCAL_DEVICE_ID,
+            LOCAL_USER_ID,
+        );
+        active.updated_at = now;
+        let mut trashed = Note::new(
+            "Trashed",
+            "body",
+            "body",
+            None,
+            LOCAL_DEVICE_ID,
+            LOCAL_USER_ID,
+        );
+        trashed.trash(LOCAL_DEVICE_ID);
+        store.notes.push(active);
+        store.notes.push(trashed);
+
+        assert_eq!(store.active_notes().len(), 1);
+        assert_eq!(store.trashed_notes().len(), 1);
+    }
+
+    #[test]
+    fn sqlite_roundtrip_persists_notes() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("tnotes-test-{nanos}.db"));
+
+        let note_id = {
+            let mut store = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+            assert!(store.active_notes().is_empty());
+            let note = Note::new(
+                "Persistent Note",
+                "sqlite body content",
+                "sqlite body content",
+                None,
+                LOCAL_DEVICE_ID,
+                LOCAL_USER_ID,
+            );
+            let id = note.id.clone();
+            store.notes.push(note.clone());
+            store.persist_note(&note);
+            id
+        };
+
+        let reopened = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        let found: Vec<Note> = reopened
+            .active_notes()
+            .into_iter()
+            .filter(|n| n.id == note_id)
+            .collect();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].title, "Persistent Note");
+        // Exercises the FTS5 branch of search_notes.
+        assert!(reopened.search_notes("sqlite body").iter().any(|n| n.id == note_id));
+        assert!(reopened.search_notes("no-such-term-xyz").is_empty());
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
+    }
+    /// Deterministic fixture for view tests: one folder with three notes
+    /// (two pinned, one plain). Not part of the production API.
+    #[cfg(test)]
+    impl NoteStore {
+        pub fn seed_test_data(&mut self) {
+            use tnotes_core::models::folder::Folder;
+
+            let now = tnotes_core::models::current_time_ms();
+            let mk = |id: &str, title: &str, folder: Option<&str>, pinned: bool| {
+                let mut note = Note::new(
+                    title,
+                    title,
+                    title,
+                    folder.map(|s| s.to_string()),
+                    LOCAL_DEVICE_ID,
+                    LOCAL_USER_ID,
+                );
+                note.id = id.to_string();
+                note.pinned = pinned;
+                note.updated_at = now;
+                note.created_at = now;
+                note
+            };
+
+            self.folders.push(FolderNode {
+                folder: Folder {
+                    id: "projects".to_string(),
+                    user_id: self.user_id.clone(),
+                    parent_id: None,
+                    name: "Projects".to_string(),
+                    icon: "📁".to_string(),
+                    sort_order: 0,
+                    version: 1,
+                    updated_at: now,
+                    created_at: now,
+                    deleted_at: None,
+                    device_id: LOCAL_DEVICE_ID.to_string(),
+                },
+                depth: 0,
+                path: "/Projects".to_string(),
+            });
+            self.notes.push(mk(
+                "note-arch-spec",
+                "System Architecture Spec",
+                Some("projects"),
+                true,
+            ));
+            self.notes.push(mk(
+                "note-desktop-gpui",
+                "Desktop Shell & GPUI Architecture",
+                Some("projects"),
+                true,
+            ));
+            self.notes.push(mk(
+                "note-db-schema",
+                "Database Schema & Index Design",
+                Some("projects"),
+                false,
+            ));
+            self.active_location = NavigationLocation::Note("note-arch-spec".to_string());
+        }
     }
 }

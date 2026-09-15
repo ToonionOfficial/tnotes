@@ -37,13 +37,8 @@ pub struct SidebarContextMenu {
 impl SidebarView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
         let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
-        let mut expanded_folders = HashSet::new();
-        expanded_folders.insert("projects".to_string());
-        expanded_folders.insert("projects:architecture".to_string());
-        expanded_folders.insert("projects:architecture:core".to_string());
-        expanded_folders.insert("projects:architecture:desktop".to_string());
-        expanded_folders.insert("personal".to_string());
-        expanded_folders.insert("personal:journal".to_string());
+        // Folders start collapsed; expansion is purely local UI state.
+        let expanded_folders = HashSet::new();
 
         Self {
             store,
@@ -831,6 +826,8 @@ mod tests {
             let store = cx.new(|_| NoteStore::new());
             SidebarView::new(store, cx)
         });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
         cx.run_until_parked();
         cx.update(|window, cx| {
             _ = window.draw(cx);
@@ -884,6 +881,8 @@ mod tests {
             SidebarView::new(store, cx)
         });
         let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
+        view.update(cx, |v, cx| v.toggle_folder("projects", cx));
         cx.run_until_parked();
         cx.update(|window, cx| {
             _ = window.draw(cx);
@@ -996,6 +995,7 @@ mod tests {
             SidebarView::new(store, cx)
         });
         let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
         cx.run_until_parked();
 
         assert_eq!(
@@ -1059,6 +1059,7 @@ mod tests {
             SidebarView::new(store, cx)
         });
         let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
         cx.run_until_parked();
 
         assert_eq!(
@@ -1117,6 +1118,7 @@ mod tests {
             SidebarView::new(store, cx)
         });
         let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
         cx.run_until_parked();
 
         assert_eq!(

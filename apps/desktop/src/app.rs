@@ -6,7 +6,7 @@ use crate::keymap::{
     CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NavigateBack, NavigateForward, NewNote,
     OpenSettings, PinNote, ToggleFps, ToggleSidebar,
 };
-use crate::store::{NavigationLocation, NoteStore};
+use crate::store::{NavigationLocation, NoteStore, LOCAL_USER_ID};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
 use crate::views::{
     NoteView, SettingsView, SidebarView, StarredView, TrashView,
@@ -207,7 +207,18 @@ impl Tnotes {
                         ..Default::default()
                     },
                     |window, cx| {
-                        let store = cx.new(|_| NoteStore::new());
+                        let _ = crate::paths::ensure_dirs();
+                        let db_path = crate::paths::database_file();
+                        let store = cx.new(|_| match NoteStore::open(&db_path, LOCAL_USER_ID) {
+                            Ok(store) => store,
+                            Err(err) => {
+                                eprintln!(
+                                    "tnotes: cannot open database at {} ({err}); starting with an empty store",
+                                    db_path.display()
+                                );
+                                NoteStore::new()
+                            }
+                        });
                         let sidebar = cx.new(|cx| SidebarView::new(store.clone(), cx));
                         let settings_view = cx.new(|cx| SettingsView::new(cx));
                         let note_view = cx.new(|cx| NoteView::new(store.clone(), cx));
