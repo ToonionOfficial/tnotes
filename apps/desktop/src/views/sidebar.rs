@@ -180,8 +180,17 @@ impl SidebarView {
         cx.notify();
     }
 
-    pub fn create_subfolder(&mut self, _folder_id: &str, cx: &mut Context<Self>) {
-        // TODO: folders are mock data; wire to a real folder model.
+    pub fn create_top_level_folder(&mut self, cx: &mut Context<Self>) {
+        self.store
+            .update(cx, |store, cx| store.create_top_level_folder(cx));
+        self.context_menu = None;
+    }
+
+    pub fn create_subfolder(&mut self, folder_id: &str, cx: &mut Context<Self>) {
+        let folder_id = folder_id.to_string();
+        self.store.update(cx, |store, cx| {
+            store.create_folder("Untitled Folder", Some(folder_id), cx);
+        });
         self.context_menu = None;
         cx.notify();
     }
@@ -192,10 +201,17 @@ impl SidebarView {
         cx.notify();
     }
 
-    pub fn delete_folder(&mut self, _folder_id: &str, cx: &mut Context<Self>) {
-        // TODO: folders are mock data; wire to a real folder model.
+    pub fn delete_folder(&mut self, folder_id: &str, cx: &mut Context<Self>) {
+        let subtree = self
+            .store
+            .read(cx)
+            .folder_subtree_ids(folder_id);
+        self.store
+            .update(cx, |store, cx| store.delete_folder(folder_id, cx));
+        for fid in subtree {
+            self.expanded_folders.remove(&fid);
+        }
         self.context_menu = None;
-        cx.notify();
     }
 
     pub fn open_context_menu(
@@ -450,7 +466,10 @@ impl SidebarView {
                     .cursor_pointer()
                     .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
                     .text_color(theme.muted_foreground)
-                    .child(Icon::new(IconName::Plus).size(px(12.))),
+                    .child(Icon::new(IconName::Plus).size(px(12.)))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.create_top_level_folder(cx);
+                    })),
             );
 
         let mut skip_below: Option<usize> = None;
