@@ -127,7 +127,7 @@ impl SettingsView {
             .bg(theme.background)
             .child(
                 div()
-                    .max_w(px(640.))
+                    .max_w(px(880.))
                     .w_full()
                     .mx_auto()
                     .px(px(32.))
