@@ -1,6 +1,6 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-use crate::components::{Icon, IconName};
+use crate::components::{Button, ButtonSize, Icon, IconName};
 use crate::theme::ThemeExt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -509,18 +509,8 @@ impl RenderOnce for SettingsTelemetry {
                             .child(self.path),
                     )
                     .children(self.on_reveal.map(|handler| {
-                        div()
-                            .id("telemetry-reveal-btn")
-                            .px_2()
-                            .py(px(3.))
-                            .rounded(px(4.))
-                            .bg(theme.secondary)
-                            .hover(|s| s.bg(theme.card))
-                            .cursor_pointer()
-                            .text_size(px(11.5))
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.foreground)
-                            .child("Open Directory")
+                        Button::secondary("telemetry-reveal-btn", "Open Directory")
+                            .size(ButtonSize::Sm)
                             .on_click(move |_, window, cx| {
                                 handler(window, cx);
                             })

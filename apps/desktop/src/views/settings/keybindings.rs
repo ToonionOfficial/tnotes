@@ -1,5 +1,5 @@
 use gpui::*;
-use crate::components::KbdBadge;
+use crate::components::{Button, ButtonSize, KbdBadge};
 use crate::theme::ThemeExt;
 use super::components::SettingsSection;
 use super::keybinding_capture::{actions_by_category, display_keystroke};
@@ -125,18 +125,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
             .justify_between()
             .pt(px(4.))
             .child(
-                div()
-                    .id("settings-keymap-reset")
-                    .px(px(12.))
-                    .py(px(6.))
-                    .rounded(px(6.))
-                    .border_1()
-                    .border_color(theme.border)
-                    .cursor_pointer()
-                    .hover(|s| s.bg(theme.secondary))
-                    .text_size(px(12.5))
-                    .text_color(theme.muted_foreground)
-                    .child("Reset to defaults")
+                Button::outline("settings-keymap-reset", "Reset to defaults")
+                    .size(ButtonSize::Sm)
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.reset_keymap(cx);
                     })),

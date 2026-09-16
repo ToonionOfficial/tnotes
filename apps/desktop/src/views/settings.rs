@@ -12,7 +12,7 @@ pub use components::SettingsSectionId;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-use crate::components::{Icon, IconName, Input, InputSize, InputState, InputVariant, KbdBadge};
+use crate::components::{Button, Icon, IconName, Input, InputSize, InputState, InputVariant, KbdBadge};
 use crate::keymap::{CloseSettings, KeymapConfig, ALL_ACTIONS};
 use crate::store::NoteStore;
 use crate::theme::ThemeExt;
@@ -497,41 +497,13 @@ impl Render for SettingsView {
                             .border_t_1()
                             .border_color(theme.border)
                             .child(
-                                div()
-                                    .id("settings-back-btn")
-                                    .w_full()
-                                    .h(px(34.))
-                                    .px_2()
-                                    .rounded(px(6.))
-                                    .flex()
-                                    .items_center()
-                                    .justify_between()
-                                    .cursor_pointer()
-                                    .hover(|s| s.bg(theme.secondary))
+                                Button::ghost("settings-back-btn", "Back to Notes")
+                                    .leading_icon(IconName::ArrowLeft)
+                                    .full_width(true)
+                                    .trailing_element(crate::components::KbdBadge::new("Esc"))
                                     .on_click(cx.listener(|_this, _, window, cx| {
                                         window.dispatch_action(Box::new(CloseSettings), cx);
-                                    }))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .gap_2()
-                                            .child(
-                                                Icon::new(IconName::ArrowLeft)
-                                                    .size(px(14.))
-                                                    .color(theme.muted_foreground),
-                                            )
-                                            .child(
-                                                div()
-                                                    .text_size(px(13.))
-                                                    .font_weight(FontWeight::MEDIUM)
-                                                    .text_color(theme.foreground)
-                                                    .child("Back to Notes"),
-                                            ),
-                                    )
-                                    .child(
-                                        crate::components::KbdBadge::new("Esc"),
-                                    ),
+                                    })),
                             ),
                     ),
             )

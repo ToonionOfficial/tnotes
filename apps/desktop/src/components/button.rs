@@ -34,6 +34,7 @@ pub struct Button {
     leading_icon: Option<IconName>,
     trailing_icon: Option<IconName>,
     count: Option<usize>,
+    trailing_element: Option<AnyElement>,
     active: bool,
     disabled: bool,
     full_width: bool,
@@ -51,6 +52,7 @@ impl Button {
             label: None,
             leading_icon: None,
             trailing_icon: None,
+            trailing_element: None,
             count: None,
             active: false,
             disabled: false,
@@ -97,6 +99,17 @@ impl Button {
             .size(ButtonSize::Sm)
             .full_width(true)
             .label(label)
+    }
+
+    pub fn destructive(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
+        Self::new(id)
+            .variant(ButtonVariant::Destructive)
+            .label(label)
+    }
+
+    pub fn trailing_element(mut self, el: impl IntoElement) -> Self {
+        self.trailing_element = Some(el.into_any_element());
+        self
     }
 
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
@@ -227,14 +240,27 @@ impl RenderOnce for Button {
                 )
             }
             ButtonVariant::Destructive => {
-                let mut hover = theme.destructive;
-                hover.l = (hover.l + 0.05).min(1.0);
+                let (bg, hover, text) = if theme.is_dark() {
+                    (
+                        rgb(0xdc2626).into(),
+                        rgb(0xb91c1c).into(),
+                        rgb(0xffffff).into(),
+                    )
+                } else {
+                    let mut hover = theme.destructive;
+                    hover.l = (hover.l + 0.05).min(1.0);
+                    (
+                        theme.destructive,
+                        hover,
+                        theme.destructive_foreground,
+                    )
+                };
                 (
-                    theme.destructive,
+                    bg,
                     hover,
-                    theme.destructive_foreground,
-                    theme.destructive_foreground,
-                    theme.destructive,
+                    text,
+                    text,
+                    bg,
                 )
             }
             ButtonVariant::Sidebar => {
@@ -266,6 +292,7 @@ impl RenderOnce for Button {
             .border_1()
             .border_color(border_color)
             .text_size(font_size)
+            .font_weight(FontWeight::MEDIUM)
             .text_color(text_color);
 
         if self.size == ButtonSize::Icon {
@@ -280,7 +307,10 @@ impl RenderOnce for Button {
                 .flex()
                 .items_center();
 
-            if self.variant == ButtonVariant::Sidebar {
+            if self.variant == ButtonVariant::Sidebar
+                || self.trailing_element.is_some()
+                || self.count.is_some()
+            {
                 el = el.justify_between();
             } else {
                 el = el.justify_center();
@@ -306,6 +336,8 @@ impl RenderOnce for Button {
             .children(self.leading_icon.map(|name| {
                 let icon_color = if self.active && self.variant == ButtonVariant::Sidebar {
                     theme.primary
+                } else if self.variant == ButtonVariant::Ghost {
+                    theme.muted_foreground
                 } else {
                     text_color
                 };
@@ -325,6 +357,10 @@ impl RenderOnce for Button {
                     .text_color(theme.muted_foreground)
                     .child(count.to_string()),
             );
+        }
+
+        if let Some(trailing) = self.trailing_element {
+            el = el.child(trailing);
         }
 
         if let Some(on_click) = self.on_click {

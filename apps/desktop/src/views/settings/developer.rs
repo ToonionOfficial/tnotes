@@ -1,5 +1,5 @@
 use gpui::*;
-use crate::components::{Icon, IconName};
+use crate::components::{Button, ButtonSize, Icon, IconName};
 use crate::keymap::ToggleFps;
 use crate::theme::ThemeExt;
 use super::components::{SettingsRow, SettingsSection};
@@ -62,18 +62,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                                 .items_center()
                                 .gap_2()
                                 .child(
-                                    div()
-                                        .id("btn-bench-100")
-                                        .px_2p5()
-                                        .py(px(4.))
-                                        .rounded(px(6.))
-                                        .bg(theme.secondary)
-                                        .hover(|s| s.bg(theme.primary).text_color(theme.primary_foreground))
-                                        .cursor_pointer()
-                                        .text_size(px(12.))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(theme.foreground)
-                                        .child("+100")
+                                    Button::secondary("btn-bench-100", "+100")
+                                        .size(ButtonSize::Sm)
                                         .on_click(move |_, _, cx| {
                                             store_for_b100.update(cx, |s, cx| {
                                                 s.create_benchmark_notes(100, cx);
@@ -81,18 +71,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                                         }),
                                 )
                                 .child(
-                                    div()
-                                        .id("btn-bench-500")
-                                        .px_2p5()
-                                        .py(px(4.))
-                                        .rounded(px(6.))
-                                        .bg(theme.secondary)
-                                        .hover(|s| s.bg(theme.primary).text_color(theme.primary_foreground))
-                                        .cursor_pointer()
-                                        .text_size(px(12.))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(theme.foreground)
-                                        .child("+500")
+                                    Button::secondary("btn-bench-500", "+500")
+                                        .size(ButtonSize::Sm)
                                         .on_click(move |_, _, cx| {
                                             store_for_b500.update(cx, |s, cx| {
                                                 s.create_benchmark_notes(500, cx);
@@ -100,18 +80,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                                         }),
                                 )
                                 .child(
-                                    div()
-                                        .id("btn-bench-1k")
-                                        .px_2p5()
-                                        .py(px(4.))
-                                        .rounded(px(6.))
-                                        .bg(theme.secondary)
-                                        .hover(|s| s.bg(theme.primary).text_color(theme.primary_foreground))
-                                        .cursor_pointer()
-                                        .text_size(px(12.))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(theme.foreground)
-                                        .child("+1k")
+                                    Button::secondary("btn-bench-1k", "+1k")
+                                        .size(ButtonSize::Sm)
                                         .on_click(move |_, _, cx| {
                                             store_for_b1000.update(cx, |s, cx| {
                                                 s.create_benchmark_notes(1000, cx);
@@ -119,18 +89,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                                         }),
                                 )
                                 .child(
-                                    div()
-                                        .id("btn-bench-5k")
-                                        .px_2p5()
-                                        .py(px(4.))
-                                        .rounded(px(6.))
-                                        .bg(theme.secondary)
-                                        .hover(|s| s.bg(theme.primary).text_color(theme.primary_foreground))
-                                        .cursor_pointer()
-                                        .text_size(px(12.))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(theme.foreground)
-                                        .child("+5k")
+                                    Button::secondary("btn-bench-5k", "+5k")
+                                        .size(ButtonSize::Sm)
                                         .on_click(move |_, _, cx| {
                                             store_for_b5000.update(cx, |s, cx| {
                                                 s.create_benchmark_notes(5000, cx);
@@ -140,23 +100,10 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                         ),
                 )
                 .child(
-                    div()
-                        .id("btn-bench-delete")
-                        .w_full()
-                        .py(px(6.))
-                        .rounded(px(6.))
-                        .bg(rgb(0xdc2626))
-                        .hover(|s| s.bg(rgb(0xb91c1c)))
-                        .cursor_pointer()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .gap_2()
-                        .text_size(px(12.5))
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(rgb(0xffffff))
-                        .child(Icon::new(IconName::Trash2).size(px(13.)).color(rgb(0xffffff).into()))
-                        .child("Delete all benchmark notes")
+                    Button::destructive("btn-bench-delete", "Delete all benchmark notes")
+                        .size(ButtonSize::Sm)
+                        .full_width(true)
+                        .leading_icon(IconName::Trash2)
                         .on_click(move |_, _, cx| {
                             store_for_bdel.update(cx, |s, cx| {
                                 s.delete_benchmark_notes(cx);
