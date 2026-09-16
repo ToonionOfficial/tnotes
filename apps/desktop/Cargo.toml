@@ -7,7 +7,7 @@ edition = "2024"
 tnotes-core = { path = "../../crates/tnotes-core" }
 
 gpui = "0.2"
-twrite = "0.10.0"
+twrite = { version = "0.10.0", features = ["markdown"] }
 rust-embed = "8.5"
 dirs = "5.0"
 serde = { version = "1.0", features = ["derive"] }

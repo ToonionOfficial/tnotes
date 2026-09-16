@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use gpui::*;
-use tnotes_core::db::{folders, migrations, notes};
 use tnotes_core::db::folders::FolderNode;
+use tnotes_core::db::{folders, migrations, notes};
 use tnotes_core::models::folder::Folder;
 use tnotes_core::models::note::Note;
 use tnotes_core::models::user::User;
@@ -283,8 +283,7 @@ impl NoteStore {
         let (last_sync_at, server_url) = match self.conn.as_ref() {
             Some(conn) => {
                 let last = tnotes_core::db::sync::get_last_sync_at(conn).unwrap_or(0);
-                let url = tnotes_core::db::sync::get_sync_meta(conn, "server_url")
-                    .unwrap_or(None);
+                let url = tnotes_core::db::sync::get_sync_meta(conn, "server_url").unwrap_or(None);
                 (last, url)
             }
             None => (0, None),
@@ -462,19 +461,15 @@ impl NoteStore {
         self.create_note_in_folder(None, cx);
     }
 
-    pub fn create_note_in_folder(
-        &mut self,
-        folder_id: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
+    pub fn create_note_in_folder(&mut self, folder_id: Option<String>, cx: &mut Context<Self>) {
         // Coerce unknown folders to root: `notes.folder_id` is a real FK, so
         // persisting a dangling reference would fail while the in-memory note
         // survived — a divergence we never want.
         let folder_id = folder_id.filter(|id| self.folder_exists(id));
         let note = Note::new(
             "Untitled Note",
-            "Start typing your note here...",
-            "Start typing your note here...",
+            "",
+            "",
             folder_id,
             LOCAL_DEVICE_ID,
             self.user_id.clone(),
@@ -601,7 +596,11 @@ impl NoteStore {
         Ok(())
     }
 
-    pub fn create_benchmark_notes(&mut self, count: usize, cx: &mut Context<Self>) -> (usize, usize) {
+    pub fn create_benchmark_notes(
+        &mut self,
+        count: usize,
+        cx: &mut Context<Self>,
+    ) -> (usize, usize) {
         let folder_count = (count + 9) / 10;
         let mut folder_ids = Vec::with_capacity(folder_count);
         let mut new_folders = Vec::with_capacity(folder_count);
@@ -628,7 +627,10 @@ impl NoteStore {
                 None
             };
             let title = format!("Benchmark Note {}", i + 1);
-            let body = format!("__tnotes_benchmark_note_v1__:This is benchmark note number {} generated for performance testing.", i + 1);
+            let body = format!(
+                "__tnotes_benchmark_note_v1__:This is benchmark note number {} generated for performance testing.",
+                i + 1
+            );
             let note = Note::new(
                 &title,
                 &body,
@@ -672,7 +674,11 @@ impl NoteStore {
         let benchmark_note_ids: std::collections::HashSet<String> = self
             .notes
             .iter()
-            .filter(|n| n.searchable_text.starts_with("__tnotes_benchmark_note_v1__:") || n.title.starts_with("Benchmark Note"))
+            .filter(|n| {
+                n.searchable_text
+                    .starts_with("__tnotes_benchmark_note_v1__:")
+                    || n.title.starts_with("Benchmark Note")
+            })
             .map(|n| n.id.clone())
             .collect();
         let count = benchmark_note_ids.len();
@@ -680,7 +686,10 @@ impl NoteStore {
         let benchmark_folder_ids: std::collections::HashSet<String> = self
             .folders
             .iter()
-            .filter(|f| f.folder.name.starts_with("__tnotes_benchmark_folder_v1__:") || f.folder.name.starts_with("Benchmark Folder"))
+            .filter(|f| {
+                f.folder.name.starts_with("__tnotes_benchmark_folder_v1__:")
+                    || f.folder.name.starts_with("Benchmark Folder")
+            })
             .map(|f| f.folder.id.clone())
             .collect();
 
@@ -693,7 +702,8 @@ impl NoteStore {
             );
             self.reload_folders();
         } else {
-            self.folders.retain(|f| !benchmark_folder_ids.contains(&f.folder.id));
+            self.folders
+                .retain(|f| !benchmark_folder_ids.contains(&f.folder.id));
         }
 
         self.notes.retain(|n| !benchmark_note_ids.contains(&n.id));
@@ -831,9 +841,10 @@ impl NoteStore {
         } else {
             // Ordered insert: directly after the parent's existing subtree so
             // the depth-ordered tree render stays correct without a db.
-            let (depth, path) = match parent_id.as_deref().and_then(|pid| {
-                self.folders.iter().find(|n| n.folder.id == pid)
-            }) {
+            let (depth, path) = match parent_id
+                .as_deref()
+                .and_then(|pid| self.folders.iter().find(|n| n.folder.id == pid))
+            {
                 Some(parent) => (
                     parent.depth + 1,
                     format!("{} / {}", parent.path, folder.name),
@@ -1145,7 +1156,12 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].title, "Persistent Note");
         // Exercises the FTS5 branch of search_notes.
-        assert!(reopened.search_notes("sqlite body").iter().any(|n| n.id == note_id));
+        assert!(
+            reopened
+                .search_notes("sqlite body")
+                .iter()
+                .any(|n| n.id == note_id)
+        );
         assert!(reopened.search_notes("no-such-term-xyz").is_empty());
 
         let _ = std::fs::remove_file(&path);
@@ -1162,9 +1178,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("tnotes-folders-test-{nanos}.db"));
 
         let cx = TestAppContext::single();
-        let store = cx.update(|cx| {
-            cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap())
-        });
+        let store = cx.update(|cx| cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap()));
         let (fid, nid) = cx.update(|cx| {
             store.update(cx, |s, cx| {
                 let fid = s.create_folder("Work", None, cx);
@@ -1176,12 +1190,7 @@ mod tests {
 
         let reopened = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
         assert!(reopened.folder_tree().iter().any(|n| n.folder.id == fid));
-        assert!(
-            reopened
-                .notes_in_folder(&fid)
-                .iter()
-                .any(|n| n.id == nid)
-        );
+        assert!(reopened.notes_in_folder(&fid).iter().any(|n| n.id == nid));
 
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_file(path.with_extension("db-wal"));
@@ -1210,11 +1219,7 @@ mod tests {
             };
             // New folders prepend: A created after B sorts first.
             assert!(order(&a) < order(&b));
-            assert!(
-                s.folder_tree()
-                    .iter()
-                    .all(|n| n.folder.parent_id.is_none())
-            );
+            assert!(s.folder_tree().iter().all(|n| n.folder.parent_id.is_none()));
         });
     }
 
@@ -1283,10 +1288,7 @@ mod tests {
             assert_eq!(s.active_notes().len(), 1);
             assert!(s.active_notes()[0].folder_id.is_none());
             // Selection fell back to the surviving root note.
-            assert_eq!(
-                s.selected_note_id(),
-                Some(s.active_notes()[0].id.clone())
-            );
+            assert_eq!(s.selected_note_id(), Some(s.active_notes()[0].id.clone()));
         });
     }
 
@@ -1320,9 +1322,7 @@ mod tests {
     fn rename_folder_trims_and_ignores_blank() {
         let mut cx = TestAppContext::single();
         let store = test_store(&mut cx);
-        let fid = cx.update(|cx| {
-            store.update(cx, |s, cx| s.create_folder("Work", None, cx))
-        });
+        let fid = cx.update(|cx| store.update(cx, |s, cx| s.create_folder("Work", None, cx)));
         cx.update(|cx| {
             store.update(cx, |s, cx| s.rename_folder(&fid, "  Play  ", cx));
         });
@@ -1376,9 +1376,7 @@ mod tests {
     fn set_folder_icon_stores_lowercase_name() {
         let mut cx = TestAppContext::single();
         let store = test_store(&mut cx);
-        let fid = cx.update(|cx| {
-            store.update(cx, |s, cx| s.create_folder("Work", None, cx))
-        });
+        let fid = cx.update(|cx| store.update(cx, |s, cx| s.create_folder("Work", None, cx)));
         cx.update(|cx| {
             store.update(cx, |s, cx| s.set_folder_icon(&fid, "briefcase", cx));
         });
@@ -1406,9 +1404,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("tnotes-bench-test-{nanos}.db"));
 
         let cx = TestAppContext::single();
-        let store = cx.update(|cx| {
-            cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap())
-        });
+        let store = cx.update(|cx| cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap()));
 
         cx.update(|cx| {
             store.update(cx, |s, cx| {

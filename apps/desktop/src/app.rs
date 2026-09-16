@@ -101,9 +101,14 @@ impl Tnotes {
                 sidebar.toggle_collapsed(cx);
             });
         }))
-        .on_action(cx.listener(|this, _: &NewNote, _window, cx| {
+        .on_action(cx.listener(|this, _: &NewNote, window, cx| {
             this.sidebar.update(cx, |sidebar, cx| {
                 sidebar.create_new_note(cx);
+            });
+            // `create_new_note` selects the new note, so the editor has
+            // already loaded it via the store observer — focus it for typing.
+            this.note_view.update(cx, |view, cx| {
+                view.focus_editor(window, cx);
             });
         }))
         .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
