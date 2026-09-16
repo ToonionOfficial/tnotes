@@ -1,9 +1,14 @@
 mod app;
+mod assets;
 mod components;
-mod editor;
+pub mod keymap;
+pub mod paths;
+mod store;
 mod theme;
 mod views;
 
+use app::Tnotes;
+
 fn main() {
-    println!("tnotes-desktop");
+    Tnotes::run_app();
 }
