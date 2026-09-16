@@ -1,17 +1,15 @@
-use std::time::Instant;
-use gpui::prelude::FluentBuilder;
-use gpui::*;
 use crate::assets::DesktopAssets;
 use crate::components::fps::fps_monitor_with_duration;
 use crate::keymap::{
     CloseSettings, DeleteNote, FocusSearch, KeymapConfig, NavigateBack, NavigateForward, NewNote,
     OpenSettings, PinNote, ToggleFps, ToggleSidebar,
 };
-use crate::store::{NavigationLocation, NoteStore, LOCAL_USER_ID};
+use crate::store::{LOCAL_USER_ID, NavigationLocation, NoteStore};
 use crate::theme::{ActiveTheme, Theme, ThemeExt};
-use crate::views::{
-    NoteView, SettingsView, SidebarView, StarredView, TrashView,
-};
+use crate::views::{NoteView, SettingsView, SidebarView, StarredView, TrashView};
+use gpui::prelude::FluentBuilder;
+use gpui::*;
+use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum AppScreen {
@@ -85,10 +83,7 @@ impl Tnotes {
     }
 
     fn render_settings(&self, _cx: &Context<Self>) -> impl IntoElement {
-        div()
-            .size_full()
-            .flex()
-            .child(self.settings_view.clone())
+        div().size_full().flex().child(self.settings_view.clone())
     }
 
     fn with_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {

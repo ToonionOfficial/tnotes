@@ -1,9 +1,9 @@
-use std::ops::Range;
-use gpui::prelude::FluentBuilder;
-use gpui::*;
 use crate::components::badge::KbdBadge;
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
+use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InputState {
@@ -214,7 +214,10 @@ impl InputState {
             }
         }
 
-        chars.peek().map(|&(idx, _)| offset + idx).unwrap_or(self.value.len())
+        chars
+            .peek()
+            .map(|&(idx, _)| offset + idx)
+            .unwrap_or(self.value.len())
     }
 
     pub fn select_all(&mut self) {
@@ -469,12 +472,7 @@ impl InputState {
         }
     }
 
-    pub fn handle_key(
-        &mut self,
-        event: &KeyDownEvent,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> bool {
+    pub fn handle_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut App) -> bool {
         let key = &event.keystroke.key;
         let ctrl = event.keystroke.modifiers.control;
         let alt = event.keystroke.modifiers.alt;
@@ -753,8 +751,14 @@ impl RenderOnce for Input {
             .unwrap_or(false);
 
         let (bg, border_color) = match self.variant {
-            InputVariant::Default => (theme.card, if is_focused { theme.ring } else { theme.border }),
-            InputVariant::Sidebar => (theme.card, if is_focused { theme.ring } else { theme.border }),
+            InputVariant::Default => (
+                theme.card,
+                if is_focused { theme.ring } else { theme.border },
+            ),
+            InputVariant::Sidebar => (
+                theme.card,
+                if is_focused { theme.ring } else { theme.border },
+            ),
         };
 
         let is_empty = self.value.is_empty();
@@ -854,7 +858,11 @@ impl RenderOnce for Input {
             if let Some(range) = valid_selection {
                 let start = clamp_boundary(range.start);
                 let end = clamp_boundary(range.end);
-                let (start, end) = if start <= end { (start, end) } else { (end, start) };
+                let (start, end) = if start <= end {
+                    (start, end)
+                } else {
+                    (end, start)
+                };
 
                 let before = &val_str[..start];
                 let selected = &val_str[start..end];
@@ -924,9 +932,11 @@ impl RenderOnce for Input {
             .flex_1()
             .overflow_hidden()
             .children(self.leading_icon.map(|name| {
-                Icon::new(name)
-                    .size(icon_size)
-                    .color(if is_focused { theme.primary } else { theme.muted_foreground })
+                Icon::new(name).size(icon_size).color(if is_focused {
+                    theme.primary
+                } else {
+                    theme.muted_foreground
+                })
             }))
             .child(text_container);
 

@@ -1,19 +1,22 @@
-use gpui::{actions, KeyBinding};
+use gpui::{KeyBinding, actions};
 
-actions!(tnotes, [
-    ToggleFps,
-    ToggleSidebar,
-    NewNote,
-    FocusSearch,
-    PinNote,
-    DeleteNote,
-    Save,
-    SaveAndClose,
-    OpenSettings,
-    CloseSettings,
-    NavigateBack,
-    NavigateForward,
-]);
+actions!(
+    tnotes,
+    [
+        ToggleFps,
+        ToggleSidebar,
+        NewNote,
+        FocusSearch,
+        PinNote,
+        DeleteNote,
+        Save,
+        SaveAndClose,
+        OpenSettings,
+        CloseSettings,
+        NavigateBack,
+        NavigateForward,
+    ]
+);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActionMeta {

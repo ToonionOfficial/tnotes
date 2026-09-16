@@ -2,7 +2,7 @@ use gpui::*;
 use std::ops::Range;
 
 #[allow(unused_imports)]
-pub use gpui::{uniform_list, ScrollStrategy, UniformList, UniformListScrollHandle};
+pub use gpui::{ScrollStrategy, UniformList, UniformListScrollHandle, uniform_list};
 
 #[allow(dead_code)]
 pub fn virtual_list<R, V>(

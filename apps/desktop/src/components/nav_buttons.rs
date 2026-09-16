@@ -1,7 +1,7 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
 use crate::components::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
 
 #[derive(IntoElement)]
 pub struct NavButtons {
@@ -89,7 +89,9 @@ impl RenderOnce for NavButtons {
                         }
                         el
                     })
-                    .when(!self.can_forward, |this| this.opacity(0.35).cursor_default())
+                    .when(!self.can_forward, |this| {
+                        this.opacity(0.35).cursor_default()
+                    })
                     .child(Icon::new(IconName::ArrowRight).size(px(13.))),
             )
     }

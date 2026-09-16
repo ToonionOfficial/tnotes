@@ -1,6 +1,6 @@
-use gpui::*;
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -63,27 +63,19 @@ impl Button {
     }
 
     pub fn primary(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
-        Self::new(id)
-            .variant(ButtonVariant::Default)
-            .label(label)
+        Self::new(id).variant(ButtonVariant::Default).label(label)
     }
 
     pub fn secondary(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
-        Self::new(id)
-            .variant(ButtonVariant::Secondary)
-            .label(label)
+        Self::new(id).variant(ButtonVariant::Secondary).label(label)
     }
 
     pub fn ghost(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
-        Self::new(id)
-            .variant(ButtonVariant::Ghost)
-            .label(label)
+        Self::new(id).variant(ButtonVariant::Ghost).label(label)
     }
 
     pub fn outline(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
-        Self::new(id)
-            .variant(ButtonVariant::Outline)
-            .label(label)
+        Self::new(id).variant(ButtonVariant::Outline).label(label)
     }
 
     pub fn icon(id: impl Into<ElementId>, icon: IconName) -> Self {
@@ -249,19 +241,9 @@ impl RenderOnce for Button {
                 } else {
                     let mut hover = theme.destructive;
                     hover.l = (hover.l + 0.05).min(1.0);
-                    (
-                        theme.destructive,
-                        hover,
-                        theme.destructive_foreground,
-                    )
+                    (theme.destructive, hover, theme.destructive_foreground)
                 };
-                (
-                    bg,
-                    hover,
-                    text,
-                    text,
-                    bg,
-                )
+                (bg, hover, text, text, bg)
             }
             ButtonVariant::Sidebar => {
                 let bg = if self.active {
@@ -296,16 +278,9 @@ impl RenderOnce for Button {
             .text_color(text_color);
 
         if self.size == ButtonSize::Icon {
-            el = el
-                .w(height)
-                .flex()
-                .items_center()
-                .justify_center();
+            el = el.w(height).flex().items_center().justify_center();
         } else {
-            el = el
-                .px(padding_x)
-                .flex()
-                .items_center();
+            el = el.px(padding_x).flex().items_center();
 
             if self.variant == ButtonVariant::Sidebar
                 || self.trailing_element.is_some()
@@ -324,9 +299,11 @@ impl RenderOnce for Button {
         if self.disabled {
             el = el.opacity(0.5).cursor_not_allowed();
         } else {
-            el = el
-                .cursor_pointer()
-                .hover(|s| s.bg(hover_bg).border_color(hover_bg).text_color(hover_text_color));
+            el = el.cursor_pointer().hover(|s| {
+                s.bg(hover_bg)
+                    .border_color(hover_bg)
+                    .text_color(hover_text_color)
+            });
         }
 
         let content = div()
@@ -344,9 +321,10 @@ impl RenderOnce for Button {
                 Icon::new(name).size(icon_size).color(icon_color)
             }))
             .children(self.label.map(|label| div().child(label)))
-            .children(self.trailing_icon.map(|name| {
-                Icon::new(name).size(icon_size).color(text_color)
-            }));
+            .children(
+                self.trailing_icon
+                    .map(|name| Icon::new(name).size(icon_size).color(text_color)),
+            );
 
         el = el.child(content);
 

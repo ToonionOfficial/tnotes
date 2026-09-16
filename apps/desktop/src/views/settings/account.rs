@@ -1,7 +1,7 @@
-use gpui::*;
-use crate::components::IconName;
-use super::components::{SettingsRow, SettingsSection, SettingsTelemetry};
 use super::SettingsView;
+use super::components::{SettingsRow, SettingsSection, SettingsTelemetry};
+use crate::components::IconName;
+use gpui::*;
 
 pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let (username, vault_path, active_count, trashed_count, folder_count) = {

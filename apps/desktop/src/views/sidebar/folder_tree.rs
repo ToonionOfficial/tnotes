@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-use gpui::*;
-use tnotes_core::models::note::Note;
-use crate::components::{
-    FolderTreeItem, Icon, IconName, NoteTreeItem, SidebarGroup, uniform_list,
-};
-use crate::theme::ThemeExt;
 use super::model::TreeRow;
-use super::{folder_icon_for, SidebarView};
+use super::{SidebarView, folder_icon_for};
+use crate::components::{FolderTreeItem, Icon, IconName, NoteTreeItem, SidebarGroup, uniform_list};
+use crate::theme::ThemeExt;
+use gpui::*;
+use std::collections::HashMap;
+use tnotes_core::models::note::Note;
 
 impl SidebarView {
     pub fn matching_search_notes(&self, cx: &App) -> Vec<Note> {
@@ -39,7 +37,10 @@ impl SidebarView {
         let mut subtree_counts: HashMap<&str, usize> = direct_counts;
         for node in folder_tree.iter().rev() {
             if let Some(parent_id) = node.folder.parent_id.as_deref() {
-                let count = subtree_counts.get(node.folder.id.as_str()).copied().unwrap_or(0);
+                let count = subtree_counts
+                    .get(node.folder.id.as_str())
+                    .copied()
+                    .unwrap_or(0);
                 *subtree_counts.entry(parent_id).or_insert(0) += count;
             }
         }
@@ -108,31 +109,35 @@ impl SidebarView {
         let theme = cx.theme().clone();
         let count = self.tree_rows.len();
 
-        let group = SidebarGroup::new()
-            .label("Folders")
-            .fill(true)
-            .action(
-                div()
-                    .id("add-folder-btn")
-                    .w(px(20.))
-                    .h(px(20.))
-                    .rounded(px(4.))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .cursor_pointer()
-                    .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
-                    .text_color(theme.muted_foreground)
-                    .child(Icon::new(IconName::Plus).size(px(12.)))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.create_top_level_folder(cx);
-                    })),
-            );
+        let group = SidebarGroup::new().label("Folders").fill(true).action(
+            div()
+                .id("add-folder-btn")
+                .w(px(20.))
+                .h(px(20.))
+                .rounded(px(4.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .cursor_pointer()
+                .hover(|s| s.bg(theme.secondary).text_color(theme.foreground))
+                .text_color(theme.muted_foreground)
+                .child(Icon::new(IconName::Plus).size(px(12.)))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.create_top_level_folder(cx);
+                })),
+        );
 
         let list = uniform_list("sidebar-tree-list", count, {
-            cx.processor(|this: &mut SidebarView, range: std::ops::Range<usize>, _window: &mut Window, cx: &mut Context<SidebarView>| {
-                range.map(|ix| this.render_tree_row(ix, cx)).collect::<Vec<_>>()
-            })
+            cx.processor(
+                |this: &mut SidebarView,
+                 range: std::ops::Range<usize>,
+                 _window: &mut Window,
+                 cx: &mut Context<SidebarView>| {
+                    range
+                        .map(|ix| this.render_tree_row(ix, cx))
+                        .collect::<Vec<_>>()
+                },
+            )
         })
         .track_scroll(self.tree_scroll_handle.clone())
         .size_full();
@@ -182,17 +187,11 @@ impl SidebarView {
                             this.toggle_folder(&id, cx);
                         }
                     }))
-                    .on_right_click(cx.listener(Self::folder_menu_handler(
-                        id,
-                        name,
-                    )));
+                    .on_right_click(cx.listener(Self::folder_menu_handler(id, name)));
                     item.into_any_element()
                 }
             }
-            TreeRow::Note {
-                note_index,
-                depth,
-            } => {
+            TreeRow::Note { note_index, depth } => {
                 let (note_id, title, is_pinned, is_active) = {
                     let store = self.store.read(cx);
                     let Some(note) = store.notes().get(note_index) else {
@@ -213,11 +212,9 @@ impl SidebarView {
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.select_note(&click_id, cx);
                         }))
-                        .on_right_click(cx.listener(Self::note_menu_handler(
-                            note_id,
-                            title,
-                            is_pinned,
-                        )))
+                        .on_right_click(
+                            cx.listener(Self::note_menu_handler(note_id, title, is_pinned)),
+                        )
                         .into_any_element()
                 }
             }
@@ -252,10 +249,17 @@ impl SidebarView {
             );
         } else {
             let list = uniform_list("search-results-list", count, {
-                cx.processor(move |this: &mut SidebarView, range: std::ops::Range<usize>, _window: &mut Window, cx: &mut Context<SidebarView>| {
-                    let selected = selected_note.clone();
-                    range.map(|ix| this.render_search_row(ix, selected.as_deref(), cx)).collect::<Vec<_>>()
-                })
+                cx.processor(
+                    move |this: &mut SidebarView,
+                          range: std::ops::Range<usize>,
+                          _window: &mut Window,
+                          cx: &mut Context<SidebarView>| {
+                        let selected = selected_note.clone();
+                        range
+                            .map(|ix| this.render_search_row(ix, selected.as_deref(), cx))
+                            .collect::<Vec<_>>()
+                    },
+                )
             })
             .track_scroll(self.search_scroll_handle.clone())
             .size_full();
@@ -321,7 +325,10 @@ impl SidebarView {
             (bounds, offset, total_height)
         };
 
-        if table_bounds.size.height <= px(0.) || count == 0 || scroll_height <= table_bounds.size.height {
+        if table_bounds.size.height <= px(0.)
+            || count == 0
+            || scroll_height <= table_bounds.size.height
+        {
             return div().into_any_element();
         }
 
@@ -352,7 +359,8 @@ impl SidebarView {
                 let entity = entity.clone();
                 move |ev, _window, cx| {
                     let click_y = ev.position.y - table_bounds.origin.y;
-                    let target_pct = ((click_y - thumb_height / 2.0) / track_height).clamp(0.0, 1.0);
+                    let target_pct =
+                        ((click_y - thumb_height / 2.0) / track_height).clamp(0.0, 1.0);
                     let target_offset = max_scroll * target_pct;
                     scroll_handle
                         .0

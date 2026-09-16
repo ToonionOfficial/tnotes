@@ -1,9 +1,9 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use tnotes_core::models::note::Note;
 use crate::components::{Icon, IconName, NavButtons};
 use crate::store::{NoteStore, format_relative_time, snippet_from_body};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
+use tnotes_core::models::note::Note;
 
 pub struct StarredView {
     store: Entity<NoteStore>,
@@ -37,7 +37,13 @@ impl Render for StarredView {
                 .notes()
                 .iter()
                 .enumerate()
-                .filter_map(|(ix, n)| if n.pinned && !n.trashed { Some(ix) } else { None })
+                .filter_map(|(ix, n)| {
+                    if n.pinned && !n.trashed {
+                        Some(ix)
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             self.dirty = false;
         }
@@ -337,9 +343,9 @@ fn render_starred_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::{ActiveTheme, Theme};
     use core::prelude::v1::test;
     use gpui::AppContext;
-    use crate::theme::{ActiveTheme, Theme};
 
     #[test]
     fn starred_view_renders_with_sidebar() {

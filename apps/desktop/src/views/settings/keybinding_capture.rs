@@ -1,5 +1,5 @@
-use gpui::*;
 use crate::keymap::{ALL_ACTIONS, ActionMeta, KeymapConfig};
+use gpui::*;
 
 /// Capture session for rebinding one action in the keybindings editor.
 #[derive(Clone, Debug)]
@@ -124,7 +124,10 @@ mod tests {
     fn actions_group_preserves_category_order() {
         let groups = actions_by_category();
         let names: Vec<&str> = groups.iter().map(|(cat, _)| *cat).collect();
-        assert_eq!(names, vec!["General", "Notes", "Navigation", "Sidebar", "Editor"]);
+        assert_eq!(
+            names,
+            vec!["General", "Notes", "Navigation", "Sidebar", "Editor"]
+        );
         assert!(groups.iter().map(|(_, a)| a.len()).sum::<usize>() == ALL_ACTIONS.len());
     }
 

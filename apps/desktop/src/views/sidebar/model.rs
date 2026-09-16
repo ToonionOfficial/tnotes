@@ -1,8 +1,8 @@
-use std::collections::HashSet;
-use gpui::*;
-use tnotes_core::models::note::Note;
 use crate::components::{InputState, UniformListScrollHandle};
 use crate::store::NoteStore;
+use gpui::*;
+use std::collections::HashSet;
+use tnotes_core::models::note::Note;
 
 pub struct SidebarView {
     pub(crate) store: Entity<NoteStore>,
@@ -66,8 +66,15 @@ pub enum RenameKind {
 
 #[derive(Clone, Debug)]
 pub enum SidebarContextTarget {
-    Folder { id: String, name: String },
-    Note { id: String, title: String, is_pinned: bool },
+    Folder {
+        id: String,
+        name: String,
+    },
+    Note {
+        id: String,
+        title: String,
+        is_pinned: bool,
+    },
 }
 
 #[derive(Clone, Debug)]

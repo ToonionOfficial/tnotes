@@ -104,7 +104,9 @@ impl FrameSampler {
             timestamp,
         });
         self.present_times.push_back(timestamp);
-        let cutoff = timestamp.checked_sub(Duration::from_secs(1)).unwrap_or(timestamp);
+        let cutoff = timestamp
+            .checked_sub(Duration::from_secs(1))
+            .unwrap_or(timestamp);
         while let Some(oldest) = self.present_times.front() {
             if *oldest < cutoff {
                 self.present_times.pop_front();
@@ -139,7 +141,9 @@ impl FrameSampler {
 
     pub fn fps(&self) -> f32 {
         if self.present_times.len() >= 2 {
-            if let (Some(oldest), Some(newest)) = (self.present_times.front(), self.present_times.back()) {
+            if let (Some(oldest), Some(newest)) =
+                (self.present_times.front(), self.present_times.back())
+            {
                 let span = newest.duration_since(*oldest).as_secs_f32();
                 if span > 0.0 {
                     return (self.present_times.len() - 1) as f32 / span;
@@ -201,7 +205,11 @@ impl FrameSampler {
         if self.samples.is_empty() {
             return 0.0;
         }
-        let over = self.samples.iter().filter(|s| s.draw_duration > budget).count();
+        let over = self
+            .samples
+            .iter()
+            .filter(|s| s.draw_duration > budget)
+            .count();
         over as f32 / self.samples.len() as f32
     }
 }
@@ -603,8 +611,7 @@ impl Render for FpsMonitor {
 
         if let Some(prev) = self.last_render_at {
             let interval = now.duration_since(prev);
-            self.sampler
-                .record(self.last_draw_duration, interval, now);
+            self.sampler.record(self.last_draw_duration, interval, now);
         }
         self.last_render_at = Some(now);
 
@@ -672,20 +679,9 @@ impl Render for FpsMonitor {
                         .px(px(8.))
                         .py(px(4.))
                         .rounded(px(5.))
-                        .child(
-                            div()
-                                .w(px(7.))
-                                .h(px(7.))
-                                .rounded_full()
-                                .bg(rate_color),
-                        )
+                        .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(rate_color))
                         .when(self.headline_mode == HeadlineMode::Max, |this| {
-                            this.child(
-                                div()
-                                    .text_size(px(9.))
-                                    .text_color(style.muted)
-                                    .child("MAX"),
-                            )
+                            this.child(div().text_size(px(9.)).text_color(style.muted).child("MAX"))
                         })
                         .child(
                             div()
@@ -696,12 +692,7 @@ impl Render for FpsMonitor {
                                 .text_color(rate_color)
                                 .child(format!("{rate:.0}")),
                         )
-                        .child(
-                            div()
-                                .text_size(px(9.))
-                                .text_color(style.muted)
-                                .child("FPS"),
-                        )
+                        .child(div().text_size(px(9.)).text_color(style.muted).child("FPS"))
                 } else {
                     this.flex_col()
                         .w(HUD_WIDTH)
@@ -709,36 +700,24 @@ impl Render for FpsMonitor {
                         .py(px(6.))
                         .rounded(px(6.))
                         .child(self.render_headline(rate, rate_color))
-                        .child(
-                            div().w_full().py(px(2.)).child(
-                                reading(
-                                    "INTERVAL",
-                                    format!("{interval_millis:.1} ms"),
-                                    style.foreground,
-                                    style,
-                                ),
-                            ),
-                        )
-                        .child(
-                            div().w_full().py(px(2.)).child(
-                                reading(
-                                    "FRAME",
-                                    format!("{frame_millis:.1} ms"),
-                                    style.level_color(frame_millis / 1000.0, budget.as_secs_f32()),
-                                    style,
-                                ),
-                            ),
-                        )
-                        .child(
-                            div().w_full().py(px(2.)).child(
-                                reading(
-                                    "P95",
-                                    format!("{percentile_millis:.1} ms"),
-                                    style.level_color(percentile_millis / 1000.0, budget.as_secs_f32()),
-                                    style,
-                                ),
-                            ),
-                        )
+                        .child(div().w_full().py(px(2.)).child(reading(
+                            "INTERVAL",
+                            format!("{interval_millis:.1} ms"),
+                            style.foreground,
+                            style,
+                        )))
+                        .child(div().w_full().py(px(2.)).child(reading(
+                            "FRAME",
+                            format!("{frame_millis:.1} ms"),
+                            style.level_color(frame_millis / 1000.0, budget.as_secs_f32()),
+                            style,
+                        )))
+                        .child(div().w_full().py(px(2.)).child(reading(
+                            "P95",
+                            format!("{percentile_millis:.1} ms"),
+                            style.level_color(percentile_millis / 1000.0, budget.as_secs_f32()),
+                            style,
+                        )))
                         .child(
                             div().w_full().py(px(2.)).child(
                                 row()
@@ -995,7 +974,7 @@ pub fn fps_monitor_with_duration(
 
 #[cfg(test)]
 mod tests {
-    use super::{Duration, FpsSampler, FpsStyle, Instant, DEFAULT_FRAME_BUDGET};
+    use super::{DEFAULT_FRAME_BUDGET, Duration, FpsSampler, FpsStyle, Instant};
 
     #[test]
     fn frame_budget_144fps_is_around_6_94ms() {

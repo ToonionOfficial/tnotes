@@ -1,8 +1,8 @@
-use gpui::*;
+use super::SettingsView;
+use super::components::{SettingsRow, SettingsSection};
 use crate::components::{Icon, IconName};
 use crate::theme::ThemeExt;
-use super::components::{SettingsRow, SettingsSection};
-use super::SettingsView;
+use gpui::*;
 
 pub(super) fn render(_view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let theme = cx.theme().clone();

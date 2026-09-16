@@ -9,16 +9,12 @@ mod rename;
 pub use folder_icons::FOLDER_ICON_OPTIONS;
 #[allow(unused_imports)]
 pub(crate) use folder_icons::{folder_icon_for, folder_icon_from_name, folder_icon_name};
-pub use model::{
-    RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget, SidebarView,
-};
+pub use model::{RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget, SidebarView};
 
-use std::collections::HashSet;
-use gpui::*;
-use crate::components::{
-    InputState, Sidebar, SidebarCollapsible, UniformListScrollHandle,
-};
+use crate::components::{InputState, Sidebar, SidebarCollapsible, UniformListScrollHandle};
 use crate::store::NoteStore;
+use gpui::*;
+use std::collections::HashSet;
 
 impl SidebarView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
@@ -127,7 +123,8 @@ impl SidebarView {
     }
 
     pub fn select_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.select_note(note_id, cx));
+        self.store
+            .update(cx, |store, cx| store.select_note(note_id, cx));
     }
 
     pub fn navigate_back(&mut self, cx: &mut Context<Self>) -> bool {
@@ -135,7 +132,8 @@ impl SidebarView {
     }
 
     pub fn navigate_forward(&mut self, cx: &mut Context<Self>) -> bool {
-        self.store.update(cx, |store, cx| store.navigate_forward(cx))
+        self.store
+            .update(cx, |store, cx| store.navigate_forward(cx))
     }
 
     pub fn create_new_note(&mut self, cx: &mut Context<Self>) {
@@ -150,17 +148,20 @@ impl SidebarView {
     }
 
     pub fn toggle_note_pin(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.toggle_note_pin(note_id, cx));
+        self.store
+            .update(cx, |store, cx| store.toggle_note_pin(note_id, cx));
         self.context_menu = None;
     }
 
     pub fn duplicate_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.duplicate_note(note_id, cx));
+        self.store
+            .update(cx, |store, cx| store.duplicate_note(note_id, cx));
         self.context_menu = None;
     }
 
     pub fn delete_note(&mut self, note_id: &str, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| store.delete_note(note_id, cx));
+        self.store
+            .update(cx, |store, cx| store.delete_note(note_id, cx));
         self.context_menu = None;
     }
 
@@ -228,9 +229,8 @@ mod tests {
     // `gpui::test` attribute macro into scope, shadowing the builtin `#[test]`
     // and breaking compilation of this module.
     use super::{
-        FOLDER_ICON_OPTIONS, RenameKind, RenameState, SidebarContextMenu,
-        SidebarContextTarget, SidebarView, folder_icon_for, folder_icon_from_name,
-        folder_icon_name,
+        FOLDER_ICON_OPTIONS, RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget,
+        SidebarView, folder_icon_for, folder_icon_from_name, folder_icon_name,
     };
     use crate::components::{IconName, InputState};
     use crate::store::{NavigationLocation, NoteStore};
@@ -343,7 +343,9 @@ mod tests {
 
         // Note rename: begin → cancel leaves the title untouched.
         cx.update(|window, cx| {
-            view.update(cx, |v, cx| v.begin_rename_note("note-db-schema", window, cx));
+            view.update(cx, |v, cx| {
+                v.begin_rename_note("note-db-schema", window, cx)
+            });
         });
         cx.run_until_parked();
         assert!(view.read_with(cx, |v, _| v.renaming.is_some()));
@@ -462,13 +464,12 @@ mod tests {
             menu_position.expect("right-click should open a context menu on note-db-schema");
 
         assert!(
-            !store
-                .read_with(cx, |s, _| s
-                    .active_notes()
-                    .iter()
-                    .find(|n| n.id == "note-db-schema")
-                    .map(|n| n.pinned)
-                    .unwrap_or(true)),
+            !store.read_with(cx, |s, _| s
+                .active_notes()
+                .iter()
+                .find(|n| n.id == "note-db-schema")
+                .map(|n| n.pinned)
+                .unwrap_or(true)),
             "note-db-schema should start unpinned"
         );
 
@@ -488,13 +489,12 @@ mod tests {
         cx.run_until_parked();
 
         assert!(
-            store
-                .read_with(cx, |s, _| s
-                    .active_notes()
-                    .iter()
-                    .find(|n| n.id == "note-db-schema")
-                    .map(|n| n.pinned)
-                    .unwrap_or(false)),
+            store.read_with(cx, |s, _| s
+                .active_notes()
+                .iter()
+                .find(|n| n.id == "note-db-schema")
+                .map(|n| n.pinned)
+                .unwrap_or(false)),
             "clicking Pin to Starred should pin note-db-schema"
         );
         assert!(
@@ -733,12 +733,9 @@ mod tests {
             store.read_with(cx, |s, _| s.active_location().clone()),
             NavigationLocation::Trash
         );
-        assert!(
-            store.read_with(cx, |s, _| s
-                .active_notes()
-                .iter()
-                .any(|n| n.id == "note-arch-spec"))
-        );
+        assert!(store.read_with(cx, |s, _| {
+            s.active_notes().iter().any(|n| n.id == "note-arch-spec")
+        }));
 
         view.update(cx, |v, cx| {
             v.delete_note("note-arch-spec", cx);

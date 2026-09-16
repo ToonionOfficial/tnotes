@@ -1,9 +1,9 @@
-use gpui::*;
+use super::SettingsView;
+use super::components::{SettingsRow, SettingsSection};
 use crate::components::IconName;
 use crate::store::format_relative_time;
 use crate::theme::ThemeExt;
-use super::components::{SettingsRow, SettingsSection};
-use super::SettingsView;
+use gpui::*;
 
 pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let summary = view.store().read(cx).sync_summary();
@@ -31,17 +31,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         .bg(theme.secondary)
         .px_2p5()
         .py_1()
-        .child(
-            div()
-                .w(px(7.))
-                .h(px(7.))
-                .rounded_full()
-                .bg(if is_paired {
-                    rgb(0x22c55e)
-                } else {
-                    rgb(0xffc107)
-                }),
-        )
+        .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(if is_paired {
+            rgb(0x22c55e)
+        } else {
+            rgb(0xffc107)
+        }))
         .child(
             div()
                 .text_size(px(12.))
@@ -75,17 +69,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(
-                            div()
-                                .w(px(8.))
-                                .h(px(8.))
-                                .rounded_full()
-                                .bg(if is_paired {
-                                    rgb(0x22c55e)
-                                } else {
-                                    rgb(0xffc107)
-                                }),
-                        ),
+                        .child(div().w(px(8.)).h(px(8.)).rounded_full().bg(if is_paired {
+                            rgb(0x22c55e)
+                        } else {
+                            rgb(0xffc107)
+                        })),
                 )
                 .child(
                     div()
@@ -122,7 +110,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
             SettingsRow::new("settings-sync-last", "Last Sync")
                 .icon(IconName::Check)
                 .subtitle(last_sync_label)
-                .value(if summary.is_paired() { "Paired" } else { "Local only" }),
+                .value(if summary.is_paired() {
+                    "Paired"
+                } else {
+                    "Local only"
+                }),
         )
         .child(
             SettingsRow::new("settings-sync-auto", "Auto-Sync")

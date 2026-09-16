@@ -1,9 +1,9 @@
-use gpui::*;
+use super::{SidebarContextTarget, SidebarView};
 use crate::components::{
     ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator,
     IconName,
 };
-use super::{SidebarContextTarget, SidebarView};
+use gpui::*;
 
 impl SidebarView {
     pub fn open_context_menu(

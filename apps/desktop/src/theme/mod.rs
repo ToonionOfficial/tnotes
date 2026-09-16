@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use gpui::*;
+use std::collections::HashMap;
 use twrite::theme::{EditorTheme, SyntaxTheme};
 
 #[allow(dead_code)]

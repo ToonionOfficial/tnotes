@@ -1,9 +1,14 @@
-use gpui::*;
-use crate::components::{Input, InputState};
 use super::{RenameKind, RenameState, SidebarView};
+use crate::components::{Input, InputState};
+use gpui::*;
 
 impl SidebarView {
-    pub fn begin_rename_note(&mut self, note_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn begin_rename_note(
+        &mut self,
+        note_id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let title = self
             .store
             .read(cx)

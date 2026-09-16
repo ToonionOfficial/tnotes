@@ -1,6 +1,6 @@
-use gpui::*;
 use crate::components::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::*;
 
 #[allow(dead_code)]
 #[derive(IntoElement)]
@@ -75,63 +75,60 @@ impl RenderOnce for NoteCard {
             theme.card
         };
 
-        let mut el = div()
-            .id(self.id)
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap(px(4.))
-            .px(px(12.))
-            .py(px(10.))
-            .rounded(px(6.))
-            .bg(bg)
-            .cursor_pointer()
-            .hover(|s| s.bg(theme.secondary))
-            .border_1()
-            .border_color(if self.is_active {
-                theme.ring
-            } else {
-                gpui::transparent_black()
-            })
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .gap_2()
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_size(px(13.5))
-                            .font_weight(if self.is_active {
-                                FontWeight::SEMIBOLD
-                            } else {
-                                FontWeight::MEDIUM
-                            })
-                            .text_color(if self.is_active {
-                                theme.foreground
-                            } else {
-                                theme.foreground
-                            })
-                            .line_clamp(1)
-                            .child(if self.title.is_empty() {
-                                "Untitled Note".into()
-                            } else {
-                                self.title.clone()
-                            }),
-                    )
-                    .children(if self.is_pinned {
-                        Some(
+        let mut el =
+            div()
+                .id(self.id)
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(4.))
+                .px(px(12.))
+                .py(px(10.))
+                .rounded(px(6.))
+                .bg(bg)
+                .cursor_pointer()
+                .hover(|s| s.bg(theme.secondary))
+                .border_1()
+                .border_color(if self.is_active {
+                    theme.ring
+                } else {
+                    gpui::transparent_black()
+                })
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .gap_2()
+                        .child(
                             div()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .child(Icon::new(IconName::Star).size(px(12.)).color(theme.primary)),
+                                .flex_1()
+                                .text_size(px(13.5))
+                                .font_weight(if self.is_active {
+                                    FontWeight::SEMIBOLD
+                                } else {
+                                    FontWeight::MEDIUM
+                                })
+                                .text_color(if self.is_active {
+                                    theme.foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .line_clamp(1)
+                                .child(if self.title.is_empty() {
+                                    "Untitled Note".into()
+                                } else {
+                                    self.title.clone()
+                                }),
                         )
-                    } else {
-                        None
-                    }),
-            );
+                        .children(if self.is_pinned {
+                            Some(div().flex().items_center().justify_center().child(
+                                Icon::new(IconName::Star).size(px(12.)).color(theme.primary),
+                            ))
+                        } else {
+                            None
+                        }),
+                );
 
         if !self.snippet.is_empty() {
             el = el.child(
@@ -167,7 +164,11 @@ impl RenderOnce for NoteCard {
                         .flex()
                         .items_center()
                         .gap(px(3.))
-                        .child(Icon::new(IconName::Folder).size(px(10.)).color(theme.muted_foreground))
+                        .child(
+                            Icon::new(IconName::Folder)
+                                .size(px(10.))
+                                .color(theme.muted_foreground),
+                        )
                         .child(div().line_clamp(1).child(folder)),
                 );
             }

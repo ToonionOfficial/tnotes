@@ -13,8 +13,6 @@ pub mod sync_indicator;
 pub mod virtual_list;
 
 #[allow(unused_imports)]
-pub use virtual_list::{uniform_list, virtual_list, UniformList, UniformListScrollHandle};
-#[allow(unused_imports)]
 pub use badge::{Badge, BadgeVariant, KbdBadge};
 #[allow(unused_imports)]
 pub use button::{Button, ButtonSize, ButtonVariant};
@@ -25,7 +23,7 @@ pub use context_menu::{
 #[allow(unused_imports)]
 pub use folder_item::{FolderTreeItem, NoteTreeItem};
 #[allow(unused_imports)]
-pub use fps::{fps_monitor, FpsAnchor, FpsMonitor, FpsOverlay, FpsStyle, HeadlineMode};
+pub use fps::{FpsAnchor, FpsMonitor, FpsOverlay, FpsStyle, HeadlineMode, fps_monitor};
 #[allow(unused_imports)]
 pub use icon::{Icon, IconName};
 #[allow(unused_imports)]
@@ -39,3 +37,5 @@ pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader,
     SidebarMenu, SidebarMenuItem, SidebarRail, SidebarRailItem, SidebarSide, SidebarToggleButton,
 };
+#[allow(unused_imports)]
+pub use virtual_list::{UniformList, UniformListScrollHandle, uniform_list, virtual_list};

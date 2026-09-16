@@ -1,8 +1,8 @@
+use gpui::{App, KeyBinding};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Result;
-use gpui::{App, KeyBinding};
-use serde::{Deserialize, Serialize};
 
 use crate::keymap::actions::create_binding;
 use crate::paths;
@@ -32,7 +32,10 @@ impl KeymapConfig {
         global_bindings.insert("ctrl-k".to_string(), "tnotes::FocusSearch".to_string());
         global_bindings.insert("ctrl-,".to_string(), "tnotes::OpenSettings".to_string());
         global_bindings.insert("alt-left".to_string(), "tnotes::NavigateBack".to_string());
-        global_bindings.insert("alt-right".to_string(), "tnotes::NavigateForward".to_string());
+        global_bindings.insert(
+            "alt-right".to_string(),
+            "tnotes::NavigateForward".to_string(),
+        );
         global_bindings.insert("ctrl-[".to_string(), "tnotes::NavigateBack".to_string());
         global_bindings.insert("ctrl-]".to_string(), "tnotes::NavigateForward".to_string());
 

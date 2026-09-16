@@ -1,9 +1,9 @@
-use gpui::*;
+use super::SettingsView;
+use super::components::{SettingsRow, SettingsSection};
 use crate::components::{Button, ButtonSize, Icon, IconName};
 use crate::keymap::ToggleFps;
 use crate::theme::ThemeExt;
-use super::components::{SettingsRow, SettingsSection};
-use super::SettingsView;
+use gpui::*;
 
 pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let (active_notes, folder_count, db_path) = {
@@ -26,7 +26,9 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
     let store_for_bdel = view.store();
 
     let benchmark_section = SettingsSection::new("Flags & Performance Benchmark")
-        .subtitle("Generate local real notes across benchmark folders for load testing (never synced)")
+        .subtitle(
+            "Generate local real notes across benchmark folders for load testing (never synced)",
+        )
         .child(
             div()
                 .p(px(16.))

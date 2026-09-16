@@ -1,9 +1,9 @@
-use gpui::*;
-use crate::components::{Button, ButtonSize, KbdBadge};
-use crate::theme::ThemeExt;
+use super::SettingsView;
 use super::components::SettingsSection;
 use super::keybinding_capture::{actions_by_category, display_keystroke};
-use super::SettingsView;
+use crate::components::{Button, ButtonSize, KbdBadge};
+use crate::theme::ThemeExt;
+use gpui::*;
 
 pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let theme = cx.theme().clone();
@@ -13,9 +13,9 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
 
     if let Some(capture) = view.capturing() {
         let hint = match (&capture.preview, &capture.conflict) {
-            (Some(keys), Some(conflict)) => format!(
-                "Bound to {keys} — also used by {conflict}. Press Esc to dismiss."
-            ),
+            (Some(keys), Some(conflict)) => {
+                format!("Bound to {keys} — also used by {conflict}. Press Esc to dismiss.")
+            }
             _ => format!("Press keystroke for “{}”", capture.label),
         };
         content.push(
@@ -36,13 +36,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                         .flex()
                         .items_center()
                         .gap_3()
-                        .child(
-                            div()
-                                .w(px(8.))
-                                .h(px(8.))
-                                .rounded_full()
-                                .bg(theme.primary),
-                        )
+                        .child(div().w(px(8.)).h(px(8.)).rounded_full().bg(theme.primary))
                         .child(
                             div()
                                 .text_size(px(13.))
@@ -70,11 +64,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                     }
                 })
                 .unwrap_or_else(|| "Unbound".to_string());
-            let is_capturing = view
-                .capturing()
-                .is_some_and(|c| c.action_id == action.id);
-            let row_id =
-                SharedString::from(format!("settings-key-{}", action.id.replace("tnotes::", "")));
+            let is_capturing = view.capturing().is_some_and(|c| c.action_id == action.id);
+            let row_id = SharedString::from(format!(
+                "settings-key-{}",
+                action.id.replace("tnotes::", "")
+            ));
             let action_id = action.id.to_string();
             let label = action.label.to_string();
             let row_entity = entity.clone();

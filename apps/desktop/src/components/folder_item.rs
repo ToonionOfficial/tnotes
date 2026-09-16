@@ -1,6 +1,6 @@
-use gpui::*;
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::*;
 
 #[allow(dead_code)]
 #[derive(IntoElement)]
@@ -91,7 +91,11 @@ impl RenderOnce for FolderTreeItem {
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(Icon::new(chevron_icon).size(px(12.)).color(theme.muted_foreground))
+                .child(
+                    Icon::new(chevron_icon)
+                        .size(px(12.))
+                        .color(theme.muted_foreground),
+                )
         } else {
             div().flex_shrink_0().w(px(16.)).h(px(16.))
         };
@@ -135,13 +139,7 @@ impl RenderOnce for FolderTreeItem {
                                     .color(theme.muted_foreground),
                             ),
                     )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .child(self.name),
-                    ),
+                    .child(div().flex_1().min_w_0().truncate().child(self.name)),
             );
 
         if let Some(count) = self.count {
@@ -165,10 +163,9 @@ impl RenderOnce for FolderTreeItem {
         }
 
         if let Some(on_right_click) = on_right_click {
-            row = row.on_mouse_down(
-                MouseButton::Right,
-                move |ev, window, cx| on_right_click(ev, window, cx),
-            );
+            row = row.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
+                on_right_click(ev, window, cx)
+            });
         }
 
         row
@@ -242,7 +239,11 @@ impl RenderOnce for NoteTreeItem {
         let (bg, text_color, icon_color) = if self.is_active {
             (theme.secondary, theme.foreground, theme.primary)
         } else {
-            (gpui::transparent_black(), theme.foreground, theme.muted_foreground)
+            (
+                gpui::transparent_black(),
+                theme.foreground,
+                theme.muted_foreground,
+            )
         };
 
         let mut row = div()
@@ -299,11 +300,7 @@ impl RenderOnce for NoteTreeItem {
                 div()
                     .flex_shrink_0()
                     .ml_1()
-                    .child(
-                        Icon::new(IconName::Star)
-                            .size(px(11.))
-                            .color(theme.primary),
-                    ),
+                    .child(Icon::new(IconName::Star).size(px(11.)).color(theme.primary)),
             );
         }
 
@@ -318,10 +315,9 @@ impl RenderOnce for NoteTreeItem {
         }
 
         if let Some(on_right_click) = self.on_right_click {
-            row = row.on_mouse_down(
-                MouseButton::Right,
-                move |ev, window, cx| on_right_click(ev, window, cx),
-            );
+            row = row.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
+                on_right_click(ev, window, cx)
+            });
         }
 
         row
@@ -333,7 +329,7 @@ mod tests {
     use super::{FolderTreeItem, NoteTreeItem};
     use crate::theme::{ActiveTheme, Theme};
     use gpui::{
-        div, AnyElement, Context, IntoElement, ParentElement, Render, TestAppContext, Window,
+        AnyElement, Context, IntoElement, ParentElement, Render, TestAppContext, Window, div,
     };
 
     struct TestWrapper(Box<dyn Fn() -> AnyElement>);

@@ -1,32 +1,35 @@
-use gpui::*;
+use super::SidebarView;
 use crate::components::{
-    Button, Icon, IconName, Input, SidebarContent, SidebarFooter,
-    SidebarGroup, SidebarHeader, SidebarRail, SidebarRailItem, SidebarToggleButton,
+    Button, Icon, IconName, Input, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader,
+    SidebarRail, SidebarRailItem, SidebarToggleButton,
 };
 use crate::theme::ThemeExt;
-use super::SidebarView;
+use gpui::*;
 
 impl SidebarView {
     pub(super) fn render_rail(&self, cx: &mut Context<Self>) -> SidebarRail {
         SidebarRail::new("main-sidebar-collapsed")
             .top_item(
-                SidebarRailItem::new("sidebar-expand-rail-btn", IconName::PanelLeft)
-                    .on_click(cx.listener(|this, _, _, cx| {
+                SidebarRailItem::new("sidebar-expand-rail-btn", IconName::PanelLeft).on_click(
+                    cx.listener(|this, _, _, cx| {
                         this.toggle_collapsed(cx);
-                    })),
+                    }),
+                ),
             )
             .separator()
             .top_item(
-                SidebarRailItem::new("sidebar-new-note-rail-btn", IconName::Plus)
-                    .on_click(cx.listener(|this, _, _, cx| {
+                SidebarRailItem::new("sidebar-new-note-rail-btn", IconName::Plus).on_click(
+                    cx.listener(|this, _, _, cx| {
                         this.create_new_note(cx);
-                    })),
+                    }),
+                ),
             )
             .bottom_item(
-                SidebarRailItem::new("sidebar-settings-rail-btn", IconName::Settings)
-                    .on_click(cx.listener(|_this, _, window, cx| {
+                SidebarRailItem::new("sidebar-settings-rail-btn", IconName::Settings).on_click(
+                    cx.listener(|_this, _, window, cx| {
                         window.dispatch_action(Box::new(crate::keymap::OpenSettings), cx);
-                    })),
+                    }),
+                ),
             )
     }
 
@@ -69,10 +72,11 @@ impl SidebarView {
                             ),
                     )
                     .child(
-                        SidebarToggleButton::new("sidebar-collapse-btn")
-                            .on_click(cx.listener(|this, _, _, cx| {
+                        SidebarToggleButton::new("sidebar-collapse-btn").on_click(cx.listener(
+                            |this, _, _, cx| {
                                 this.toggle_collapsed(cx);
-                            })),
+                            },
+                        )),
                     ),
             )
             .child(

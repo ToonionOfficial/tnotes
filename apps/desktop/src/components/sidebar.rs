@@ -1,7 +1,7 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -14,11 +14,7 @@ pub enum SidebarCollapsible {
 
 impl From<bool> for SidebarCollapsible {
     fn from(collapsible: bool) -> Self {
-        if collapsible {
-            Self::Icon
-        } else {
-            Self::None
-        }
+        if collapsible { Self::Icon } else { Self::None }
     }
 }
 
@@ -116,7 +112,12 @@ impl RenderOnce for Sidebar {
         if is_collapsed {
             match self.collapsible {
                 SidebarCollapsible::Offcanvas => {
-                    return div().id(self.id).w(px(0.)).h_full().overflow_hidden().into_any_element();
+                    return div()
+                        .id(self.id)
+                        .w(px(0.))
+                        .h_full()
+                        .overflow_hidden()
+                        .into_any_element();
                 }
                 SidebarCollapsible::Icon => {
                     if let Some(rail) = self.rail {
@@ -377,10 +378,7 @@ impl RenderOnce for SidebarGroup {
                 .children(self.action)
         });
 
-        let mut group = div()
-            .flex()
-            .flex_col()
-            .gap_0p5();
+        let mut group = div().flex().flex_col().gap_0p5();
 
         if self.fill {
             group = group.flex_1().min_h_0().overflow_hidden();
@@ -388,29 +386,21 @@ impl RenderOnce for SidebarGroup {
             group = group.flex_none();
         }
 
-        group
-            .children(header)
-            .when(!self.collapsed, |this| {
-                if self.fill {
-                    this.child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .overflow_hidden()
-                            .flex()
-                            .flex_col()
-                            .children(self.children),
-                    )
-                } else {
-                    this.child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_0p5()
-                            .children(self.children),
-                    )
-                }
-            })
+        group.children(header).when(!self.collapsed, |this| {
+            if self.fill {
+                this.child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_hidden()
+                        .flex()
+                        .flex_col()
+                        .children(self.children),
+                )
+            } else {
+                this.child(div().flex().flex_col().gap_0p5().children(self.children))
+            }
+        })
     }
 }
 
@@ -769,7 +759,11 @@ impl RenderOnce for SidebarMenuItem {
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(Icon::new(chevron_icon).size(px(12.)).color(theme.muted_foreground));
+                .child(
+                    Icon::new(chevron_icon)
+                        .size(px(12.))
+                        .color(theme.muted_foreground),
+                );
 
             if let Some(on_toggle) = on_toggle {
                 c = c.on_click(move |ev, window, cx| {
@@ -819,20 +813,14 @@ impl RenderOnce for SidebarMenuItem {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(
-                                    Icon::new(icon)
-                                        .size(px(14.))
-                                        .color(if self.active { theme.primary } else { theme.muted_foreground }),
-                                ),
+                                .child(Icon::new(icon).size(px(14.)).color(if self.active {
+                                    theme.primary
+                                } else {
+                                    theme.muted_foreground
+                                })),
                         )
                     })
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .child(self.label),
-                    ),
+                    .child(div().flex_1().min_w_0().truncate().child(self.label)),
             );
 
         if let Some(count) = self.count {
@@ -867,10 +855,9 @@ impl RenderOnce for SidebarMenuItem {
         }
 
         if let Some(on_right_click) = self.on_right_click {
-            row = row.on_mouse_down(
-                MouseButton::Right,
-                move |ev, window, cx| on_right_click(ev, window, cx),
-            );
+            row = row.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
+                on_right_click(ev, window, cx)
+            });
         }
 
         let is_expanded = self.is_expanded;
@@ -903,11 +890,10 @@ mod tests {
     use crate::components::IconName;
     use crate::theme::{ActiveTheme, Theme};
     use gpui::{
-        div, px, AnyElement, Context, IntoElement, ParentElement, Render, TestAppContext,
-        Window,
+        AnyElement, Context, IntoElement, ParentElement, Render, TestAppContext, Window, div, px,
     };
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     struct TestWrapper(Box<dyn Fn() -> AnyElement>);
 
@@ -971,10 +957,11 @@ mod tests {
                 let clicked_inner = clicked_clone.clone();
                 SidebarRail::new("test-rail")
                     .top_item(
-                        SidebarRailItem::new("rail-item", IconName::PanelLeft)
-                            .on_click(move |_, _, _| {
+                        SidebarRailItem::new("rail-item", IconName::PanelLeft).on_click(
+                            move |_, _, _| {
                                 clicked_inner.store(true, Ordering::SeqCst);
-                            }),
+                            },
+                        ),
                     )
                     .separator()
                     .bottom_item(SidebarRailItem::new("rail-settings", IconName::Settings))

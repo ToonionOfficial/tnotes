@@ -1,5 +1,5 @@
-use gpui::*;
 use crate::theme::ThemeExt;
+use gpui::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]

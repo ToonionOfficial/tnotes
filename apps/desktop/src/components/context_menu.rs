@@ -1,10 +1,11 @@
 use std::rc::Rc;
 
-use gpui::*;
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::*;
 
-pub type ContextMenuItemSelectHandler = Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>;
+pub type ContextMenuItemSelectHandler =
+    Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>;
 pub type ContextMenuDismissHandler = Rc<dyn Fn(&mut Window, &mut App) + 'static>;
 
 /// A single selectable row inside a [`ContextMenuContent`].
@@ -341,9 +342,9 @@ mod tests {
     };
     use crate::theme::{ActiveTheme, Theme};
     use gpui::{
-        div, point, px, Context, FocusHandle, InteractiveElement, IntoElement, Modifiers,
-        MouseMoveEvent, ParentElement, Render, StatefulInteractiveElement, Styled, TestAppContext,
-        Window,
+        Context, FocusHandle, InteractiveElement, IntoElement, Modifiers, MouseMoveEvent,
+        ParentElement, Render, StatefulInteractiveElement, Styled, TestAppContext, Window, div,
+        point, px,
     };
     use std::cell::Cell;
     use std::rc::Rc;
@@ -356,23 +357,23 @@ mod tests {
     impl Render for TestOverlayView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             let hovered = Rc::clone(&self.underlying_hovered);
-            let underlying = div()
-                .id("underlying-box")
-                .w(px(300.))
-                .h(px(300.))
-                .on_hover(move |is_h, _, _| {
-                    hovered.set(*is_h);
-                });
+            let underlying =
+                div()
+                    .id("underlying-box")
+                    .w(px(300.))
+                    .h(px(300.))
+                    .on_hover(move |is_h, _, _| {
+                        hovered.set(*is_h);
+                    });
 
             let mut root = div().size(px(500.)).child(underlying);
 
             if self.show_menu {
                 root = root.child(
-                    ContextMenu::new("test-menu", point(px(50.), px(50.)))
-                        .content(
-                            ContextMenuContent::new()
-                                .child(ContextMenuItem::new("item-1", "Test Item")),
-                        ),
+                    ContextMenu::new("test-menu", point(px(50.), px(50.))).content(
+                        ContextMenuContent::new()
+                            .child(ContextMenuItem::new("item-1", "Test Item")),
+                    ),
                 );
             }
 
@@ -455,10 +456,11 @@ mod tests {
                 let content = ContextMenuContent::new()
                     .child(ContextMenuLabel::new("Header Label"))
                     .child(
-                        ContextMenuItem::new("item-normal", "Normal Item")
-                            .on_select(move |_, _, _| {
+                        ContextMenuItem::new("item-normal", "Normal Item").on_select(
+                            move |_, _, _| {
                                 sel1.set(Some("normal"));
-                            }),
+                            },
+                        ),
                     )
                     .child(ContextMenuSeparator)
                     .child(
@@ -677,11 +679,6 @@ mod tests {
         cx.simulate_keystrokes("escape");
         cx.run_until_parked();
 
-        assert!(
-            dismissed.get(),
-            "pressing escape should trigger on_dismiss"
-        );
+        assert!(dismissed.get(), "pressing escape should trigger on_dismiss");
     }
 }
-
-

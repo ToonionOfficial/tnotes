@@ -1,9 +1,9 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use tnotes_core::models::note::Note;
 use crate::components::{Icon, IconName, NavButtons};
 use crate::store::{NoteStore, format_relative_time, snippet_from_body};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
+use tnotes_core::models::note::Note;
 
 pub struct TrashView {
     store: Entity<NoteStore>,
@@ -303,7 +303,11 @@ fn render_trash_card(
                                 .gap_2()
                                 .min_w_0()
                                 .flex_1()
-                                .child(Icon::new(IconName::FileText).size(px(13.)).color(theme.muted_foreground))
+                                .child(
+                                    Icon::new(IconName::FileText)
+                                        .size(px(13.))
+                                        .color(theme.muted_foreground),
+                                )
                                 .child(
                                     div()
                                         .text_size(px(14.))
@@ -368,7 +372,10 @@ fn render_trash_card(
                                 )
                                 .child(
                                     div()
-                                        .id(SharedString::from(format!("delete-perm-btn-{}", note.id)))
+                                        .id(SharedString::from(format!(
+                                            "delete-perm-btn-{}",
+                                            note.id
+                                        )))
                                         .cursor_pointer()
                                         .hover(|s| s.text_color(theme.destructive))
                                         .text_size(px(12.))
@@ -396,9 +403,9 @@ fn render_trash_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::{ActiveTheme, Theme};
     use core::prelude::v1::test;
     use gpui::AppContext;
-    use crate::theme::{ActiveTheme, Theme};
 
     #[test]
     fn trash_view_renders_with_sidebar() {
