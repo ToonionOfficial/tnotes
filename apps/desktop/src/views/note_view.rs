@@ -1,6 +1,6 @@
 use super::note_editor::build_note_editor;
 use crate::components::{Icon, IconName, NavButtons};
-use crate::store::{NoteStore, format_relative_time};
+use crate::store::{NoteStore, body_to_markdown, format_relative_time};
 use crate::theme::ThemeExt;
 use gpui::*;
 use twrite::Editor;
@@ -10,27 +10,37 @@ pub struct NoteView {
     editor: Entity<Editor>,
     /// The note id currently loaded into the editor, if any.
     loaded_note_id: Option<String>,
+    /// Editor markdown mirroring the last store write/read; the save-back
+    /// observer skips writes while the text matches this.
+    last_saved_markdown: String,
     /// Set after the editor has been auto-focused once, so later renders
     /// don't steal focus back from the sidebar, dialogs, etc.
     did_initial_focus: bool,
-    _subscription: Subscription,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl NoteView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
         let editor = cx.new(build_note_editor);
 
-        let subscription = cx.observe(&store, |this: &mut Self, store, cx| {
+        let store_subscription = cx.observe(&store, |this: &mut Self, store, cx| {
             this.sync_editor(store, cx);
             cx.notify();
+        });
+
+        // Save-back: persist editor text as document JSON whenever it
+        // diverges from what the store holds.
+        let editor_subscription = cx.observe(&editor, |this: &mut Self, _, cx| {
+            this.save_editor_content(cx);
         });
 
         let mut view = Self {
             store,
             editor,
             loaded_note_id: None,
+            last_saved_markdown: String::new(),
             did_initial_focus: false,
-            _subscription: subscription,
+            _subscriptions: vec![store_subscription, editor_subscription],
         };
         view.sync_editor(view.store.clone(), cx);
         view
@@ -55,13 +65,15 @@ impl NoteView {
         self.loaded_note_id = selected_id.clone();
 
         if let Some(note) = store.read(cx).selected_note() {
+            let markdown = body_to_markdown(&note.body);
             self.editor.update(cx, |ed, _| {
                 ed.buffer.set_cursor_offset(0);
                 ed.selection = None;
                 ed.scroll_row = 0;
-                ed.buffer = twrite::EditorBuffer::new(&note.body);
+                ed.buffer = twrite::EditorBuffer::new(&markdown);
                 ed.layout_cache.clear();
             });
+            self.last_saved_markdown = markdown;
         } else {
             self.editor.update(cx, |ed, _| {
                 ed.buffer = twrite::EditorBuffer::new("");
@@ -69,7 +81,24 @@ impl NoteView {
                 ed.scroll_row = 0;
                 ed.layout_cache.clear();
             });
+            self.last_saved_markdown = String::new();
         }
+    }
+
+    /// Write editor text back to the store as document JSON when it
+    /// diverges from the last synced state.
+    fn save_editor_content(&mut self, cx: &mut Context<Self>) {
+        let Some(note_id) = self.loaded_note_id.clone() else {
+            return;
+        };
+        let markdown = self.editor.read(cx).buffer.text().to_string();
+        if markdown == self.last_saved_markdown {
+            return;
+        }
+        self.last_saved_markdown = markdown.clone();
+        self.store.update(cx, |store, cx| {
+            store.update_note_body(&note_id, &markdown, cx);
+        });
     }
 }
 

@@ -6169,6 +6169,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tnotes-core",
+ "tnotes-document",
  "twrite",
 ]
 
@@ -6587,9 +6588,9 @@ dependencies = [
 
 [[package]]
 name = "twrite"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc89cb0639d712533318ec4bc524851b9123b5b4d27db3c19ca342b8004cd68"
+checksum = "bfc7eae784843912edc79eae7cabde7cd59192e3c7d4b893756905ac96d3cf7c"
 dependencies = [
  "gpui",
  "twrite-core",
@@ -6598,9 +6599,9 @@ dependencies = [
 
 [[package]]
 name = "twrite-core"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "706115f734625494d0a1be1b6e83eb712fb0d607111eb3fd7492d67b74d921f6"
+checksum = "228006a0e79fccf79358c476177296081e6d4ff1b5a03a2bfc7b15a4c13dd78b"
 dependencies = [
  "pulldown-cmark 0.12.2",
  "regex",
@@ -6611,9 +6612,9 @@ dependencies = [
 
 [[package]]
 name = "twrite-gpui"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8978b0b4fa48a49525cd6b497893150403803217868d79efe38583aa842cf255"
+checksum = "e69ab6611143f22e4fc60bc4798f03b43bb49efec996c6bd15e5c2634d36a5dc"
 dependencies = [
  "gpui",
  "twrite-core",
