@@ -46,9 +46,12 @@ impl Render for Tnotes {
             .text_color(theme.foreground)
             .track_focus(&self.focus_handle);
 
-        let content = self.with_actions(root, cx)
-            .child(self.render_notes(cx))
-            .child(self.render_settings(cx));
+        let content = self.with_actions(root, cx);
+        let content = if self.active_screen == AppScreen::Settings {
+            content.child(self.render_settings(cx))
+        } else {
+            content.child(self.render_notes(cx))
+        };
 
         if self.show_fps {
             window.request_animation_frame();
@@ -63,53 +66,28 @@ impl Render for Tnotes {
 impl Tnotes {
     fn render_notes(&self, cx: &Context<Self>) -> impl IntoElement {
         let active_location = self.store.read(cx).active_location().clone();
-        let is_settings = self.active_screen == AppScreen::Settings;
 
         let right_pane = div()
             .flex_1()
             .h_full()
             .relative()
-            .child(
-                div()
-                    .size_full()
-                    .when(
-                        !matches!(active_location, NavigationLocation::Note(_)),
-                        |this| this.hidden(),
-                    )
-                    .child(self.note_view.clone()),
-            )
-            .child(
-                div()
-                    .size_full()
-                    .when(active_location != NavigationLocation::Starred, |this| {
-                        this.hidden()
-                    })
-                    .child(self.starred_view.clone()),
-            )
-            .child(
-                div()
-                    .size_full()
-                    .when(active_location != NavigationLocation::Trash, |this| {
-                        this.hidden()
-                    })
-                    .child(self.trash_view.clone()),
-            );
+            .map(|this| match active_location {
+                NavigationLocation::Note(_) => this.child(self.note_view.clone()),
+                NavigationLocation::Starred => this.child(self.starred_view.clone()),
+                NavigationLocation::Trash => this.child(self.trash_view.clone()),
+            });
 
         div()
             .size_full()
             .flex()
-            .when(is_settings, |this| this.hidden())
             .child(self.sidebar.clone())
             .child(right_pane)
     }
 
     fn render_settings(&self, _cx: &Context<Self>) -> impl IntoElement {
-        let is_settings = self.active_screen == AppScreen::Settings;
-
         div()
             .size_full()
             .flex()
-            .when(!is_settings, |this| this.hidden())
             .child(self.settings_view.clone())
     }
 

@@ -7,16 +7,23 @@ use crate::theme::ThemeExt;
 
 pub struct TrashView {
     store: Entity<NoteStore>,
+    scroll_handle: UniformListScrollHandle,
+    trash_indices: Vec<usize>,
+    dirty: bool,
     _subscription: Subscription,
 }
 
 impl TrashView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
-        let subscription = cx.observe(&store, |_, _, cx| {
+        let subscription = cx.observe(&store, |this, _, cx| {
+            this.dirty = true;
             cx.notify();
         });
         Self {
             store,
+            scroll_handle: UniformListScrollHandle::new(),
+            trash_indices: Vec::new(),
+            dirty: true,
             _subscription: subscription,
         }
     }
@@ -24,26 +31,23 @@ impl TrashView {
 
 impl Render for TrashView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (trash_notes, can_back, can_forward, folder_names) = {
+        if self.dirty {
             let store = self.store.read(cx);
-            let notes = store.trash_notes();
-            let names: Vec<Option<String>> = notes
+            self.trash_indices = store
+                .notes()
                 .iter()
-                .map(|n| {
-                    store
-                        .folder_name(n.folder_id.as_deref())
-                        .map(|s| s.to_string())
-                })
+                .enumerate()
+                .filter_map(|(ix, n)| if n.trashed { Some(ix) } else { None })
                 .collect();
-            (
-                notes,
-                store.can_navigate_back(),
-                store.can_navigate_forward(),
-                names,
-            )
+            self.dirty = false;
+        }
+
+        let (can_back, can_forward) = {
+            let store = self.store.read(cx);
+            (store.can_navigate_back(), store.can_navigate_forward())
         };
         let theme = cx.theme().clone();
-        let count = trash_notes.len();
+        let count = self.trash_indices.len();
 
         let nav_buttons = NavButtons::new(can_back, can_forward)
             .on_back(cx.listener(|this, _, _window, cx| {
@@ -106,7 +110,7 @@ impl Render for TrashView {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .when(!trash_notes.is_empty(), |this| {
+                            .when(count > 0, |this| {
                                 this.child(
                                     div()
                                         .id("empty-trash-header-btn")
@@ -142,15 +146,18 @@ impl Render for TrashView {
             )
             .child(
                 div()
-                    .id("trash-pane-scroll")
                     .flex_1()
-                    .overflow_y_scroll()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
                     .px(px(48.))
-                    .py(px(36.))
+                    .pt(px(36.))
+                    .pb(px(16.))
                     .child(
                         div()
                             .max_w(px(760.))
                             .w_full()
+                            .h_full()
                             .mx_auto()
                             .flex()
                             .flex_col()
@@ -191,7 +198,7 @@ impl Render for TrashView {
                                     ),
                             )
                             .child(div().w_full().h(px(1.)).bg(theme.border))
-                            .when(trash_notes.is_empty(), |this| {
+                            .when(count == 0, |this| {
                                 this.child(
                                     div()
                                         .flex()
@@ -220,15 +227,34 @@ impl Render for TrashView {
                                         ),
                                 )
                             })
-                            .when(!trash_notes.is_empty(), |this| {
+                            .when(count > 0, |this| {
                                 this.child(
-                                    div()
-                                        .flex()
-                                        .flex_col()
-                                        .gap_2p5()
-                                        .children(trash_notes.iter().zip(folder_names.iter()).map(|(note, folder)| {
-                                            render_trash_card(cx, &self.store, note, folder.clone(), &theme)
-                                        })),
+                                    uniform_list("trash-notes-list", count, {
+                                        cx.processor(|this: &mut TrashView, range: std::ops::Range<usize>, _window: &mut Window, cx: &mut Context<TrashView>| {
+                                            let theme = cx.theme().clone();
+                                            let note_data: Vec<(Note, Option<String>)> = {
+                                                let store = this.store.read(cx);
+                                                let all_notes = store.notes();
+                                                range.clone().filter_map(|i| {
+                                                    let &note_idx = this.trash_indices.get(i)?;
+                                                    let note = all_notes.get(note_idx)?;
+                                                    let folder = store.folder_name(note.folder_id.as_deref()).map(|s| s.to_string());
+                                                    Some((note.clone(), folder))
+                                                }).collect()
+                                            };
+                                            note_data.into_iter().map(|(note, folder)| {
+                                                div()
+                                                    .w_full()
+                                                    .h(px(120.))
+                                                    .pb(px(10.))
+                                                    .child(render_trash_card(cx, &this.store, &note, folder, &theme))
+                                                    .into_any_element()
+                                            }).collect::<Vec<_>>()
+                                        })
+                                    })
+                                    .track_scroll(self.scroll_handle.clone())
+                                    .flex_1()
+                                    .min_h_0()
                                 )
                             }),
                     ),
@@ -252,6 +278,7 @@ fn render_trash_card(
     div()
         .id(SharedString::from(format!("trash-card-{}", note.id)))
         .w_full()
+        .h_full()
         .p(px(14.))
         .rounded(px(8.))
         .bg(theme.card)
@@ -259,25 +286,30 @@ fn render_trash_card(
         .border_color(theme.border)
         .child(
             div()
+                .h_full()
                 .flex()
                 .flex_col()
-                .gap_1p5()
+                .justify_between()
                 .child(
                     div()
                         .flex()
                         .items_center()
                         .justify_between()
+                        .gap_2()
                         .child(
                             div()
                                 .flex()
                                 .items_center()
                                 .gap_2()
+                                .min_w_0()
+                                .flex_1()
                                 .child(Icon::new(IconName::FileText).size(px(13.)).color(theme.muted_foreground))
                                 .child(
                                     div()
                                         .text_size(px(14.))
                                         .font_weight(FontWeight::SEMIBOLD)
                                         .text_color(theme.foreground)
+                                        .truncate()
                                         .child(note.title.clone()),
                                 ),
                         )
@@ -289,6 +321,7 @@ fn render_trash_card(
                                 .bg(theme.muted)
                                 .text_size(px(11.))
                                 .text_color(theme.muted_foreground)
+                                .flex_shrink_0()
                                 .child(f.clone())
                         })),
                 )

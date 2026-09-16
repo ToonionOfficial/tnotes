@@ -8,7 +8,7 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 
 const DEFAULT_FRAME_BUDGET: Duration = Duration::from_nanos(6_944_444);
-const DEFAULT_CAPACITY: usize = 120;
+const DEFAULT_CAPACITY: usize = 360;
 const READOUT_INTERVAL: Duration = Duration::from_millis(250);
 const RESOURCE_INTERVAL: Duration = Duration::from_millis(500);
 const AXIS_DECAY: f32 = 0.05;
@@ -54,7 +54,7 @@ impl Default for FpsStyle {
 
 impl FpsStyle {
     pub fn level_color(&self, frame_secs: f32, budget_secs: f32) -> Hsla {
-        if frame_secs <= budget_secs {
+        if frame_secs <= budget_secs || (frame_secs > 0.0 && 1.0 / frame_secs >= 119.5) {
             self.good
         } else if frame_secs <= budget_secs * 2.0 {
             self.warn
@@ -68,7 +68,6 @@ impl FpsStyle {
 pub enum HeadlineMode {
     Max,
     Observed,
-    Raw,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -80,6 +79,7 @@ pub struct FrameSample {
 
 pub struct FrameSampler {
     samples: VecDeque<FrameSample>,
+    present_times: VecDeque<Instant>,
     capacity: usize,
 }
 
@@ -89,6 +89,7 @@ impl FrameSampler {
     pub fn new(capacity: usize) -> Self {
         Self {
             samples: VecDeque::with_capacity(capacity.max(1)),
+            present_times: VecDeque::with_capacity(capacity.max(1)),
             capacity: capacity.max(1),
         }
     }
@@ -102,6 +103,15 @@ impl FrameSampler {
             interval,
             timestamp,
         });
+        self.present_times.push_back(timestamp);
+        let cutoff = timestamp.checked_sub(Duration::from_secs(1)).unwrap_or(timestamp);
+        while let Some(oldest) = self.present_times.front() {
+            if *oldest < cutoff {
+                self.present_times.pop_front();
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn capacity(&self) -> usize {
@@ -128,21 +138,19 @@ impl FrameSampler {
     }
 
     pub fn fps(&self) -> f32 {
-        if self.samples.is_empty() {
-            return 0.0;
-        }
-        let now = Instant::now();
-        let one_sec_ago = now.checked_sub(Duration::from_secs(1)).unwrap_or(now);
-        let recent_frames = self.samples.iter().filter(|s| s.timestamp >= one_sec_ago).count();
-        if recent_frames > 0 {
-            recent_frames as f32
-        } else {
-            let mean_interval = self.mean_interval().as_secs_f32();
-            if mean_interval > 0.0 {
-                1.0 / mean_interval
-            } else {
-                0.0
+        if self.present_times.len() >= 2 {
+            if let (Some(oldest), Some(newest)) = (self.present_times.front(), self.present_times.back()) {
+                let span = newest.duration_since(*oldest).as_secs_f32();
+                if span > 0.0 {
+                    return (self.present_times.len() - 1) as f32 / span;
+                }
             }
+        }
+        let mean_interval = self.mean_interval().as_secs_f32();
+        if mean_interval > 0.0 {
+            1.0 / mean_interval
+        } else {
+            0.0
         }
     }
 
@@ -308,7 +316,6 @@ pub fn detect_display_period() -> Option<Duration> {
 struct Readout {
     fps: f32,
     max_fps: f32,
-    raw_fps: f32,
     interval_millis: f32,
     frame_millis: f32,
     percentile_millis: f32,
@@ -336,8 +343,10 @@ pub struct FpsMonitor {
 impl FpsMonitor {
     pub fn new(_window: &Window, _cx: &mut Context<Self>) -> Self {
         let frame_budget = detect_display_period().unwrap_or(DEFAULT_FRAME_BUDGET);
+        let display_hz = (1.0 / frame_budget.as_secs_f32()).round() as usize;
+        let initial_capacity = DEFAULT_CAPACITY.max(display_hz * 2);
         Self {
-            sampler: FrameSampler::new(DEFAULT_CAPACITY),
+            sampler: FrameSampler::new(initial_capacity),
             readout: Readout::default(),
             readout_at: None,
             last_render_at: None,
@@ -369,6 +378,10 @@ impl FpsMonitor {
     pub fn set_frame_budget(&mut self, budget: Duration) {
         self.frame_budget = budget;
         self.axis_max = budget.as_secs_f32() * 2.0;
+        let target_hz = (1.0 / budget.as_secs_f32()).round() as usize;
+        if target_hz * 2 > self.sampler.capacity() {
+            self.sampler.set_capacity(target_hz * 2);
+        }
     }
 
     pub fn compact(mut self, compact: bool) -> Self {
@@ -394,8 +407,7 @@ impl FpsMonitor {
     pub fn toggle_headline(&mut self, cx: &mut Context<Self>) {
         self.headline_mode = match self.headline_mode {
             HeadlineMode::Max => HeadlineMode::Observed,
-            HeadlineMode::Observed => HeadlineMode::Raw,
-            HeadlineMode::Raw => HeadlineMode::Max,
+            HeadlineMode::Observed => HeadlineMode::Max,
         };
         cx.notify();
     }
@@ -447,7 +459,6 @@ impl FpsMonitor {
         self.readout.fps = self.sampler.fps();
         let display_period = detect_display_period().or(Some(self.frame_budget));
         self.readout.max_fps = sustainable_rate(self.sampler.mean_draw(), display_period);
-        self.readout.raw_fps = self.sampler.max_sustainable_fps();
         self.readout.interval_millis = interval;
         self.readout.frame_millis = mean_draw;
         self.readout.percentile_millis = percentile;
@@ -537,7 +548,6 @@ impl FpsMonitor {
         let mode_label = match self.headline_mode {
             HeadlineMode::Max => "MAX",
             HeadlineMode::Observed => "OBS",
-            HeadlineMode::Raw => "RAW",
         };
 
         div()
@@ -610,7 +620,6 @@ impl Render for FpsMonitor {
         let Readout {
             fps,
             max_fps,
-            raw_fps,
             interval_millis,
             frame_millis,
             percentile_millis,
@@ -622,13 +631,16 @@ impl Render for FpsMonitor {
         let rate = match self.headline_mode {
             HeadlineMode::Max => max_fps,
             HeadlineMode::Observed => fps,
-            HeadlineMode::Raw => raw_fps,
         };
 
-        let rate_color = style.level_color(
-            if rate > 0.0 { 1.0 / rate } else { 1.0 },
-            budget.as_secs_f32(),
-        );
+        let rate_color = if rate.round() >= 120.0 {
+            style.good
+        } else {
+            style.level_color(
+                if rate > 0.0 { 1.0 / rate } else { 1.0 },
+                budget.as_secs_f32(),
+            )
+        };
 
         let target_hz = (1.0 / budget.as_secs_f32()).round() as u32;
 
@@ -673,14 +685,6 @@ impl Render for FpsMonitor {
                                     .text_size(px(9.))
                                     .text_color(style.muted)
                                     .child("MAX"),
-                            )
-                        })
-                        .when(self.headline_mode == HeadlineMode::Raw, |this| {
-                            this.child(
-                                div()
-                                    .text_size(px(9.))
-                                    .text_color(style.muted)
-                                    .child("RAW"),
                             )
                         })
                         .child(
@@ -751,23 +755,6 @@ impl Render for FpsMonitor {
                                         "TARGET",
                                         format!("{target_hz} Hz"),
                                         style.good,
-                                        style,
-                                    )),
-                            ),
-                        )
-                        .child(
-                            div().w_full().py(px(2.)).child(
-                                row()
-                                    .child(pair(
-                                        "RAW CAP",
-                                        format!("{raw_fps:.0} FPS"),
-                                        style.good,
-                                        style,
-                                    ))
-                                    .child(pair(
-                                        "DRAW",
-                                        format!("{frame_millis:.2} ms"),
-                                        style.foreground,
                                         style,
                                     )),
                             ),
@@ -1083,5 +1070,29 @@ mod tests {
         // When display is None, returns uncapped throughput
         let uncapped = sustainable_rate(Duration::from_micros(270), None);
         assert!((uncapped - 3703.7).abs() < 5.0);
+    }
+
+    #[test]
+    fn frame_sampler_measures_high_refresh_rates() {
+        let mut sampler = FpsSampler::new(360);
+        let start = Instant::now();
+        let period_180 = Duration::from_secs_f64(1.0 / 180.0);
+
+        for i in 0..181 {
+            let ts = start + period_180 * i;
+            sampler.record(Duration::from_millis(2), period_180, ts);
+        }
+
+        let fps = sampler.fps();
+        assert!((fps - 180.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn style_color_levels_green_above_120fps() {
+        let style = FpsStyle::default();
+        let budget_240hz = Duration::from_secs_f64(1.0 / 240.0).as_secs_f32();
+
+        assert_eq!(style.level_color(1.0 / 144.0, budget_240hz), style.good);
+        assert_eq!(style.level_color(1.0 / 120.0, budget_240hz), style.good);
     }
 }

@@ -17,7 +17,10 @@ pub struct SidebarView {
     pub(crate) tree_scroll_handle: UniformListScrollHandle,
     pub(crate) search_scroll_handle: UniformListScrollHandle,
     pub(crate) tree_rows: Vec<TreeRow>,
+    pub(crate) tree_rows_dirty: bool,
     pub(crate) search_rows: Vec<Note>,
+    pub(crate) last_search_query: String,
+    pub(crate) scrollbar_drag_offset: Option<Pixels>,
     pub(crate) _store_subscription: Subscription,
 }
 
@@ -32,20 +35,17 @@ pub enum TreeRow {
         count: usize,
     },
     Note {
-        id: String,
-        title: String,
+        note_index: usize,
         depth: usize,
-        is_active: bool,
-        is_pinned: bool,
     },
 }
 
 impl TreeRow {
     #[allow(dead_code)]
-    pub fn id(&self) -> &str {
+    pub fn id<'a>(&'a self, notes: &'a [Note]) -> Option<&'a str> {
         match self {
-            Self::Folder { id, .. } => id,
-            Self::Note { id, .. } => id,
+            Self::Folder { id, .. } => Some(id.as_str()),
+            Self::Note { note_index, .. } => notes.get(*note_index).map(|n| n.id.as_str()),
         }
     }
 }

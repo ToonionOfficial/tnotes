@@ -22,7 +22,10 @@ use crate::store::NoteStore;
 
 impl SidebarView {
     pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
-        let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
+        let store_sub = cx.observe(&store, |this, _, cx| {
+            this.tree_rows_dirty = true;
+            cx.notify();
+        });
         let expanded_folders = HashSet::new();
 
         Self {
@@ -38,7 +41,10 @@ impl SidebarView {
             tree_scroll_handle: UniformListScrollHandle::new(),
             search_scroll_handle: UniformListScrollHandle::new(),
             tree_rows: Vec::new(),
+            tree_rows_dirty: true,
             search_rows: Vec::new(),
+            last_search_query: String::new(),
+            scrollbar_drag_offset: None,
             _store_subscription: store_sub,
         }
     }
@@ -79,6 +85,7 @@ impl SidebarView {
         } else {
             self.expanded_folders.insert(folder_id.to_string());
         }
+        self.tree_rows_dirty = true;
         cx.notify();
     }
 
@@ -740,5 +747,32 @@ mod tests {
             s.empty_trash(cx);
         });
         assert!(store.read_with(cx, |s, _| s.trash_notes().is_empty()),);
+    }
+
+    #[test]
+    fn sidebar_renders_with_scrollbar_when_overflowing() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, cx| {
+            for _ in 0..50 {
+                s.create_note_in_folder(None, cx);
+            }
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+
+        view.update(cx, |v, _| {
+            assert!(v.tree_rows.len() >= 50);
+        });
     }
 }

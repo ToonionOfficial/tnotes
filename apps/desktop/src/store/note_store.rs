@@ -399,6 +399,7 @@ impl NoteStore {
         self.notes.iter().filter(|n| !n.trashed).cloned().collect()
     }
 
+    #[allow(dead_code)]
     pub fn starred_notes(&self) -> Vec<Note> {
         self.notes
             .iter()
@@ -407,11 +408,12 @@ impl NoteStore {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn trashed_notes(&self) -> Vec<Note> {
         self.notes.iter().filter(|n| n.trashed).cloned().collect()
     }
 
-    /// Back-compat alias used by TrashView.
+    #[allow(dead_code)]
     pub fn trash_notes(&self) -> Vec<Note> {
         self.trashed_notes()
     }

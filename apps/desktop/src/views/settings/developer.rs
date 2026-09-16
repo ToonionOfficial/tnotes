@@ -145,8 +145,8 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                         .w_full()
                         .py(px(6.))
                         .rounded(px(6.))
-                        .bg(theme.secondary)
-                        .hover(|s| s.bg(theme.destructive).text_color(theme.destructive_foreground))
+                        .bg(rgb(0xdc2626))
+                        .hover(|s| s.bg(rgb(0xb91c1c)))
                         .cursor_pointer()
                         .flex()
                         .items_center()
@@ -154,9 +154,9 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                         .gap_2()
                         .text_size(px(12.5))
                         .font_weight(FontWeight::MEDIUM)
-                        .text_color(theme.destructive)
-                        .child(Icon::new(IconName::Trash2).size(px(13.)))
-                        .child("Delete benchmark notes")
+                        .text_color(rgb(0xffffff))
+                        .child(Icon::new(IconName::Trash2).size(px(13.)).color(rgb(0xffffff).into()))
+                        .child("Delete all benchmark notes")
                         .on_click(move |_, _, cx| {
                             store_for_bdel.update(cx, |s, cx| {
                                 s.delete_benchmark_notes(cx);

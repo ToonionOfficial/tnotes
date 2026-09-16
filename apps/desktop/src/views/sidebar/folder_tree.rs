@@ -17,23 +17,22 @@ impl SidebarView {
     pub(super) fn update_tree_rows(&mut self, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let folder_tree = store.folder_tree();
-        let selected_note = store.selected_note_id();
 
         let mut direct_counts: HashMap<&str, usize> = HashMap::new();
-        let mut expanded_notes: HashMap<&str, Vec<&Note>> = HashMap::new();
-        let mut root_notes: Vec<&Note> = Vec::new();
+        let mut expanded_notes: HashMap<&str, Vec<usize>> = HashMap::new();
+        let mut root_notes: Vec<usize> = Vec::new();
 
-        for note in store.notes() {
+        for (idx, note) in store.notes().iter().enumerate() {
             if note.trashed {
                 continue;
             }
             if let Some(folder_id) = note.folder_id.as_deref() {
                 *direct_counts.entry(folder_id).or_insert(0) += 1;
                 if self.expanded_folders.contains(folder_id) {
-                    expanded_notes.entry(folder_id).or_default().push(note);
+                    expanded_notes.entry(folder_id).or_default().push(idx);
                 }
             } else {
-                root_notes.push(note);
+                root_notes.push(idx);
             }
         }
 
@@ -45,7 +44,7 @@ impl SidebarView {
             }
         }
 
-        let mut rows = Vec::new();
+        let mut rows = Vec::with_capacity(folder_tree.len() + root_notes.len());
         let mut skip_below: Option<usize> = None;
 
         for node in folder_tree {
@@ -74,14 +73,10 @@ impl SidebarView {
 
             if expanded {
                 if let Some(notes) = expanded_notes.get(folder_id) {
-                    for note in notes {
-                        let is_active = selected_note.as_deref() == Some(note.id.as_str());
+                    for &note_index in notes {
                         rows.push(TreeRow::Note {
-                            id: note.id.clone(),
-                            title: note.title.clone(),
+                            note_index,
                             depth: depth + 1,
-                            is_active,
-                            is_pinned: note.pinned,
                         });
                     }
                 }
@@ -90,14 +85,10 @@ impl SidebarView {
             }
         }
 
-        for note in root_notes {
-            let is_active = selected_note.as_deref() == Some(note.id.as_str());
+        for note_index in root_notes {
             rows.push(TreeRow::Note {
-                id: note.id.clone(),
-                title: note.title.clone(),
+                note_index,
                 depth: 0,
-                is_active,
-                is_pinned: note.pinned,
             });
         }
 
@@ -105,7 +96,15 @@ impl SidebarView {
     }
 
     pub(super) fn render_folder_tree(&mut self, cx: &mut Context<Self>) -> SidebarGroup {
-        self.update_tree_rows(cx);
+        let needs_update = self.tree_rows_dirty
+            || (self.tree_rows.is_empty() && {
+                let store = self.store.read(cx);
+                !store.folder_tree().is_empty() || !store.notes().is_empty()
+            });
+        if needs_update {
+            self.update_tree_rows(cx);
+            self.tree_rows_dirty = false;
+        }
         let theme = cx.theme().clone();
         let count = self.tree_rows.len();
 
@@ -136,10 +135,18 @@ impl SidebarView {
             })
         })
         .track_scroll(self.tree_scroll_handle.clone())
-        .flex_1()
-        .min_h_0();
+        .size_full();
 
-        group.child(list)
+        let scrollbar = self.render_scrollbar(count, px(28.), &self.tree_scroll_handle, cx);
+
+        group.child(
+            div()
+                .relative()
+                .flex_1()
+                .min_h_0()
+                .child(list)
+                .child(scrollbar),
+        )
     }
 
     fn render_tree_row(&self, ix: usize, cx: &mut Context<Self>) -> AnyElement {
@@ -183,26 +190,31 @@ impl SidebarView {
                 }
             }
             TreeRow::Note {
-                id,
-                title,
+                note_index,
                 depth,
-                is_active,
-                is_pinned,
             } => {
+                let (note_id, title, is_pinned, is_active) = {
+                    let store = self.store.read(cx);
+                    let Some(note) = store.notes().get(note_index) else {
+                        return div().h(px(28.)).into_any_element();
+                    };
+                    let is_active = store.selected_note_id().as_deref() == Some(note.id.as_str());
+                    (note.id.clone(), note.title.clone(), note.pinned, is_active)
+                };
                 let indent = px(12.0 + (depth as f32 * 16.0));
-                if let Some(editor) = self.rename_editor_row(&id, indent, cx) {
+                if let Some(editor) = self.rename_editor_row(&note_id, indent, cx) {
                     editor
                 } else {
-                    let note_id = id.clone();
-                    NoteTreeItem::new(format!("tree-note-{}", id), title.clone())
+                    let click_id = note_id.clone();
+                    NoteTreeItem::new(format!("tree-note-{}", note_id), title.clone())
                         .depth(depth)
                         .active(is_active)
                         .pinned(is_pinned)
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            this.select_note(&note_id, cx);
+                            this.select_note(&click_id, cx);
                         }))
                         .on_right_click(cx.listener(Self::note_menu_handler(
-                            id,
+                            note_id,
                             title,
                             is_pinned,
                         )))
@@ -217,7 +229,11 @@ impl SidebarView {
         selected_note: Option<String>,
         cx: &mut Context<Self>,
     ) -> SidebarGroup {
-        self.search_rows = self.matching_search_notes(cx);
+        let query = self.search_state.value().trim().to_string();
+        if query != self.last_search_query || self.tree_rows_dirty {
+            self.search_rows = self.matching_search_notes(cx);
+            self.last_search_query = query;
+        }
         let count = self.search_rows.len();
 
         let mut group = SidebarGroup::new()
@@ -242,10 +258,18 @@ impl SidebarView {
                 })
             })
             .track_scroll(self.search_scroll_handle.clone())
-            .flex_1()
-            .min_h_0();
+            .size_full();
 
-            group = group.child(list);
+            let scrollbar = self.render_scrollbar(count, px(28.), &self.search_scroll_handle, cx);
+
+            group = group.child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(list)
+                    .child(scrollbar),
+            );
         }
 
         group
@@ -280,5 +304,127 @@ impl SidebarView {
                 )))
                 .into_any_element()
         }
+    }
+
+    fn render_scrollbar(
+        &self,
+        count: usize,
+        item_height: Pixels,
+        scroll_handle: &UniformListScrollHandle,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let (table_bounds, scroll_top, scroll_height) = {
+            let state = scroll_handle.0.borrow();
+            let bounds = state.base_handle.bounds();
+            let offset = state.base_handle.offset().y;
+            let total_height = (item_height * count as f32).max(bounds.size.height);
+            (bounds, offset, total_height)
+        };
+
+        if table_bounds.size.height <= px(0.) || count == 0 || scroll_height <= table_bounds.size.height {
+            return div().into_any_element();
+        }
+
+        let table_height = table_bounds.size.height;
+        let max_scroll = scroll_height - table_height;
+        let ratio = (table_height / scroll_height).clamp(0.08, 1.0);
+        let thumb_height = (table_height * ratio).clamp(px(24.), table_height - px(8.));
+        let track_height = table_height - thumb_height;
+        let percentage = (-scroll_top / max_scroll).clamp(0.0, 1.0);
+        let offset_top = track_height * percentage;
+
+        let scroll_handle = scroll_handle.clone();
+        let entity = cx.entity();
+        let theme = cx.theme().clone();
+
+        div()
+            .id("sidebar-scrollbar-track")
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .right_0()
+            .w(px(8.))
+            .flex()
+            .justify_center()
+            .cursor_pointer()
+            .on_mouse_down(MouseButton::Left, {
+                let scroll_handle = scroll_handle.clone();
+                let entity = entity.clone();
+                move |ev, _window, cx| {
+                    let click_y = ev.position.y - table_bounds.origin.y;
+                    let target_pct = ((click_y - thumb_height / 2.0) / track_height).clamp(0.0, 1.0);
+                    let target_offset = max_scroll * target_pct;
+                    scroll_handle
+                        .0
+                        .borrow_mut()
+                        .base_handle
+                        .set_offset(point(px(0.), -target_offset));
+                    cx.notify(entity.entity_id());
+                }
+            })
+            .child(
+                div()
+                    .id("sidebar-scrollbar-thumb")
+                    .absolute()
+                    .top(offset_top)
+                    .w(px(4.))
+                    .h(thumb_height)
+                    .rounded(px(2.))
+                    .bg(theme.muted_foreground.opacity(0.35))
+                    .hover(|s| s.w(px(6.)).bg(theme.muted_foreground.opacity(0.7)))
+                    .child(
+                        canvas(
+                            |_, _, _| (),
+                            move |thumb_bounds, _, window, _| {
+                                window.on_mouse_event({
+                                    let entity = entity.clone();
+                                    move |ev: &MouseDownEvent, _, _, cx| {
+                                        if !thumb_bounds.contains(&ev.position) {
+                                            return;
+                                        }
+                                        entity.update(cx, |this, _| {
+                                            this.scrollbar_drag_offset =
+                                                Some(ev.position.y - thumb_bounds.origin.y);
+                                        });
+                                    }
+                                });
+                                window.on_mouse_event({
+                                    let entity = entity.clone();
+                                    move |_: &MouseUpEvent, _, _, cx| {
+                                        entity.update(cx, |this, _| {
+                                            this.scrollbar_drag_offset = None;
+                                        });
+                                    }
+                                });
+                                window.on_mouse_event({
+                                    let entity = entity.clone();
+                                    let scroll_handle = scroll_handle.clone();
+                                    move |ev: &MouseMoveEvent, _, _, cx| {
+                                        if !ev.dragging() {
+                                            return;
+                                        }
+                                        let Some(drag_offset) =
+                                            entity.read(cx).scrollbar_drag_offset
+                                        else {
+                                            return;
+                                        };
+                                        let thumb_top =
+                                            ev.position.y - table_bounds.origin.y - drag_offset;
+                                        let percentage = (thumb_top / track_height).clamp(0.0, 1.0);
+                                        let offset_y = max_scroll * percentage;
+                                        scroll_handle
+                                            .0
+                                            .borrow_mut()
+                                            .base_handle
+                                            .set_offset(point(px(0.), -offset_y));
+                                        cx.notify(entity.entity_id());
+                                    }
+                                });
+                            },
+                        )
+                        .size_full(),
+                    ),
+            )
+            .into_any_element()
     }
 }
