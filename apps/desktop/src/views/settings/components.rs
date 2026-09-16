@@ -1,13 +1,12 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
 use crate::components::{Button, ButtonSize, Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsSectionId {
     Account,
     Sync,
-    Appearance,
     Storage,
     Keybindings,
     Developer,
@@ -16,34 +15,23 @@ pub enum SettingsSectionId {
 
 impl SettingsSectionId {
     #[allow(dead_code)]
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 6] = [
         Self::Account,
         Self::Sync,
-        Self::Appearance,
         Self::Storage,
         Self::Keybindings,
         Self::Developer,
         Self::About,
     ];
 
-    pub const WORKSPACE: [Self; 3] = [
-        Self::Appearance,
-        Self::Account,
-        Self::Keybindings,
-    ];
+    pub const WORKSPACE: [Self; 2] = [Self::Account, Self::Keybindings];
 
-    pub const SYSTEM: [Self; 4] = [
-        Self::Sync,
-        Self::Storage,
-        Self::Developer,
-        Self::About,
-    ];
+    pub const SYSTEM: [Self; 4] = [Self::Sync, Self::Storage, Self::Developer, Self::About];
 
     pub fn title(self) -> &'static str {
         match self {
             Self::Account => "Account",
             Self::Sync => "Sync",
-            Self::Appearance => "Appearance",
             Self::Storage => "Storage",
             Self::Keybindings => "Keybindings",
             Self::Developer => "Developer",
@@ -53,9 +41,10 @@ impl SettingsSectionId {
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::Appearance => "Customize theme mode, editor typography, and document reading comfort.",
             Self::Account => "Personal vault identity, filesystem location, and storage overview.",
-            Self::Keybindings => "Keyboard shortcuts, quick search, command navigation, and key capture.",
+            Self::Keybindings => {
+                "Keyboard shortcuts, quick search, command navigation, and key capture."
+            }
             Self::Sync => "Pairing status, sync server connection, and synchronization engine.",
             Self::Storage => "Local database metrics, index maintenance, and vault exports.",
             Self::Developer => "GPUI engine diagnostics, frame budgets, and runtime telemetry.",
@@ -67,7 +56,6 @@ impl SettingsSectionId {
         match self {
             Self::Account => IconName::User,
             Self::Sync => IconName::RefreshCw,
-            Self::Appearance => IconName::Palette,
             Self::Storage => IconName::Database,
             Self::Keybindings => IconName::Keyboard,
             Self::Developer => IconName::Code,
@@ -275,11 +263,7 @@ impl RenderOnce for SettingsRow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(
-                                Icon::new(icon)
-                                    .size(px(15.))
-                                    .color(theme.muted_foreground),
-                            )
+                            .child(Icon::new(icon).size(px(15.)).color(theme.muted_foreground))
                     }))
                     .child(
                         div()
@@ -552,121 +536,18 @@ impl RenderOnce for SettingsTelemetry {
                             .flex()
                             .items_center()
                             .gap(px(5.))
-                            .child(div().w(px(6.)).h(px(6.)).rounded_full().bg(theme.destructive))
+                            .child(
+                                div()
+                                    .w(px(6.))
+                                    .h(px(6.))
+                                    .rounded_full()
+                                    .bg(theme.destructive),
+                            )
                             .child(format!(
                                 "{} in trash ({})",
                                 self.trashed_count, self.trashed_size
                             )),
                     ),
             )
-    }
-}
-
-#[derive(IntoElement)]
-pub struct SettingsSegmented {
-    id: ElementId,
-    options: Vec<SettingsSegmentedOption>,
-}
-
-pub struct SettingsSegmentedOption {
-    pub label: SharedString,
-    pub icon: Option<IconName>,
-    pub active: bool,
-    pub on_click: Box<dyn Fn(&mut Window, &mut App) + 'static>,
-}
-
-impl SettingsSegmented {
-    pub fn new(id: impl Into<ElementId>) -> Self {
-        Self {
-            id: id.into(),
-            options: Vec::new(),
-        }
-    }
-
-    pub fn option(
-        mut self,
-        label: impl Into<SharedString>,
-        icon: Option<IconName>,
-        active: bool,
-        on_click: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.options.push(SettingsSegmentedOption {
-            label: label.into(),
-            icon,
-            active,
-            on_click: Box::new(on_click),
-        });
-        self
-    }
-}
-
-impl RenderOnce for SettingsSegmented {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        div()
-            .id(self.id)
-            .p(px(3.))
-            .rounded(px(8.))
-            .bg(theme.secondary)
-            .border_1()
-            .border_color(theme.border)
-            .flex()
-            .items_center()
-            .gap(px(2.))
-            .children(self.options.into_iter().enumerate().map(|(idx, opt)| {
-                let active = opt.active;
-                let on_click = opt.on_click;
-                div()
-                    .id(SharedString::from(format!("segmented-opt-{}", idx)))
-                    .px_3()
-                    .py(px(5.))
-                    .rounded(px(6.))
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .cursor_pointer()
-                    .bg(if active {
-                        theme.card
-                    } else {
-                        gpui::transparent_black()
-                    })
-                    .border_1()
-                    .border_color(if active {
-                        theme.border
-                    } else {
-                        gpui::transparent_black()
-                    })
-                    .hover(|s| {
-                        if !active {
-                            s.bg(theme.muted)
-                        } else {
-                            s
-                        }
-                    })
-                    .text_size(px(12.5))
-                    .font_weight(if active {
-                        FontWeight::SEMIBOLD
-                    } else {
-                        FontWeight::NORMAL
-                    })
-                    .text_color(if active {
-                        theme.foreground
-                    } else {
-                        theme.muted_foreground
-                    })
-                    .children(opt.icon.map(|icon| {
-                        Icon::new(icon)
-                            .size(px(14.))
-                            .color(if active {
-                                theme.primary
-                            } else {
-                                theme.muted_foreground
-                            })
-                    }))
-                    .child(opt.label)
-                    .on_click(move |_, window, cx| {
-                        on_click(window, cx);
-                    })
-            }))
     }
 }

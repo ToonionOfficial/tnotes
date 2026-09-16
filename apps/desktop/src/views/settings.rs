@@ -1,6 +1,5 @@
 mod about;
 mod account;
-mod appearance;
 mod components;
 mod developer;
 mod keybinding_capture;
@@ -10,12 +9,14 @@ mod sync;
 
 pub use components::SettingsSectionId;
 
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use crate::components::{Button, Icon, IconName, Input, InputSize, InputState, InputVariant, KbdBadge};
-use crate::keymap::{CloseSettings, KeymapConfig, ALL_ACTIONS};
+use crate::components::{
+    Button, Icon, IconName, Input, InputSize, InputState, InputVariant, KbdBadge,
+};
+use crate::keymap::{ALL_ACTIONS, CloseSettings, KeymapConfig};
 use crate::store::NoteStore;
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
+use gpui::*;
 
 pub struct SettingsView {
     store: Entity<NoteStore>,
@@ -77,9 +78,7 @@ impl SettingsView {
     }
 
     pub(crate) fn begin_capture(&mut self, action_id: &str, label: &str, cx: &mut Context<Self>) {
-        self.capturing = Some(keybinding_capture::KeybindingCapture::new(
-            action_id, label,
-        ));
+        self.capturing = Some(keybinding_capture::KeybindingCapture::new(action_id, label));
         cx.notify();
     }
 
@@ -156,9 +155,6 @@ impl SettingsView {
             SettingsSectionId::Account => "account profile user local offline vault".contains(&q),
             SettingsSectionId::Sync => {
                 "sync server connect websocket cloud backend url disconnect auto".contains(&q)
-            }
-            SettingsSectionId::Appearance => {
-                "theme appearance dark mode oled font typography reading preview".contains(&q)
             }
             SettingsSectionId::Storage => {
                 "data storage database sqlite export backup markdown json vacuum trash".contains(&q)
@@ -243,15 +239,11 @@ impl SettingsView {
                     } else {
                         theme.muted_foreground
                     })
-                    .child(
-                        Icon::new(section.icon())
-                            .size(px(14.))
-                            .color(if active {
-                                theme.primary
-                            } else {
-                                theme.muted_foreground
-                            }),
-                    )
+                    .child(Icon::new(section.icon()).size(px(14.)).color(if active {
+                        theme.primary
+                    } else {
+                        theme.muted_foreground
+                    }))
                     .child(
                         div()
                             .text_size(px(13.))
@@ -332,7 +324,6 @@ impl SettingsView {
         let body = match self.active_section {
             SettingsSectionId::Account => account::render(self, cx),
             SettingsSectionId::Sync => sync::render(self, cx),
-            SettingsSectionId::Appearance => appearance::render(self, cx),
             SettingsSectionId::Storage => storage::render(self, cx),
             SettingsSectionId::Keybindings => keybindings::render(self, cx),
             SettingsSectionId::Developer => developer::render(self, cx),
@@ -697,7 +688,7 @@ mod tests {
             assert_eq!(view.read_with(cx, |v, _| v.active_section()), section);
         }
 
-        assert_eq!(SettingsSectionId::WORKSPACE.len(), 3);
+        assert_eq!(SettingsSectionId::WORKSPACE.len(), 2);
         assert_eq!(SettingsSectionId::SYSTEM.len(), 4);
     }
 
@@ -721,11 +712,18 @@ mod tests {
         let cx = &mut cx;
         cx.run_until_parked();
 
-        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Sync, "sync")));
-        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Appearance, "theme")));
-        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Storage, "sqlite")));
-        assert!(view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Developer, "benchmark")));
-        assert!(!view.read_with(cx, |v, _| v.section_matches_query(SettingsSectionId::Account, "xyznonexistent")));
+        assert!(view.read_with(cx, |v, _| {
+            v.section_matches_query(SettingsSectionId::Sync, "sync")
+        }));
+        assert!(view.read_with(cx, |v, _| {
+            v.section_matches_query(SettingsSectionId::Storage, "sqlite")
+        }));
+        assert!(view.read_with(cx, |v, _| {
+            v.section_matches_query(SettingsSectionId::Developer, "benchmark")
+        }));
+        assert!(!view.read_with(cx, |v, _| {
+            v.section_matches_query(SettingsSectionId::Account, "xyznonexistent")
+        }));
     }
 
     #[test]

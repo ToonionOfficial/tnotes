@@ -151,7 +151,6 @@ impl Render for NoteView {
                 .flex_col()
                 .bg(theme.background)
                 .child(
-                    // ── Top toolbar ──────────────────────────────────
                     div()
                         .w_full()
                         .h(px(48.))
@@ -229,7 +228,6 @@ impl Render for NoteView {
                         ),
                 )
                 .child(
-                    // ── Editor pane ──────────────────────────────────
                     div()
                         .flex_1()
                         .overflow_hidden()
@@ -237,7 +235,7 @@ impl Render for NoteView {
                         .py(px(24.))
                         .child(
                             div()
-                                .max_w(px(760.))
+                                .max_w(px(960.))
                                 .w_full()
                                 .h_full()
                                 .mx_auto()
@@ -246,7 +244,6 @@ impl Render for NoteView {
                 )
                 .into_any_element()
         } else {
-            // ── Empty state ──────────────────────────────────────
             div()
                 .flex_1()
                 .h_full()
