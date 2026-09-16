@@ -359,8 +359,10 @@ pub struct SettingsTelemetry {
     active_size: SharedString,
     trashed_count: usize,
     trashed_size: SharedString,
-    on_reveal: Option<Box<dyn Fn(&mut Window, &mut App) + 'static>>,
+    on_reveal: Option<RevealHandler>,
 }
+
+type RevealHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
 
 impl SettingsTelemetry {
     pub fn new(title: impl Into<SharedString>, path: impl Into<SharedString>) -> Self {

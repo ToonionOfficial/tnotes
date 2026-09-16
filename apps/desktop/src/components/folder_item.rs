@@ -3,6 +3,7 @@ use crate::theme::ThemeExt;
 use gpui::*;
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct FolderTreeItem {
     id: ElementId,
@@ -173,6 +174,7 @@ impl RenderOnce for FolderTreeItem {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct NoteTreeItem {
     id: ElementId,

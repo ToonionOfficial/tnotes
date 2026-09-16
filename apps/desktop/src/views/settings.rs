@@ -179,13 +179,13 @@ impl SettingsView {
     ) {
         if self.search_state.handle_key(event, window, cx) {
             let query = self.search_state.value().trim().to_string();
-            if !query.is_empty() && !self.section_matches_query(self.active_section, &query) {
-                if let Some(&first) = SettingsSectionId::ALL
+            if !query.is_empty()
+                && !self.section_matches_query(self.active_section, &query)
+                && let Some(&first) = SettingsSectionId::ALL
                     .iter()
                     .find(|&&s| self.section_matches_query(s, &query))
-                {
-                    self.select_section(first, cx);
-                }
+            {
+                self.select_section(first, cx);
             }
             cx.notify();
         }

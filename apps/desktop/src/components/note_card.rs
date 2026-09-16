@@ -3,6 +3,7 @@ use crate::theme::ThemeExt;
 use gpui::*;
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct NoteCard {
     id: ElementId,
@@ -46,11 +47,13 @@ impl NoteCard {
         self
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn is_pinned(mut self, pinned: bool) -> Self {
         self.is_pinned = pinned;
         self
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn is_active(mut self, active: bool) -> Self {
         self.is_active = active;
         self
@@ -109,11 +112,7 @@ impl RenderOnce for NoteCard {
                                 } else {
                                     FontWeight::MEDIUM
                                 })
-                                .text_color(if self.is_active {
-                                    theme.foreground
-                                } else {
-                                    theme.foreground
-                                })
+                                .text_color(theme.foreground)
                                 .line_clamp(1)
                                 .child(if self.title.is_empty() {
                                     "Untitled Note".into()

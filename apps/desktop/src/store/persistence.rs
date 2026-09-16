@@ -164,7 +164,7 @@ mod tests {
     use super::*;
     use crate::store::note_store::{LOCAL_USER_ID, test_store};
     use core::prelude::v1::test;
-    use gpui::{AppContext, TestAppContext};
+    use gpui::TestAppContext;
 
     #[test]
     fn device_id_is_stable_across_opens() {

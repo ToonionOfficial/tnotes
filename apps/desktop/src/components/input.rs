@@ -75,8 +75,7 @@ impl InputState {
                 .char_indices()
                 .map(|(i, _)| i)
                 .chain(std::iter::once(self.value.len()))
-                .filter(|&i| i <= offset)
-                .last()
+                .rfind(|&i| i <= offset)
                 .unwrap_or(0)
         }
     }
@@ -231,28 +230,30 @@ impl InputState {
     }
 
     fn delete_selection(&mut self) -> bool {
-        if let Some(r) = self.selection.take() {
-            if !r.is_empty() && r.start < self.value.len() {
-                self.push_undo();
-                let start = self.clamp_cursor(r.start);
-                let end = self.clamp_cursor(r.end);
-                self.value.drain(start..end);
-                self.cursor = start;
-                return true;
-            }
+        if let Some(r) = self.selection.take()
+            && !r.is_empty()
+            && r.start < self.value.len()
+        {
+            self.push_undo();
+            let start = self.clamp_cursor(r.start);
+            let end = self.clamp_cursor(r.end);
+            self.value.drain(start..end);
+            self.cursor = start;
+            return true;
         }
         false
     }
 
     pub fn insert(&mut self, text: &str) {
         self.push_undo();
-        if let Some(r) = self.selection.take() {
-            if !r.is_empty() && r.start < self.value.len() {
-                let start = self.clamp_cursor(r.start);
-                let end = self.clamp_cursor(r.end);
-                self.value.drain(start..end);
-                self.cursor = start;
-            }
+        if let Some(r) = self.selection.take()
+            && !r.is_empty()
+            && r.start < self.value.len()
+        {
+            let start = self.clamp_cursor(r.start);
+            let end = self.clamp_cursor(r.end);
+            self.value.drain(start..end);
+            self.cursor = start;
         }
         let cursor = self.clamp_cursor(self.cursor);
         self.value.insert_str(cursor, text);
@@ -351,12 +352,12 @@ impl InputState {
             let end = anchor.max(target);
             self.selection = if start == end { None } else { Some(start..end) };
         } else {
-            if let Some(ref r) = self.selection {
-                if !by_word {
-                    self.cursor = r.start;
-                    self.selection = None;
-                    return;
-                }
+            if let Some(ref r) = self.selection
+                && !by_word
+            {
+                self.cursor = r.start;
+                self.selection = None;
+                return;
             }
             self.cursor = target;
             self.selection = None;
@@ -386,12 +387,12 @@ impl InputState {
             let end = anchor.max(target);
             self.selection = if start == end { None } else { Some(start..end) };
         } else {
-            if let Some(ref r) = self.selection {
-                if !by_word {
-                    self.cursor = r.end;
-                    self.selection = None;
-                    return;
-                }
+            if let Some(ref r) = self.selection
+                && !by_word
+            {
+                self.cursor = r.end;
+                self.selection = None;
+                return;
             }
             self.cursor = target;
             self.selection = None;
@@ -445,30 +446,32 @@ impl InputState {
     }
 
     pub fn copy(&self, cx: &mut App) {
-        if let Some(ref r) = self.selection {
-            if !r.is_empty() && r.end <= self.value.len() {
-                let text = self.value[r.clone()].to_string();
-                cx.write_to_clipboard(ClipboardItem::new_string(text));
-            }
+        if let Some(ref r) = self.selection
+            && !r.is_empty()
+            && r.end <= self.value.len()
+        {
+            let text = self.value[r.clone()].to_string();
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
     }
 
     pub fn cut(&mut self, cx: &mut App) {
-        if let Some(ref r) = self.selection {
-            if !r.is_empty() && r.end <= self.value.len() {
-                let text = self.value[r.clone()].to_string();
-                cx.write_to_clipboard(ClipboardItem::new_string(text));
-                self.delete_selection();
-            }
+        if let Some(ref r) = self.selection
+            && !r.is_empty()
+            && r.end <= self.value.len()
+        {
+            let text = self.value[r.clone()].to_string();
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
+            self.delete_selection();
         }
     }
 
     pub fn paste(&mut self, cx: &mut App) {
-        if let Some(item) = cx.read_from_clipboard() {
-            if let Some(text) = item.text() {
-                let single_line = text.replace(['\r', '\n'], " ");
-                self.insert(&single_line);
-            }
+        if let Some(item) = cx.read_from_clipboard()
+            && let Some(text) = item.text()
+        {
+            let single_line = text.replace(['\r', '\n'], " ");
+            self.insert(&single_line);
         }
     }
 
@@ -604,6 +607,7 @@ pub enum InputSize {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct Input {
     id: ElementId,
@@ -845,8 +849,7 @@ impl RenderOnce for Input {
                         .char_indices()
                         .map(|(i, _)| i)
                         .chain(std::iter::once(val_str.len()))
-                        .filter(|&i| i <= offset)
-                        .last()
+                        .rfind(|&i| i <= offset)
                         .unwrap_or(0)
                 }
             };
@@ -942,8 +945,7 @@ impl RenderOnce for Input {
 
         el = el.child(leading);
 
-        if !is_empty && self.on_clear.is_some() {
-            let on_clear = self.on_clear.unwrap();
+        if !is_empty && let Some(on_clear) = self.on_clear {
             el = el.child(
                 div()
                     .id("input-clear-btn")

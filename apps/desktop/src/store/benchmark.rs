@@ -130,53 +130,6 @@ impl NoteStore {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::store::note_store::LOCAL_USER_ID;
-    use core::prelude::v1::test;
-    use gpui::{AppContext, TestAppContext};
-
-    #[test]
-    fn sqlite_benchmark_large_batch_persists_and_deletes() {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let path = std::env::temp_dir().join(format!("tnotes-bench-test-{nanos}.db"));
-
-        let cx = TestAppContext::single();
-        let store = cx.update(|cx| cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap()));
-
-        cx.update(|cx| {
-            store.update(cx, |s, cx| {
-                let (notes, folders) = s.create_benchmark_notes(5000, cx);
-                assert_eq!(notes, 5000);
-                assert_eq!(folders, 500);
-            });
-        });
-
-        let reopened = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
-        assert_eq!(reopened.active_note_count(), 5000);
-        assert_eq!(reopened.folder_tree().len(), 500);
-
-        cx.update(|cx| {
-            store.update(cx, |s, cx| {
-                let deleted = s.delete_benchmark_notes(cx);
-                assert_eq!(deleted, 5000);
-            });
-        });
-
-        let reopened_empty = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
-        assert_eq!(reopened_empty.active_note_count(), 0);
-        assert_eq!(reopened_empty.folder_tree().len(), 0);
-
-        let _ = std::fs::remove_file(&path);
-        let _ = std::fs::remove_file(path.with_extension("db-wal"));
-        let _ = std::fs::remove_file(path.with_extension("db-shm"));
-    }
-}
-
 /// Deterministic fixture for view tests: one folder with three notes
 /// (two pinned, one plain). Not part of the production API.
 #[cfg(test)]
@@ -239,5 +192,52 @@ impl NoteStore {
             false,
         ));
         self.active_location = NavigationLocation::Note("note-arch-spec".to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::note_store::LOCAL_USER_ID;
+    use core::prelude::v1::test;
+    use gpui::{AppContext, TestAppContext};
+
+    #[test]
+    fn sqlite_benchmark_large_batch_persists_and_deletes() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("tnotes-bench-test-{nanos}.db"));
+
+        let cx = TestAppContext::single();
+        let store = cx.update(|cx| cx.new(|_| NoteStore::open(&path, LOCAL_USER_ID).unwrap()));
+
+        cx.update(|cx| {
+            store.update(cx, |s, cx| {
+                let (notes, folders) = s.create_benchmark_notes(5000, cx);
+                assert_eq!(notes, 5000);
+                assert_eq!(folders, 500);
+            });
+        });
+
+        let reopened = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        assert_eq!(reopened.active_note_count(), 5000);
+        assert_eq!(reopened.folder_tree().len(), 500);
+
+        cx.update(|cx| {
+            store.update(cx, |s, cx| {
+                let deleted = s.delete_benchmark_notes(cx);
+                assert_eq!(deleted, 5000);
+            });
+        });
+
+        let reopened_empty = NoteStore::open(&path, LOCAL_USER_ID).unwrap();
+        assert_eq!(reopened_empty.active_note_count(), 0);
+        assert_eq!(reopened_empty.folder_tree().len(), 0);
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
     }
 }

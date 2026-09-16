@@ -395,13 +395,13 @@ mod tests {
                 first_mouse: false,
             });
             cx.run_until_parked();
-            if let Some(state) = view.read_with(cx, |v, _| v.context_menu.clone()) {
-                if let SidebarContextTarget::Folder { id, .. } = &state.target {
-                    seen_folders.push(id.clone());
-                    if id == "projects" {
-                        opened = Some((y, state));
-                        break;
-                    }
+            if let Some(state) = view.read_with(cx, |v, _| v.context_menu.clone())
+                && let SidebarContextTarget::Folder { id, .. } = &state.target
+            {
+                seen_folders.push(id.clone());
+                if id == "projects" {
+                    opened = Some((y, state));
+                    break;
                 }
             }
             y += 4.;
@@ -450,13 +450,12 @@ mod tests {
                 first_mouse: false,
             });
             cx.run_until_parked();
-            if let Some(state) = view.read_with(cx, |v, _| v.context_menu.clone()) {
-                if let SidebarContextTarget::Note { id, .. } = &state.target {
-                    if id == "note-db-schema" {
-                        menu_position = Some(state.position);
-                        break;
-                    }
-                }
+            if let Some(state) = view.read_with(cx, |v, _| v.context_menu.clone())
+                && let SidebarContextTarget::Note { id, .. } = &state.target
+                && id == "note-db-schema"
+            {
+                menu_position = Some(state.position);
+                break;
             }
             y += 4.;
         }
@@ -708,13 +707,9 @@ mod tests {
         view.update(cx, |v, cx| {
             v.delete_note("note-arch-spec", cx);
         });
-        assert_eq!(
-            store.read_with(cx, |s, _| s
-                .trash_notes()
-                .iter()
-                .any(|n| n.id == "note-arch-spec")),
-            true
-        );
+        assert!(store.read_with(cx, |s, _| {
+            s.trash_notes().iter().any(|n| n.id == "note-arch-spec")
+        }));
 
         view.update(cx, |v, cx| {
             v.open_trash(cx);
@@ -722,13 +717,9 @@ mod tests {
         store.update(cx, |s, cx| {
             s.restore_note("note-arch-spec", cx);
         });
-        assert_eq!(
-            store.read_with(cx, |s, _| s
-                .trash_notes()
-                .iter()
-                .any(|n| n.id == "note-arch-spec")),
-            false
-        );
+        assert!(!store.read_with(cx, |s, _| {
+            s.trash_notes().iter().any(|n| n.id == "note-arch-spec")
+        }));
         assert_eq!(
             store.read_with(cx, |s, _| s.active_location().clone()),
             NavigationLocation::Trash

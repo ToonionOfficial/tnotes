@@ -166,6 +166,7 @@ impl RenderOnce for Sidebar {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct SidebarToggleButton {
     id: ElementId,
@@ -517,6 +518,7 @@ impl RenderOnce for SidebarRail {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct SidebarRailItem {
     id: ElementId,
@@ -617,6 +619,7 @@ impl RenderOnce for SidebarMenu {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct SidebarMenuItem {
     id: ElementId,

@@ -2,7 +2,7 @@
 /// ("Just now", "5m ago", "3h ago", "Yesterday", "4d ago").
 pub fn format_relative_time(epoch_ms: i64) -> String {
     let now = current_time_ms();
-    let delta_secs = ((now - epoch_ms).max(0) / 1000) as i64;
+    let delta_secs = (now - epoch_ms).max(0) / 1000;
 
     if delta_secs < 60 {
         return "Just now".to_string();

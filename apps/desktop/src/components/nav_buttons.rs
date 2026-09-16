@@ -3,6 +3,7 @@ use crate::theme::ThemeExt;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct NavButtons {
     can_back: bool,

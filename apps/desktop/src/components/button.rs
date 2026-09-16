@@ -25,6 +25,7 @@ pub enum ButtonSize {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 #[derive(IntoElement)]
 pub struct Button {
     id: ElementId,
@@ -341,23 +342,23 @@ impl RenderOnce for Button {
             el = el.child(trailing);
         }
 
-        if let Some(on_click) = self.on_click {
-            if !self.disabled {
-                el = el.on_click(move |ev, window, cx| {
-                    if ev.is_right_click() {
-                        return;
-                    }
-                    on_click(ev, window, cx);
-                });
-            }
+        if let Some(on_click) = self.on_click
+            && !self.disabled
+        {
+            el = el.on_click(move |ev, window, cx| {
+                if ev.is_right_click() {
+                    return;
+                }
+                on_click(ev, window, cx);
+            });
         }
 
-        if let Some(on_right_click) = self.on_right_click {
-            if !self.disabled {
-                el = el.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
-                    on_right_click(ev, window, cx);
-                });
-            }
+        if let Some(on_right_click) = self.on_right_click
+            && !self.disabled
+        {
+            el = el.on_mouse_down(MouseButton::Right, move |ev, window, cx| {
+                on_right_click(ev, window, cx);
+            });
         }
 
         el

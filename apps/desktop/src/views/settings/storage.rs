@@ -69,7 +69,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                     let md_dir = export_dir.join("markdown");
                     if std::fs::create_dir_all(&md_dir).is_ok() {
                         for note in &notes {
-                            let safe_title = note.title.replace('/', "-").replace('\\', "-");
+                            let safe_title = note.title.replace(['/', '\\'], "-");
                             let file_name = if safe_title.trim().is_empty() {
                                 format!("{}.md", note.id)
                             } else {
@@ -140,7 +140,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                     let export_dir = crate::paths::data_dir().join("exports").join("markdown");
                     if std::fs::create_dir_all(&export_dir).is_ok() {
                         for note in notes {
-                            let safe_title = note.title.replace('/', "-").replace('\\', "-");
+                            let safe_title = note.title.replace(['/', '\\'], "-");
                             let file_name = if safe_title.trim().is_empty() {
                                 format!("{}.md", note.id)
                             } else {
@@ -166,14 +166,14 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                 .on_press(move |_, cx| {
                     let notes = store_for_export_json.read(cx).active_notes();
                     let export_dir = crate::paths::data_dir().join("exports");
-                    if std::fs::create_dir_all(&export_dir).is_ok() {
-                        if let Ok(json) = serde_json::to_string_pretty(&notes) {
-                            let file_path = export_dir.join("vault_backup.json");
-                            let _ = std::fs::write(&file_path, json);
-                            let _ = std::process::Command::new("xdg-open")
-                                .arg(&export_dir)
-                                .spawn();
-                        }
+                    if std::fs::create_dir_all(&export_dir).is_ok()
+                        && let Ok(json) = serde_json::to_string_pretty(&notes)
+                    {
+                        let file_path = export_dir.join("vault_backup.json");
+                        let _ = std::fs::write(&file_path, json);
+                        let _ = std::process::Command::new("xdg-open")
+                            .arg(&export_dir)
+                            .spawn();
                     }
                 }),
         )

@@ -140,14 +140,13 @@ impl FrameSampler {
     }
 
     pub fn fps(&self) -> f32 {
-        if self.present_times.len() >= 2 {
-            if let (Some(oldest), Some(newest)) =
+        if self.present_times.len() >= 2
+            && let (Some(oldest), Some(newest)) =
                 (self.present_times.front(), self.present_times.back())
-            {
-                let span = newest.duration_since(*oldest).as_secs_f32();
-                if span > 0.0 {
-                    return (self.present_times.len() - 1) as f32 / span;
-                }
+        {
+            let span = newest.duration_since(*oldest).as_secs_f32();
+            if span > 0.0 {
+                return (self.present_times.len() - 1) as f32 / span;
             }
         }
         let mean_interval = self.mean_interval().as_secs_f32();
@@ -305,10 +304,11 @@ pub fn detect_display_period() -> Option<Duration> {
                                     .chars()
                                     .filter(|c| c.is_numeric() || *c == '.')
                                     .collect();
-                                if let Ok(hz) = num_str.parse::<f64>() {
-                                    if hz > 20.0 && hz < 1000.0 {
-                                        return Some(Duration::from_secs_f64(1.0 / hz));
-                                    }
+                                if let Ok(hz) = num_str.parse::<f64>()
+                                    && hz > 20.0
+                                    && hz < 1000.0
+                                {
+                                    return Some(Duration::from_secs_f64(1.0 / hz));
                                 }
                             }
                         }
