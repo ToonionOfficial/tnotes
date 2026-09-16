@@ -432,7 +432,7 @@ mod tests {
             let s = store.read(cx);
             let note = s.active_notes().into_iter().find(|n| n.id == nid).unwrap();
             assert_eq!(note.title, "New Title");
-            assert_eq!(note.body, "Start typing your note here...");
+            assert!(note.body.is_empty(), "renamed note should keep empty body");
             assert!(note.folder_id.is_some());
         });
         cx.update(|cx| {
