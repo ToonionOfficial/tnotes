@@ -61,7 +61,7 @@ pub(super) fn render(_view: &SettingsView, cx: &mut Context<SettingsView>) -> An
                                 .text_size(px(11.))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme.primary)
-                                .child("v0.1.0-alpha"),
+                                .child(concat!("v", env!("CARGO_PKG_VERSION"))),
                         ),
                 )
                 .child(
@@ -146,7 +146,7 @@ pub(super) fn render(_view: &SettingsView, cx: &mut Context<SettingsView>) -> An
             div()
                 .text_size(px(11.))
                 .text_color(theme.muted_foreground)
-                .child("TNotes v0.1.0"),
+                .child(concat!("TNotes v", env!("CARGO_PKG_VERSION"))),
         );
 
     div()

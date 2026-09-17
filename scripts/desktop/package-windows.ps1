@@ -14,7 +14,11 @@ if (-not (Test-Path $DistDir)) {
 }
 
 if (-not $Version) {
-    $CargoContent = Get-Content "$RepoRoot\apps\desktop\Cargo.toml" -Raw
+    $CargoPath = "$RepoRoot\Cargo.toml"
+    if (-not (Test-Path $CargoPath)) {
+        $CargoPath = "$RepoRoot\apps\desktop\Cargo.toml"
+    }
+    $CargoContent = Get-Content $CargoPath -Raw
     if ($CargoContent -match 'version\s*=\s*"([^"]+)"') {
         $Version = $matches[1]
     } else {

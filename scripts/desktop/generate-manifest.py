@@ -9,13 +9,28 @@ import argparse
 import datetime
 import hashlib
 import json
-import os
 import re
 import sys
 from pathlib import Path
 
 
 def get_version_from_cargo(repo_root: Path) -> str:
+    root_cargo = repo_root / "Cargo.toml"
+    if root_cargo.exists():
+        content = root_cargo.read_text(encoding="utf-8")
+        in_workspace_pkg = False
+        for line in content.splitlines():
+            trimmed = line.strip()
+            if trimmed == "[workspace.package]":
+                in_workspace_pkg = True
+                continue
+            if in_workspace_pkg and trimmed.startswith("["):
+                break
+            if in_workspace_pkg and trimmed.startswith("version"):
+                match = re.search(r'version\s*=\s*"([^"]+)"', trimmed)
+                if match:
+                    return match.group(1)
+
     cargo_path = repo_root / "apps" / "desktop" / "Cargo.toml"
     if cargo_path.exists():
         content = cargo_path.read_text(encoding="utf-8")
