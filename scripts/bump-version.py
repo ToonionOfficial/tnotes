@@ -75,10 +75,16 @@ def calculate_new_version(current: str, target: str) -> str:
     target_lower = target.lower()
 
     if target_lower == "patch":
+        if prerelease:
+            return f"{major}.{minor}.{patch}"
         return f"{major}.{minor}.{patch + 1}"
     elif target_lower == "minor":
+        if prerelease and patch == 0:
+            return f"{major}.{minor}.0"
         return f"{major}.{minor + 1}.0"
     elif target_lower == "major":
+        if prerelease and minor == 0 and patch == 0:
+            return f"{major}.0.0"
         return f"{major + 1}.0.0"
     elif target_lower == "alpha":
         if "alpha" in prerelease:
