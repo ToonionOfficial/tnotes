@@ -3,11 +3,11 @@ name: Release Desktop
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - '*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag (e.g. v0.1.0)'
+        description: 'Release Tag'
         required: false
         default: ''
       draft:
