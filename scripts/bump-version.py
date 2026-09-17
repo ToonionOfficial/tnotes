@@ -97,7 +97,8 @@ def calculate_new_version(current: str, target: str) -> str:
             num = re.search(r"rc\.?(\d+)", prerelease)
             next_num = int(num.group(1)) + 1 if num else 2
             return f"{major}.{minor}.{patch}-rc.{next_num}"
-        return f"{major}.{minor + 1}.0-rc.1"
+    elif target_lower in ("stable", "release"):
+        return f"{major}.{minor}.{patch}"
     else:
         # Explicit version string
         explicit_match = SEMVER_REGEX.match(target)
