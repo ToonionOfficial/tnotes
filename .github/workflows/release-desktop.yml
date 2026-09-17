@@ -1,0 +1,183 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag (e.g. v0.1.0)'
+        required: false
+        default: ''
+      draft:
+        description: 'Create as Draft Release'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - name: macos-arm64
+            os: macos-14
+            target: aarch64-apple-darwin
+          - name: macos-x64
+            os: macos-13
+            target: x86_64-apple-darwin
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop-${{ matrix.target }}
+
+      # Linux Setup & Build
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libfontconfig1-dev \
+            libasound2-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libssl-dev \
+            libfuse2 \
+            fuse
+
+      - name: Package Linux Desktop
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          bash scripts/desktop/package-linux.sh
+
+      # macOS Setup & Build
+      - name: Install macOS packaging tools
+        if: runner.os == 'macOS'
+        run: |
+          brew install create-dmg || true
+
+      - name: Package macOS Desktop (${{ matrix.name }})
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: |
+          ARCH="${{ matrix.name == 'macos-arm64' && 'arm64' || 'x64' }}"
+          bash scripts/desktop/package-macos.sh "${ARCH}"
+
+      # Windows Setup & Build
+      - name: Install Windows packaging tools
+        if: runner.os == 'Windows'
+        run: |
+          choco install innosetup -y
+
+      - name: Package Windows Desktop
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pwsh scripts/desktop/package-windows.ps1
+
+      # Upload individual target artifacts
+      - name: Upload Target Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release & Manifest
+    needs: [build-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download All Release Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-artifacts-*
+          merge-multiple: true
+
+      - name: Determine Release Tag
+        id: tag_step
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION=$(grep '^version =' apps/desktop/Cargo.toml | head -n1 | cut -d '"' -f2)
+            TAG="v${VERSION}"
+          fi
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Generate Checksums & Update Manifest
+        run: |
+          python3 scripts/desktop/generate-manifest.py \
+            --repo "${{ github.repository }}" \
+            --tag "${{ env.RELEASE_TAG }}" \
+            --dist-dir dist
+
+      - name: Display Artifacts Summary
+        run: |
+          echo "=== Release Artifacts ==="
+          ls -lh dist/
+          echo "=== Checksums ==="
+          cat dist/SHA256SUMS.txt
+          echo "=== Manifest latest.json ==="
+          cat dist/latest.json
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: TNotes Desktop ${{ env.RELEASE_TAG }}
+          files: dist/*
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ contains(env.RELEASE_TAG, 'alpha') || contains(env.RELEASE_TAG, 'beta') || contains(env.RELEASE_TAG, 'rc') }}
+          generate_release_notes: true
