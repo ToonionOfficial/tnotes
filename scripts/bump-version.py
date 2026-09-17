@@ -91,18 +91,25 @@ def calculate_new_version(current: str, target: str) -> str:
             num = re.search(r"alpha\.?(\d+)", prerelease)
             next_num = int(num.group(1)) + 1 if num is not None else 2
             return f"{major}.{minor}.{patch}-alpha.{next_num}"
+        elif prerelease:
+            return f"{major}.{minor}.{patch}-alpha.1"
         return f"{major}.{minor + 1}.0-alpha.1"
     elif target_lower == "beta":
         if "beta" in prerelease:
             num = re.search(r"beta\.?(\d+)", prerelease)
             next_num = int(num.group(1)) + 1 if num is not None else 2
             return f"{major}.{minor}.{patch}-beta.{next_num}"
+        elif prerelease:
+            return f"{major}.{minor}.{patch}-beta.1"
         return f"{major}.{minor + 1}.0-beta.1"
     elif target_lower == "rc":
         if "rc" in prerelease:
             num = re.search(r"rc\.?(\d+)", prerelease)
             next_num = int(num.group(1)) + 1 if num is not None else 2
             return f"{major}.{minor}.{patch}-rc.{next_num}"
+        elif prerelease:
+            return f"{major}.{minor}.{patch}-rc.1"
+        return f"{major}.{minor + 1}.0-rc.1"
     elif target_lower in ("stable", "release"):
         return f"{major}.{minor}.{patch}"
     else:
