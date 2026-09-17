@@ -4,6 +4,11 @@ dist/
 *.swp
 *.swo
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Node / Expo
 mobile/node_modules/
 mobile/.expo/
