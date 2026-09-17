@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=TNotes
+Comment=Local-first GPU-accelerated markdown notebook
+Exec=tnotes-desktop %U
+Icon=tnotes
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;Office;
+StartupWMClass=tnotes-desktop
+MimeType=text/markdown;text/plain;
