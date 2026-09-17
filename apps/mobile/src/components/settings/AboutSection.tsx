@@ -1,3 +1,4 @@
+import Constants from "expo-constants"
 import * as Haptics from "expo-haptics"
 import * as Linking from "expo-linking"
 import { Code2 } from "lucide-react-native"
@@ -40,7 +41,9 @@ export const AboutSection = memo(function AboutSection({ onPressGithub }: AboutS
         <Text className="text-[12px] font-medium text-muted-foreground/60">
           Made with React Native & Rust
         </Text>
-        <Text className="text-[11px] text-muted-foreground/40">TNotes v0.1.0</Text>
+        <Text className="text-[11px] text-muted-foreground/40">
+          TNotes v{Constants.expoConfig?.version ?? "0.1.0"}
+        </Text>
       </View>
     </View>
   )
