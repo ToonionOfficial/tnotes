@@ -4,7 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-VERSION="${1:-$(grep '^version =' "${REPO_ROOT}/apps/desktop/Cargo.toml" | head -n1 | cut -d '"' -f2)}"
+VERSION="${1:-$(grep '^version =' "${REPO_ROOT}/Cargo.toml" | head -n1 | cut -d '"' -f2)}"
+if [ -z "${VERSION}" ]; then
+    VERSION="$(grep '^version =' "${REPO_ROOT}/apps/desktop/Cargo.toml" | head -n1 | cut -d '"' -f2)"
+fi
 DIST_DIR="${REPO_ROOT}/dist"
 mkdir -p "${DIST_DIR}"
 
