@@ -73,6 +73,33 @@ impl SettingsSectionId {
             Self::About => IconName::CircleInfo,
         }
     }
+
+    pub fn is_visible(self) -> bool {
+        let is_env_set = std::env::var("TNOTES_DEV").is_ok();
+        self.is_visible_internal(
+            env!("CARGO_PKG_VERSION"),
+            cfg!(debug_assertions),
+            is_env_set,
+        )
+    }
+
+    pub(crate) fn is_visible_internal(
+        self,
+        version_str: &str,
+        is_debug: bool,
+        has_env_override: bool,
+    ) -> bool {
+        if self == Self::Developer {
+            if is_debug || has_env_override {
+                return true;
+            }
+            version_str.contains("alpha")
+                || version_str.contains("beta")
+                || version_str.contains("rc")
+        } else {
+            true
+        }
+    }
 }
 
 pub struct SettingsSection {
