@@ -624,6 +624,7 @@ pub struct Input {
     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
     on_key_down: Option<Box<dyn Fn(&KeyDownEvent, &mut Window, &mut App) + 'static>>,
     on_clear: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_mouse_down_out: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -644,6 +645,7 @@ impl Input {
             on_click: None,
             on_key_down: None,
             on_clear: None,
+            on_mouse_down_out: None,
         }
     }
 
@@ -736,6 +738,14 @@ impl Input {
         self.on_clear = Some(Box::new(handler));
         self
     }
+
+    pub fn on_mouse_down_out(
+        mut self,
+        handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_mouse_down_out = Some(Box::new(handler));
+        self
+    }
 }
 
 impl RenderOnce for Input {
@@ -770,6 +780,7 @@ impl RenderOnce for Input {
         let mut el = div()
             .id(self.id)
             .w_full()
+            .min_w_0()
             .h(height)
             .px(padding_x)
             .rounded(radius)
@@ -815,9 +826,20 @@ impl RenderOnce for Input {
             });
         }
 
-        if is_focused {
-            el = el.on_mouse_down_out(move |_event, window, _| {
-                window.blur();
+        let on_mouse_down_out = self.on_mouse_down_out;
+        let focus_handle = self.focus_handle.clone();
+        if is_focused || on_mouse_down_out.is_some() {
+            el = el.on_mouse_down_out(move |event, window, cx| {
+                if let Some(ref handle) = focus_handle {
+                    if handle.is_focused(window) {
+                        window.blur();
+                    }
+                } else if is_focused {
+                    window.blur();
+                }
+                if let Some(ref handler) = on_mouse_down_out {
+                    handler(event, window, cx);
+                }
             });
         }
 
@@ -828,7 +850,7 @@ impl RenderOnce for Input {
             .flex_shrink_0();
 
         let text_container = if is_empty {
-            let mut container = div().flex().items_center().overflow_hidden();
+            let mut container = div().flex().items_center().min_w_0().overflow_hidden();
             if is_focused {
                 container = container.child(caret_bar.mr(px(2.)));
             }
@@ -874,6 +896,7 @@ impl RenderOnce for Input {
                 div()
                     .flex()
                     .items_center()
+                    .min_w_0()
                     .overflow_hidden()
                     .when(!before.is_empty(), |this| {
                         this.child(
@@ -907,6 +930,7 @@ impl RenderOnce for Input {
                 div()
                     .flex()
                     .items_center()
+                    .min_w_0()
                     .overflow_hidden()
                     .when(!before.is_empty(), |this| {
                         this.child(
@@ -933,6 +957,7 @@ impl RenderOnce for Input {
             .items_center()
             .gap_2()
             .flex_1()
+            .min_w_0()
             .overflow_hidden()
             .children(self.leading_icon.map(|name| {
                 Icon::new(name).size(icon_size).color(if is_focused {

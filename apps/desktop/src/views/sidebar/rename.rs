@@ -1,5 +1,5 @@
 use super::{RenameKind, RenameState, SidebarView};
-use crate::components::{Input, InputState};
+use crate::components::{Input, InputSize, InputState};
 use gpui::*;
 
 impl SidebarView {
@@ -114,19 +114,27 @@ impl SidebarView {
         let focus = state.focus.clone();
         Some(
             div()
+                .id(SharedString::from(format!("rename-row-{id}")))
+                .w_full()
                 .h(px(28.))
                 .pl(indent)
                 .pr_2()
                 .flex()
                 .items_center()
                 .child(
-                    Input::new(SharedString::from(format!("rename-{id}")))
-                        .state(&input)
-                        .focus_handle(focus)
-                        .placeholder("Name")
-                        .on_key_down(cx.listener(|this, event, window, cx| {
-                            this.handle_rename_key(event, window, cx);
-                        })),
+                    div().flex_1().w_full().min_w_0().child(
+                        Input::new(SharedString::from(format!("rename-{id}")))
+                            .size(InputSize::Sm)
+                            .state(&input)
+                            .focus_handle(focus)
+                            .placeholder("Name")
+                            .on_key_down(cx.listener(|this, event, window, cx| {
+                                this.handle_rename_key(event, window, cx);
+                            }))
+                            .on_mouse_down_out(cx.listener(|this, _event, _window, cx| {
+                                this.commit_rename(cx);
+                            })),
+                    ),
                 )
                 .into_any_element(),
         )

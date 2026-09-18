@@ -266,7 +266,7 @@ mod tests {
     use crate::components::{IconName, InputState};
     use crate::store::{NavigationLocation, NoteStore};
     use crate::theme::{ActiveTheme, Theme};
-    use gpui::{AppContext, MouseButton, MouseDownEvent, TestAppContext, point, px};
+    use gpui::{AppContext, Modifiers, MouseButton, MouseDownEvent, TestAppContext, point, px};
 
     #[test]
     fn model_types_are_reexported() {
@@ -440,6 +440,63 @@ mod tests {
                 .find(|n| n.id == "note-db-schema")
                 .map(|n| n.title)),
             Some("Database Schema & Index Design".to_string())
+        );
+    }
+
+    #[test]
+    fn rename_input_unfocuses_and_commits_on_outside_click() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
+        cx.run_until_parked();
+
+        // 1. Begin renaming folder "projects"
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| v.begin_rename_folder("projects", window, cx));
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+        assert!(view.read_with(cx, |v, _| v.renaming.is_some()));
+
+        // Modify input text
+        view.update(cx, |v, _| {
+            if let Some(state) = v.renaming.as_mut() {
+                state.input.set_value("Projects Outside Click");
+            }
+        });
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+
+        // 2. Click outside the rename input (e.g. at position 500, 500)
+        cx.simulate_event(gpui::MouseDownEvent {
+            button: gpui::MouseButton::Left,
+            position: point(px(500.), px(500.)),
+            modifiers: Modifiers::default(),
+            click_count: 1,
+            first_mouse: false,
+        });
+        cx.run_until_parked();
+
+        // Renaming must be unfocused and committed
+        assert!(view.read_with(cx, |v, _| v.renaming.is_none()));
+        assert_eq!(
+            store.read_with(cx, |s, _| s
+                .folder_tree()
+                .iter()
+                .find(|n| n.folder.id == "projects")
+                .map(|n| n.folder.name.clone())),
+            Some("Projects Outside Click".to_string())
         );
     }
 
