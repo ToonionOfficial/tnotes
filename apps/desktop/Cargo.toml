@@ -8,7 +8,8 @@ tnotes-core = { path = "../../crates/tnotes-core" }
 tnotes-document = { path = "../../crates/tnotes-document" }
 
 gpui = "0.2"
-twrite = { version = "0.10.1", features = ["markdown"] }
+twrite = { version = "0.16", features = ["markdown"] }
+
 rust-embed = "8.5"
 dirs = "5.0"
 serde = { version = "1.0", features = ["derive"] }
