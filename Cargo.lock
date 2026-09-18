@@ -6148,7 +6148,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tnotes-core"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.5"
 dependencies = [
  "argon2",
  "blake3",
@@ -6163,7 +6163,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-desktop"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.5"
 dependencies = [
  "dirs 5.0.1",
  "gpui",
@@ -6180,7 +6180,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-document"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.5"
 dependencies = [
  "pretty_assertions",
  "pulldown-cmark 0.13.4",
@@ -6192,7 +6192,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-server"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.5"
 dependencies = [
  "axum",
  "axum-extra",
@@ -6593,9 +6593,9 @@ dependencies = [
 
 [[package]]
 name = "twrite"
-version = "0.10.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfc7eae784843912edc79eae7cabde7cd59192e3c7d4b893756905ac96d3cf7c"
+checksum = "91b424482d0ff4bcaa52b1dad746a35eee9db698e9fadfa28e04d93bc71d60f2"
 dependencies = [
  "gpui",
  "twrite-core",
@@ -6604,9 +6604,9 @@ dependencies = [
 
 [[package]]
 name = "twrite-core"
-version = "0.10.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "228006a0e79fccf79358c476177296081e6d4ff1b5a03a2bfc7b15a4c13dd78b"
+checksum = "589759d45c79c14a936da4bc8978f1074f35ee24544cebe1084d3eeaebe19a95"
 dependencies = [
  "pulldown-cmark 0.12.2",
  "regex",
@@ -6617,9 +6617,9 @@ dependencies = [
 
 [[package]]
 name = "twrite-gpui"
-version = "0.10.1"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e69ab6611143f22e4fc60bc4798f03b43bb49efec996c6bd15e5c2634d36a5dc"
+checksum = "2f196a70acbda84a8d11c36b07c1144c0a9c359d930453074303bd69eed5c3dc"
 dependencies = [
  "gpui",
  "twrite-core",

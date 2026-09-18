@@ -120,6 +120,7 @@ impl Theme {
                 custom: HashMap::new(),
                 error: self.destructive,
                 warning: rgb(0xfbbf24).into(),
+                ..Default::default()
             },
         }
     }
