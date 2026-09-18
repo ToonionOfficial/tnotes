@@ -26,6 +26,10 @@ pub fn keymap_file() -> PathBuf {
     config_dir().join("keymap.json")
 }
 
+pub fn update_settings_file() -> PathBuf {
+    config_dir().join("updates.json")
+}
+
 #[allow(dead_code)]
 pub fn database_file() -> PathBuf {
     data_dir().join("tnotes.db")
@@ -34,6 +38,7 @@ pub fn database_file() -> PathBuf {
 pub fn ensure_dirs() -> Result<()> {
     fs::create_dir_all(config_dir())?;
     fs::create_dir_all(data_dir())?;
+    fs::create_dir_all(cache_dir())?;
     Ok(())
 }
 

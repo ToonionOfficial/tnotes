@@ -10,23 +10,31 @@ pub enum SettingsSectionId {
     Storage,
     Keybindings,
     Developer,
+    Updates,
     About,
 }
 
 impl SettingsSectionId {
     #[allow(dead_code)]
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Account,
         Self::Sync,
         Self::Storage,
         Self::Keybindings,
         Self::Developer,
+        Self::Updates,
         Self::About,
     ];
 
     pub const WORKSPACE: [Self; 2] = [Self::Account, Self::Keybindings];
 
-    pub const SYSTEM: [Self; 4] = [Self::Sync, Self::Storage, Self::Developer, Self::About];
+    pub const SYSTEM: [Self; 5] = [
+        Self::Sync,
+        Self::Storage,
+        Self::Developer,
+        Self::Updates,
+        Self::About,
+    ];
 
     pub fn title(self) -> &'static str {
         match self {
@@ -35,6 +43,7 @@ impl SettingsSectionId {
             Self::Storage => "Storage",
             Self::Keybindings => "Keybindings",
             Self::Developer => "Developer",
+            Self::Updates => "Updates",
             Self::About => "About",
         }
     }
@@ -48,6 +57,7 @@ impl SettingsSectionId {
             Self::Sync => "Pairing status, sync server connection, and synchronization engine.",
             Self::Storage => "Local database metrics, index maintenance, and vault exports.",
             Self::Developer => "GPUI engine diagnostics, frame budgets, and runtime telemetry.",
+            Self::Updates => "Release channels, software updates, and automated installations.",
             Self::About => "Version information, system architecture, and project repository.",
         }
     }
@@ -59,6 +69,7 @@ impl SettingsSectionId {
             Self::Storage => IconName::Database,
             Self::Keybindings => IconName::Keyboard,
             Self::Developer => IconName::Code,
+            Self::Updates => IconName::Rocket,
             Self::About => IconName::CircleInfo,
         }
     }

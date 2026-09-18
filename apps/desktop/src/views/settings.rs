@@ -6,6 +6,7 @@ mod keybinding_capture;
 mod keybindings;
 mod storage;
 mod sync;
+mod updates;
 
 pub use components::SettingsSectionId;
 
@@ -15,11 +16,13 @@ use crate::components::{
 use crate::keymap::{ALL_ACTIONS, CloseSettings, KeymapConfig};
 use crate::store::NoteStore;
 use crate::theme::ThemeExt;
+use crate::updater::UpdateManager;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 
 pub struct SettingsView {
     store: Entity<NoteStore>,
+    updater: Entity<UpdateManager>,
     active_section: SettingsSectionId,
     keymap: KeymapConfig,
     capturing: Option<keybinding_capture::KeybindingCapture>,
@@ -27,13 +30,20 @@ pub struct SettingsView {
     search_state: InputState,
     search_focus: FocusHandle,
     _store_subscription: Subscription,
+    _updater_subscription: Subscription,
 }
 
 impl SettingsView {
-    pub fn new(store: Entity<NoteStore>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        store: Entity<NoteStore>,
+        updater: Entity<UpdateManager>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
+        let updater_sub = cx.observe(&updater, |_, _, cx| cx.notify());
         Self {
             store,
+            updater,
             active_section: SettingsSectionId::Account,
             keymap: KeymapConfig::load(),
             capturing: None,
@@ -41,7 +51,12 @@ impl SettingsView {
             search_state: InputState::new(""),
             search_focus: cx.focus_handle(),
             _store_subscription: store_sub,
+            _updater_subscription: updater_sub,
         }
+    }
+
+    pub(crate) fn updater(&self) -> &Entity<UpdateManager> {
+        &self.updater
     }
 
     pub fn focus(&self, window: &mut Window) {
@@ -164,6 +179,9 @@ impl SettingsView {
             }
             SettingsSectionId::Developer => {
                 "flags benchmark dev developer performance test tools hud fps".contains(&q)
+            }
+            SettingsSectionId::Updates => {
+                "update updates upgrade channel stable beta alpha version download install check".contains(&q)
             }
             SettingsSectionId::About => {
                 "about version tnotes github repo license source".contains(&q)
@@ -327,6 +345,7 @@ impl SettingsView {
             SettingsSectionId::Storage => storage::render(self, cx),
             SettingsSectionId::Keybindings => keybindings::render(self, cx),
             SettingsSectionId::Developer => developer::render(self, cx),
+            SettingsSectionId::Updates => updates::render(self, cx),
             SettingsSectionId::About => about::render(self, cx),
         };
         div()
@@ -516,12 +535,14 @@ mod tests {
     use crate::keymap::KeymapConfig;
     use crate::store::NoteStore;
     use crate::theme::{ActiveTheme, Theme};
+    use crate::updater::UpdateManager;
     use gpui::{AppContext, Entity, TestAppContext};
 
     fn add_settings(cx: &mut TestAppContext) -> Entity<SettingsView> {
         let (view, _) = cx.add_window_view(|_, cx| {
             let store = cx.new(|_| NoteStore::new());
-            SettingsView::new(store, cx)
+            let updater = cx.new(UpdateManager::new);
+            SettingsView::new(store, updater, cx)
         });
         view
     }
@@ -635,7 +656,8 @@ mod tests {
 
         let (_view, cx) = cx.add_window_view(|window, cx| {
             let store = cx.new(|_| NoteStore::new());
-            let settings = SettingsView::new(store, cx);
+            let updater = cx.new(UpdateManager::new);
+            let settings = SettingsView::new(store, updater, cx);
             settings.focus(window);
             settings
         });
@@ -655,7 +677,8 @@ mod tests {
 
         let (_view, cx) = cx.add_window_view(|_, cx| {
             let store = cx.new(|_| NoteStore::new());
-            SettingsView::new(store, cx)
+            let updater = cx.new(UpdateManager::new);
+            SettingsView::new(store, updater, cx)
         });
         cx.run_until_parked();
 
@@ -688,8 +711,9 @@ mod tests {
             assert_eq!(view.read_with(cx, |v, _| v.active_section()), section);
         }
 
+        assert_eq!(SettingsSectionId::ALL.len(), 7);
         assert_eq!(SettingsSectionId::WORKSPACE.len(), 2);
-        assert_eq!(SettingsSectionId::SYSTEM.len(), 4);
+        assert_eq!(SettingsSectionId::SYSTEM.len(), 5);
     }
 
     #[test]
@@ -720,6 +744,9 @@ mod tests {
         }));
         assert!(view.read_with(cx, |v, _| {
             v.section_matches_query(SettingsSectionId::Developer, "benchmark")
+        }));
+        assert!(view.read_with(cx, |v, _| {
+            v.section_matches_query(SettingsSectionId::Updates, "channel")
         }));
         assert!(!view.read_with(cx, |v, _| {
             v.section_matches_query(SettingsSectionId::Account, "xyznonexistent")

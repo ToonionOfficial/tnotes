@@ -4,6 +4,7 @@ use crate::components::{
     SidebarRail, SidebarRailItem, SidebarToggleButton,
 };
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 
 impl SidebarView {
@@ -182,11 +183,24 @@ impl SidebarView {
                 )
                 .child(
                     div()
+                        .relative()
                         .flex()
                         .items_center()
                         .justify_center()
                         .text_color(theme.muted_foreground)
-                        .child(Icon::new(IconName::Settings).size(px(14.))),
+                        .child(Icon::new(IconName::Settings).size(px(14.)))
+                        .when(self.has_update_available(cx), |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .top(px(-2.))
+                                    .right(px(-2.))
+                                    .w(px(7.))
+                                    .h(px(7.))
+                                    .rounded_full()
+                                    .bg(theme.primary),
+                            )
+                        }),
                 ),
         )
     }

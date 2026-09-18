@@ -5,6 +5,7 @@ pub mod keymap;
 pub mod paths;
 mod store;
 mod theme;
+pub mod updater;
 mod views;
 
 use app::Tnotes;
