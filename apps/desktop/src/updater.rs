@@ -555,7 +555,9 @@ async fn fetch_latest_manifest(
 
 pub fn parse_tag_from_feed(feed_xml: &str, channel: ReleaseChannel) -> Option<String> {
     for line in feed_xml.lines() {
-        if line.contains("<link") && let Some(start) = line.find("/releases/tag/") {
+        if line.contains("<link")
+            && let Some(start) = line.find("/releases/tag/")
+        {
             let rest = &line[start + "/releases/tag/".len()..];
             if let Some(tag) = rest.split(&['"', '<', '>', '/'][..]).next() {
                 let tag = tag.trim();
@@ -833,7 +835,10 @@ mod tests {
             Some("v0.2.0-alpha.2".to_string())
         );
         assert_eq!(
-            parse_tag_from_feed(feed_without_feed_channel(ReleaseChannel::Beta), ReleaseChannel::Beta),
+            parse_tag_from_feed(
+                feed_without_feed_channel(ReleaseChannel::Beta),
+                ReleaseChannel::Beta
+            ),
             None
         );
         assert_eq!(
