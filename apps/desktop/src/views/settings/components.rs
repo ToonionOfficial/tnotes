@@ -76,7 +76,11 @@ impl SettingsSectionId {
 
     pub fn is_visible(self) -> bool {
         let is_env_set = std::env::var("TNOTES_DEV").is_ok();
-        self.is_visible_internal(env!("CARGO_PKG_VERSION"), cfg!(debug_assertions), is_env_set)
+        self.is_visible_internal(
+            env!("CARGO_PKG_VERSION"),
+            cfg!(debug_assertions),
+            is_env_set,
+        )
     }
 
     pub(crate) fn is_visible_internal(
