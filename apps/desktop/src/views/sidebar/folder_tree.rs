@@ -187,6 +187,16 @@ impl SidebarView {
                             this.toggle_folder(&id, cx);
                         }
                     }))
+                    .on_icon_click(cx.listener({
+                        let id = id.clone();
+                        move |this, ev: &MouseDownEvent, _window, cx| {
+                            this.toggle_icon_picker_at(
+                                &id,
+                                Some(point(ev.position.x, ev.position.y + px(12.))),
+                                cx,
+                            );
+                        }
+                    }))
                     .on_right_click(cx.listener(Self::folder_menu_handler(id, name)));
                     item.into_any_element()
                 }

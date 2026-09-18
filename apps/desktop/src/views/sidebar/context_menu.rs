@@ -81,6 +81,7 @@ impl SidebarView {
                 let subfolder_id = id.clone();
                 let subfolder_entity = entity.clone();
                 let icon_id = id.clone();
+                let icon_pos = state.position;
                 let icon_entity = entity.clone();
                 let rename_id = id.clone();
                 let rename_entity = entity.clone();
@@ -112,7 +113,7 @@ impl SidebarView {
                             .icon(IconName::Palette)
                             .on_select(move |_, _, cx| {
                                 icon_entity.update(cx, |this, cx| {
-                                    this.toggle_icon_picker(&icon_id, cx);
+                                    this.toggle_icon_picker_at(&icon_id, Some(icon_pos), cx);
                                 });
                             }),
                     )
