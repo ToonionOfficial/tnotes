@@ -1,6 +1,3 @@
-> [!IMPORTANT]
-> Remove this line to confirm you've reviewed this PR before submitting.
-
 <p align="center">
   <img src="apps/web/public/logo-transparent.png" alt="TNotes logo" width="112" />
 </p>
