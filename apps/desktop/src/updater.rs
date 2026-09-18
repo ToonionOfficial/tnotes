@@ -241,9 +241,9 @@ impl UpdateManager {
             async move |this, cx| {
                 let check_result = cx
                     .background_executor()
-                    .spawn(async move {
-                        fetch_latest_manifest(channel, &current_version_str).await
-                    })
+                    .spawn(
+                        async move { fetch_latest_manifest(channel, &current_version_str).await },
+                    )
                     .await;
 
                 this.update(cx, |manager, cx| {
@@ -299,7 +299,8 @@ impl UpdateManager {
     }
 
     pub fn start_download(&mut self, cx: &mut Context<Self>) {
-        let (version, download_url, expected_sha256, size_bytes, changelog_url) = match &self.status {
+        let (version, download_url, expected_sha256, size_bytes, changelog_url) = match &self.status
+        {
             UpdateStatus::Available {
                 version,
                 download_url,
@@ -383,21 +384,19 @@ impl UpdateManager {
                 }
 
                 if let Some(final_result) = completed_result {
-                    this.update(cx, |manager, cx| {
-                        match final_result {
-                            Ok(staged_path) => {
-                                manager.status = UpdateStatus::ReadyToRestart {
-                                    version: version.clone(),
-                                    staged_path,
-                                    changelog_url,
-                                };
-                                manager.banner_dismissed = false;
-                                cx.notify();
-                            }
-                            Err(error_message) => {
-                                manager.status = UpdateStatus::Error(error_message);
-                                cx.notify();
-                            }
+                    this.update(cx, |manager, cx| match final_result {
+                        Ok(staged_path) => {
+                            manager.status = UpdateStatus::ReadyToRestart {
+                                version: version.clone(),
+                                staged_path,
+                                changelog_url,
+                            };
+                            manager.banner_dismissed = false;
+                            cx.notify();
+                        }
+                        Err(error_message) => {
+                            manager.status = UpdateStatus::Error(error_message);
+                            cx.notify();
                         }
                     })
                     .ok();
@@ -458,8 +457,9 @@ async fn fetch_latest_manifest(
     channel: ReleaseChannel,
     current_version_str: &str,
 ) -> std::result::Result<Option<AvailableUpdate>, String> {
-    let platform_key = current_platform_key()
-        .ok_or_else(|| "Current OS or architecture is not supported for auto-updates.".to_string())?;
+    let platform_key = current_platform_key().ok_or_else(|| {
+        "Current OS or architecture is not supported for auto-updates.".to_string()
+    })?;
 
     let client = reqwest::blocking::Client::builder()
         .user_agent(format!("TNotes-Desktop/{current_version_str}"))
@@ -469,16 +469,22 @@ async fn fetch_latest_manifest(
 
     let manifest_url = match channel {
         ReleaseChannel::Stable => {
-            format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json")
+            format!(
+                "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json"
+            )
         }
         ReleaseChannel::Beta | ReleaseChannel::Alpha => {
             let feed_url = format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases.atom");
             match resolve_tag_from_feed(&client, &feed_url, channel) {
                 Some(tag) => {
-                    format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{tag}/latest.json")
+                    format!(
+                        "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{tag}/latest.json"
+                    )
                 }
                 None => {
-                    format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json")
+                    format!(
+                        "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json"
+                    )
                 }
             }
         }
@@ -514,7 +520,10 @@ async fn fetch_latest_manifest(
     }
 
     let platform_asset = manifest.platforms.get(platform_key).ok_or_else(|| {
-        format!("No release asset found for platform '{platform_key}' in release v{}.", manifest.version)
+        format!(
+            "No release asset found for platform '{platform_key}' in release v{}.",
+            manifest.version
+        )
     })?;
 
     Ok(Some(AvailableUpdate {
@@ -568,7 +577,10 @@ fn download_and_verify_asset(
         .map_err(|error| format!("Failed to start download: {error}"))?;
 
     if !response.status().is_success() {
-        return Err(format!("Download failed with status: {}", response.status()));
+        return Err(format!(
+            "Download failed with status: {}",
+            response.status()
+        ));
     }
 
     let total_size = response.content_length().unwrap_or(0);

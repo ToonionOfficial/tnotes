@@ -47,7 +47,11 @@ impl SidebarView {
         }
     }
 
-    pub fn set_updater(&mut self, updater: Entity<crate::updater::UpdateManager>, cx: &mut Context<Self>) {
+    pub fn set_updater(
+        &mut self,
+        updater: Entity<crate::updater::UpdateManager>,
+        cx: &mut Context<Self>,
+    ) {
         let sub = cx.observe(&updater, |_, _, cx| cx.notify());
         self.updater = Some(updater);
         self._updater_subscription = Some(sub);

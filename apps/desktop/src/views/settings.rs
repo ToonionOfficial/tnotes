@@ -181,7 +181,8 @@ impl SettingsView {
                 "flags benchmark dev developer performance test tools hud fps".contains(&q)
             }
             SettingsSectionId::Updates => {
-                "update updates upgrade channel stable beta alpha version download install check".contains(&q)
+                "update updates upgrade channel stable beta alpha version download install check"
+                    .contains(&q)
             }
             SettingsSectionId::About => {
                 "about version tnotes github repo license source".contains(&q)

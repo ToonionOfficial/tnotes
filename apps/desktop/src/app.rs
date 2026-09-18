@@ -244,7 +244,11 @@ impl Tnotes {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(Icon::new(icon).size(px(15.)).color(theme.primary_foreground)),
+                    .child(
+                        Icon::new(icon)
+                            .size(px(15.))
+                            .color(theme.primary_foreground),
+                    ),
             )
             .child(
                 div()

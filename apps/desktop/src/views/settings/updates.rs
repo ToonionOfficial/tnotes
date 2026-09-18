@@ -54,10 +54,17 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         ),
         UpdateStatus::UpToDate { .. } => (
             "You're Up to Date",
-            format!("Running the latest release on the {} channel. {last_checked_str}.", settings.channel.title()),
+            format!(
+                "Running the latest release on the {} channel. {last_checked_str}.",
+                settings.channel.title()
+            ),
             false,
         ),
-        UpdateStatus::Available { version, size_bytes, .. } => {
+        UpdateStatus::Available {
+            version,
+            size_bytes,
+            ..
+        } => {
             let mb = *size_bytes as f64 / (1024.0 * 1024.0);
             (
                 "Update Available",
@@ -65,7 +72,12 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                 false,
             )
         }
-        UpdateStatus::Downloading { version, downloaded_bytes, total_bytes, .. } => {
+        UpdateStatus::Downloading {
+            version,
+            downloaded_bytes,
+            total_bytes,
+            ..
+        } => {
             let dl_mb = *downloaded_bytes as f64 / (1024.0 * 1024.0);
             let tot_mb = *total_bytes as f64 / (1024.0 * 1024.0);
             (
@@ -84,11 +96,7 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
             format!("Version v{version} has been verified and staged. Restart to complete update."),
             false,
         ),
-        UpdateStatus::Error(msg) => (
-            "Update Check Failed",
-            msg.clone(),
-            true,
-        ),
+        UpdateStatus::Error(msg) => ("Update Check Failed", msg.clone(), true),
     };
 
     let hero_icon = match &status {
@@ -110,7 +118,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         .rounded(px(10.))
         .bg(theme.card)
         .border_1()
-        .border_color(if is_error { theme.destructive } else { theme.border })
+        .border_color(if is_error {
+            theme.destructive
+        } else {
+            theme.border
+        })
         .p(px(20.))
         .flex()
         .flex_col()
@@ -174,69 +186,65 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                                 .child(
                                     div()
                                         .text_size(px(12.5))
-                                        .text_color(if is_error { theme.destructive } else { theme.muted_foreground })
+                                        .text_color(if is_error {
+                                            theme.destructive
+                                        } else {
+                                            theme.muted_foreground
+                                        })
                                         .child(status_desc),
                                 ),
                         ),
                 )
                 .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .child(match &status {
-                            UpdateStatus::Checking => {
-                                Button::secondary("btn-checking", "Checking...")
-                                    .size(ButtonSize::Sm)
-                                    .disabled(true)
-                                    .into_any_element()
-                            }
-                            UpdateStatus::Downloading { .. } => {
-                                Button::secondary("btn-downloading", "Downloading...")
-                                    .size(ButtonSize::Sm)
-                                    .disabled(true)
-                                    .into_any_element()
-                            }
-                            UpdateStatus::Verifying => {
-                                Button::secondary("btn-verifying", "Verifying...")
-                                    .size(ButtonSize::Sm)
-                                    .disabled(true)
-                                    .into_any_element()
-                            }
-                            UpdateStatus::Available { .. } => {
-                                Button::primary("btn-download-update", "Download Update")
-                                    .size(ButtonSize::Sm)
-                                    .leading_icon(IconName::Rocket)
-                                    .on_click(move |_, _, cx| {
-                                        updater_for_download.update(cx, |manager, cx| {
-                                            manager.start_download(cx);
-                                        });
-                                    })
-                                    .into_any_element()
-                            }
-                            UpdateStatus::ReadyToRestart { .. } => {
-                                Button::primary("btn-restart-update", "Restart & Install")
-                                    .size(ButtonSize::Sm)
-                                    .leading_icon(IconName::Check)
-                                    .on_click(move |_, _, cx| {
-                                        updater_for_restart.update(cx, |manager, cx| {
-                                            manager.install_and_restart(cx);
-                                        });
-                                    })
-                                    .into_any_element()
-                            }
-                            _ => {
-                                Button::secondary("btn-check-updates", "Check for Updates")
-                                    .size(ButtonSize::Sm)
-                                    .leading_icon(IconName::RefreshCw)
-                                    .on_click(move |_, _, cx| {
-                                        updater_for_check.update(cx, |manager, cx| {
-                                            manager.check_for_updates(false, cx);
-                                        });
-                                    })
-                                    .into_any_element()
-                            }
-                        }),
+                    div().flex().items_center().gap_2().child(match &status {
+                        UpdateStatus::Checking => Button::secondary("btn-checking", "Checking...")
+                            .size(ButtonSize::Sm)
+                            .disabled(true)
+                            .into_any_element(),
+                        UpdateStatus::Downloading { .. } => {
+                            Button::secondary("btn-downloading", "Downloading...")
+                                .size(ButtonSize::Sm)
+                                .disabled(true)
+                                .into_any_element()
+                        }
+                        UpdateStatus::Verifying => {
+                            Button::secondary("btn-verifying", "Verifying...")
+                                .size(ButtonSize::Sm)
+                                .disabled(true)
+                                .into_any_element()
+                        }
+                        UpdateStatus::Available { .. } => {
+                            Button::primary("btn-download-update", "Download Update")
+                                .size(ButtonSize::Sm)
+                                .leading_icon(IconName::Rocket)
+                                .on_click(move |_, _, cx| {
+                                    updater_for_download.update(cx, |manager, cx| {
+                                        manager.start_download(cx);
+                                    });
+                                })
+                                .into_any_element()
+                        }
+                        UpdateStatus::ReadyToRestart { .. } => {
+                            Button::primary("btn-restart-update", "Restart & Install")
+                                .size(ButtonSize::Sm)
+                                .leading_icon(IconName::Check)
+                                .on_click(move |_, _, cx| {
+                                    updater_for_restart.update(cx, |manager, cx| {
+                                        manager.install_and_restart(cx);
+                                    });
+                                })
+                                .into_any_element()
+                        }
+                        _ => Button::secondary("btn-check-updates", "Check for Updates")
+                            .size(ButtonSize::Sm)
+                            .leading_icon(IconName::RefreshCw)
+                            .on_click(move |_, _, cx| {
+                                updater_for_check.update(cx, |manager, cx| {
+                                    manager.check_for_updates(false, cx);
+                                });
+                            })
+                            .into_any_element(),
+                    }),
                 ),
         )
         .when_some(
@@ -329,7 +337,10 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
         };
 
         let row = div()
-            .id(SharedString::from(format!("channel-row-{}", ch.title().to_lowercase())))
+            .id(SharedString::from(format!(
+                "channel-row-{}",
+                ch.title().to_lowercase()
+            )))
             .w_full()
             .px(px(16.))
             .py(px(12.))
@@ -355,7 +366,11 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                             .h(px(20.))
                             .rounded_full()
                             .border_1()
-                            .border_color(if is_selected { theme.primary } else { theme.muted_foreground })
+                            .border_color(if is_selected {
+                                theme.primary
+                            } else {
+                                theme.muted_foreground
+                            })
                             .flex()
                             .items_center()
                             .justify_center()
@@ -404,16 +419,13 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                             ),
                     ),
             )
-            .child(
-                div()
-                    .when(is_selected, |this| {
-                        this.child(
-                            Icon::new(IconName::Check)
-                                .size(px(16.))
-                                .color(theme.primary),
-                        )
-                    }),
-            );
+            .child(div().when(is_selected, |this| {
+                this.child(
+                    Icon::new(IconName::Check)
+                        .size(px(16.))
+                        .color(theme.primary),
+                )
+            }));
 
         channel_section = channel_section.child(row);
     }
@@ -438,15 +450,18 @@ pub(super) fn render(view: &SettingsView, cx: &mut Context<SettingsView>) -> Any
                 }),
         )
         .child(
-            SettingsRow::new("settings-update-autodownload", "Automatically Download Updates")
-                .icon(IconName::Rocket)
-                .subtitle("Download verified update packages in the background when discovered")
-                .switch(settings.auto_download)
-                .on_toggle(move |new_val, _, cx| {
-                    updater_for_download_toggle.update(cx, |manager, cx| {
-                        manager.set_auto_download(new_val, cx);
-                    });
-                }),
+            SettingsRow::new(
+                "settings-update-autodownload",
+                "Automatically Download Updates",
+            )
+            .icon(IconName::Rocket)
+            .subtitle("Download verified update packages in the background when discovered")
+            .switch(settings.auto_download)
+            .on_toggle(move |new_val, _, cx| {
+                updater_for_download_toggle.update(cx, |manager, cx| {
+                    manager.set_auto_download(new_val, cx);
+                });
+            }),
         )
         .render_element(cx);
 
