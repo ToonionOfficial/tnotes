@@ -69,6 +69,9 @@ impl SettingsView {
     }
 
     pub fn select_section(&mut self, section: SettingsSectionId, cx: &mut Context<Self>) {
+        if !section.is_visible() {
+            return;
+        }
         self.active_section = section;
         self.capturing = None;
         cx.notify();
@@ -162,6 +165,9 @@ impl SettingsView {
     }
 
     fn section_matches_query(&self, section: SettingsSectionId, query: &str) -> bool {
+        if !section.is_visible() {
+            return false;
+        }
         if query.is_empty() {
             return true;
         }
@@ -345,7 +351,13 @@ impl SettingsView {
             SettingsSectionId::Sync => sync::render(self, cx),
             SettingsSectionId::Storage => storage::render(self, cx),
             SettingsSectionId::Keybindings => keybindings::render(self, cx),
-            SettingsSectionId::Developer => developer::render(self, cx),
+            SettingsSectionId::Developer => {
+                if SettingsSectionId::Developer.is_visible() {
+                    developer::render(self, cx)
+                } else {
+                    account::render(self, cx)
+                }
+            }
             SettingsSectionId::Updates => updates::render(self, cx),
             SettingsSectionId::About => about::render(self, cx),
         };
@@ -715,6 +727,32 @@ mod tests {
         assert_eq!(SettingsSectionId::ALL.len(), 7);
         assert_eq!(SettingsSectionId::WORKSPACE.len(), 2);
         assert_eq!(SettingsSectionId::SYSTEM.len(), 5);
+    }
+
+    #[test]
+    fn settings_developer_section_visibility_in_stable_and_prerelease() {
+        // Developer section hidden in non-debug stable releases without env override
+        assert!(!SettingsSectionId::Developer.is_visible_internal("0.2.0", false, false));
+        assert!(!SettingsSectionId::Developer.is_visible_internal("1.0.0", false, false));
+        assert!(!SettingsSectionId::Developer.is_visible_internal("0.3.5", false, false));
+
+        // Developer section visible in pre-releases
+        assert!(SettingsSectionId::Developer.is_visible_internal("0.2.0-alpha.1", false, false));
+        assert!(SettingsSectionId::Developer.is_visible_internal("0.2.0-beta.2", false, false));
+        assert!(SettingsSectionId::Developer.is_visible_internal("0.2.0-rc.1", false, false));
+
+        // Developer section visible when TNOTES_DEV override is present
+        assert!(SettingsSectionId::Developer.is_visible_internal("0.2.0", false, true));
+
+        // Developer section visible in debug builds
+        assert!(SettingsSectionId::Developer.is_visible_internal("0.2.0", true, false));
+
+        // Non-developer sections are always visible
+        for section in SettingsSectionId::ALL {
+            if section != SettingsSectionId::Developer {
+                assert!(section.is_visible_internal("0.2.0", false, false));
+            }
+        }
     }
 
     #[test]
