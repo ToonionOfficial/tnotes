@@ -13,10 +13,9 @@ const REPO_OWNER: &str = "ToonionOfficial";
 const REPO_NAME: &str = "tnotes";
 const COOLDOWN_SECONDS: u64 = 4 * 3600;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReleaseChannel {
-    #[default]
     Stable,
     Beta,
     Alpha,
@@ -24,6 +23,17 @@ pub enum ReleaseChannel {
 
 impl ReleaseChannel {
     pub const ALL: [Self; 3] = [Self::Stable, Self::Beta, Self::Alpha];
+
+    pub fn default_for_version(version_str: &str) -> Self {
+        let version_lower = version_str.to_ascii_lowercase();
+        if version_lower.contains("alpha") {
+            Self::Alpha
+        } else if version_lower.contains("beta") || version_lower.contains("rc") {
+            Self::Beta
+        } else {
+            Self::Stable
+        }
+    }
 
     pub fn title(self) -> &'static str {
         match self {
@@ -42,9 +52,10 @@ impl ReleaseChannel {
     }
 
     pub fn allows_version(self, version_str: &str) -> bool {
-        let is_alpha = version_str.contains("alpha");
-        let is_beta = version_str.contains("beta");
-        let is_rc = version_str.contains("rc");
+        let version_lower = version_str.to_ascii_lowercase();
+        let is_alpha = version_lower.contains("alpha");
+        let is_beta = version_lower.contains("beta");
+        let is_rc = version_lower.contains("rc");
         let is_prerelease = is_alpha || is_beta || is_rc;
 
         match self {
@@ -55,10 +66,17 @@ impl ReleaseChannel {
     }
 }
 
+impl Default for ReleaseChannel {
+    fn default() -> Self {
+        Self::default_for_version(env!("CARGO_PKG_VERSION"))
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UpdateSettings {
     pub check_on_launch: bool,
     pub auto_download: bool,
+    #[serde(default)]
     pub channel: ReleaseChannel,
     pub last_checked: Option<u64>,
 }
@@ -68,7 +86,7 @@ impl Default for UpdateSettings {
         Self {
             check_on_launch: true,
             auto_download: false,
-            channel: ReleaseChannel::Stable,
+            channel: ReleaseChannel::default(),
             last_checked: None,
         }
     }
@@ -467,25 +485,20 @@ async fn fetch_latest_manifest(
         .build()
         .map_err(|error| format!("Failed to initialize HTTP client: {error}"))?;
 
-    let manifest_url = match channel {
-        ReleaseChannel::Stable => {
+    let feed_url = format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases.atom");
+    let manifest_url = match resolve_tag_from_feed(&client, &feed_url, channel) {
+        Some(tag) => {
             format!(
-                "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json"
+                "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{tag}/latest.json"
             )
         }
-        ReleaseChannel::Beta | ReleaseChannel::Alpha => {
-            let feed_url = format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases.atom");
-            match resolve_tag_from_feed(&client, &feed_url, channel) {
-                Some(tag) => {
-                    format!(
-                        "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{tag}/latest.json"
-                    )
-                }
-                None => {
-                    format!(
-                        "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json"
-                    )
-                }
+        None => {
+            if channel == ReleaseChannel::Stable {
+                format!(
+                    "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/latest.json"
+                )
+            } else {
+                return Ok(None);
             }
         }
     };
@@ -494,6 +507,10 @@ async fn fetch_latest_manifest(
         .get(&manifest_url)
         .send()
         .map_err(|error| format!("Failed to reach update server: {error}"))?;
+
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
 
     if !response.status().is_success() {
         return Err(format!(
@@ -536,6 +553,23 @@ async fn fetch_latest_manifest(
     }))
 }
 
+pub fn parse_tag_from_feed(feed_xml: &str, channel: ReleaseChannel) -> Option<String> {
+    for line in feed_xml.lines() {
+        if line.contains("<link")
+            && let Some(start) = line.find("/releases/tag/")
+        {
+            let rest = &line[start + "/releases/tag/".len()..];
+            if let Some(tag) = rest.split(&['"', '<', '>', '/'][..]).next() {
+                let tag = tag.trim();
+                if !tag.is_empty() && channel.allows_version(tag) {
+                    return Some(tag.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn resolve_tag_from_feed(
     client: &reqwest::blocking::Client,
     feed_url: &str,
@@ -546,17 +580,7 @@ fn resolve_tag_from_feed(
         return None;
     }
     let body = response.text().ok()?;
-
-    for line in body.lines() {
-        if let Some(start) = line.find("/releases/tag/") {
-            let rest = &line[start + "/releases/tag/".len()..];
-            let tag = rest.split(&['"', '<', '>'][..]).next()?.trim();
-            if channel.allows_version(tag) {
-                return Some(tag.to_string());
-            }
-        }
-    }
-    None
+    parse_tag_from_feed(&body, channel)
 }
 
 fn download_and_verify_asset(
@@ -742,11 +766,102 @@ mod tests {
     }
 
     #[test]
+    fn release_channel_default_for_version() {
+        assert_eq!(
+            ReleaseChannel::default_for_version("0.2.0-alpha.2"),
+            ReleaseChannel::Alpha
+        );
+        assert_eq!(
+            ReleaseChannel::default_for_version("0.2.0-beta.1"),
+            ReleaseChannel::Beta
+        );
+        assert_eq!(
+            ReleaseChannel::default_for_version("0.2.0-rc.1"),
+            ReleaseChannel::Beta
+        );
+        assert_eq!(
+            ReleaseChannel::default_for_version("0.2.0"),
+            ReleaseChannel::Stable
+        );
+        assert_eq!(
+            ReleaseChannel::default_for_version("1.0.0"),
+            ReleaseChannel::Stable
+        );
+    }
+
+    #[test]
+    fn parse_tag_from_feed_filtering() {
+        let sample_feed = r#"<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>tag:github.com,2008:Repository/123/v0.2.0-alpha.2</id>
+    <link rel="alternate" type="text/html" href="https://github.com/ToonionOfficial/tnotes/releases/tag/v0.2.0-alpha.2"/>
+    <title>v0.2.0-alpha.2</title>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/123/v0.2.0-alpha.1</id>
+    <link rel="alternate" type="text/html" href="https://github.com/ToonionOfficial/tnotes/releases/tag/v0.2.0-alpha.1"/>
+    <title>v0.2.0-alpha.1</title>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/123/v0.1.0</id>
+    <link rel="alternate" type="text/html" href="https://github.com/ToonionOfficial/tnotes/releases/tag/v0.1.0"/>
+    <title>v0.1.0</title>
+  </entry>
+</feed>"#;
+
+        assert_eq!(
+            parse_tag_from_feed(sample_feed, ReleaseChannel::Alpha),
+            Some("v0.2.0-alpha.2".to_string())
+        );
+        assert_eq!(
+            parse_tag_from_feed(sample_feed, ReleaseChannel::Beta),
+            Some("v0.1.0".to_string())
+        );
+        assert_eq!(
+            parse_tag_from_feed(sample_feed, ReleaseChannel::Stable),
+            Some("v0.1.0".to_string())
+        );
+
+        let feed_without_stable = r#"<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <link rel="alternate" type="text/html" href="https://github.com/ToonionOfficial/tnotes/releases/tag/v0.2.0-alpha.2"/>
+  </entry>
+</feed>"#;
+
+        assert_eq!(
+            parse_tag_from_feed(feed_without_stable, ReleaseChannel::Alpha),
+            Some("v0.2.0-alpha.2".to_string())
+        );
+        assert_eq!(
+            parse_tag_from_feed(
+                feed_without_feed_channel(ReleaseChannel::Beta),
+                ReleaseChannel::Beta
+            ),
+            None
+        );
+        assert_eq!(
+            parse_tag_from_feed(feed_without_stable, ReleaseChannel::Stable),
+            None
+        );
+    }
+
+    fn feed_without_feed_channel(_ch: ReleaseChannel) -> &'static str {
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <link rel="alternate" type="text/html" href="https://github.com/ToonionOfficial/tnotes/releases/tag/v0.2.0-alpha.2"/>
+  </entry>
+</feed>"#
+    }
+
+    #[test]
     fn update_settings_default_and_roundtrip() {
         let default_settings = UpdateSettings::default();
         assert!(default_settings.check_on_launch);
         assert!(!default_settings.auto_download);
-        assert_eq!(default_settings.channel, ReleaseChannel::Stable);
+        assert_eq!(default_settings.channel, ReleaseChannel::default());
         assert_eq!(default_settings.last_checked, None);
 
         let json = serde_json::to_string(&default_settings).unwrap();
