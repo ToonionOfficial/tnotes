@@ -6146,7 +6146,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tnotes-core"
-version = "0.1.0"
+version = "0.2.0-alpha.1"
 dependencies = [
  "argon2",
  "blake3",
@@ -6161,7 +6161,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-desktop"
-version = "0.1.0"
+version = "0.2.0-alpha.1"
 dependencies = [
  "dirs 5.0.1",
  "gpui",
@@ -6175,7 +6175,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-document"
-version = "0.1.0"
+version = "0.2.0-alpha.1"
 dependencies = [
  "pretty_assertions",
  "pulldown-cmark 0.13.4",
@@ -6187,7 +6187,7 @@ dependencies = [
 
 [[package]]
 name = "tnotes-server"
-version = "0.1.0"
+version = "0.2.0-alpha.1"
 dependencies = [
  "axum",
  "axum-extra",
