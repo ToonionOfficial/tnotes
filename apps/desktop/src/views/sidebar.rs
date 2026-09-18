@@ -41,8 +41,34 @@ impl SidebarView {
             search_rows: Vec::new(),
             last_search_query: String::new(),
             scrollbar_drag_offset: None,
+            updater: None,
             _store_subscription: store_sub,
+            _updater_subscription: None,
         }
+    }
+
+    pub fn set_updater(
+        &mut self,
+        updater: Entity<crate::updater::UpdateManager>,
+        cx: &mut Context<Self>,
+    ) {
+        let sub = cx.observe(&updater, |_, _, cx| cx.notify());
+        self.updater = Some(updater);
+        self._updater_subscription = Some(sub);
+        cx.notify();
+    }
+
+    pub fn has_update_available(&self, cx: &App) -> bool {
+        self.updater
+            .as_ref()
+            .map(|u| {
+                matches!(
+                    u.read(cx).status(),
+                    crate::updater::UpdateStatus::Available { .. }
+                        | crate::updater::UpdateStatus::ReadyToRestart { .. }
+                )
+            })
+            .unwrap_or(false)
     }
 
     #[allow(dead_code)]

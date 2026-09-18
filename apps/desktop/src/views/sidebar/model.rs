@@ -21,7 +21,9 @@ pub struct SidebarView {
     pub(crate) search_rows: Vec<Note>,
     pub(crate) last_search_query: String,
     pub(crate) scrollbar_drag_offset: Option<Pixels>,
+    pub(crate) updater: Option<Entity<crate::updater::UpdateManager>>,
     pub(crate) _store_subscription: Subscription,
+    pub(crate) _updater_subscription: Option<Subscription>,
 }
 
 #[derive(Clone, Debug)]

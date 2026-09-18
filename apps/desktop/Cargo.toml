@@ -13,6 +13,9 @@ rust-embed = "8.5"
 dirs = "5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "default-tls"] }
+sha2 = "0.10"
+semver = "1.0"
 
 [dev-dependencies]
 gpui = { version = "0.2", features = ["test-support"] }
