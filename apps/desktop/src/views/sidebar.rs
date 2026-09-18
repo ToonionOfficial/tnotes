@@ -9,7 +9,11 @@ mod rename;
 pub use folder_icons::FOLDER_ICON_OPTIONS;
 #[allow(unused_imports)]
 pub(crate) use folder_icons::{folder_icon_for, folder_icon_from_name, folder_icon_name};
-pub use model::{RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget, SidebarView};
+#[allow(unused_imports)]
+pub use model::{
+    FolderIconPickerState, RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget,
+    SidebarView,
+};
 
 use crate::components::{InputState, Sidebar, SidebarCollapsible, UniformListScrollHandle};
 use crate::store::NoteStore;
@@ -218,7 +222,7 @@ impl SidebarView {
 }
 
 impl Render for SidebarView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let sidebar = Sidebar::new("main-sidebar")
             .width(px(260.))
             .collapsed(self.is_collapsed)
@@ -236,7 +240,7 @@ impl Render for SidebarView {
                 .child(sidebar)
                 .child(menu)
                 .into_any_element()
-        } else if let Some(picker) = self.icon_picker_element(cx) {
+        } else if let Some(picker) = self.icon_picker_element(window, cx) {
             div()
                 .id("sidebar-with-icon-picker")
                 .h_full()
@@ -255,8 +259,9 @@ mod tests {
     // `gpui::test` attribute macro into scope, shadowing the builtin `#[test]`
     // and breaking compilation of this module.
     use super::{
-        FOLDER_ICON_OPTIONS, RenameKind, RenameState, SidebarContextMenu, SidebarContextTarget,
-        SidebarView, folder_icon_for, folder_icon_from_name, folder_icon_name,
+        FOLDER_ICON_OPTIONS, FolderIconPickerState, RenameKind, RenameState, SidebarContextMenu,
+        SidebarContextTarget, SidebarView, folder_icon_for, folder_icon_from_name,
+        folder_icon_name,
     };
     use crate::components::{IconName, InputState};
     use crate::store::{NavigationLocation, NoteStore};
@@ -302,11 +307,16 @@ mod tests {
 
         assert!(view.read_with(cx, |v, _| v.picking_icon_for.is_none()));
 
-        view.update(cx, |v, cx| v.toggle_icon_picker("projects", cx));
+        view.update(cx, |v, cx| {
+            v.toggle_icon_picker_at("projects", Some(point(px(40.), px(80.))), cx)
+        });
         cx.run_until_parked();
         assert_eq!(
             view.read_with(cx, |v, _| v.picking_icon_for.clone()),
-            Some("projects".to_string())
+            Some(FolderIconPickerState {
+                folder_id: "projects".to_string(),
+                position: point(px(40.), px(80.)),
+            })
         );
 
         view.update(cx, |v, cx| v.toggle_icon_picker("projects", cx));
@@ -326,6 +336,51 @@ mod tests {
                 .find(|n| n.folder.id == "projects")
                 .map(|n| n.folder.icon.clone())),
             Some("rocket".to_string())
+        );
+    }
+
+    #[test]
+    fn icon_picker_dropdown_render_and_anchoring() {
+        let mut cx = TestAppContext::single();
+        cx.update(|cx| {
+            cx.set_global(ActiveTheme(Theme::dark()));
+        });
+
+        let (view, cx) = cx.add_window_view(|_, cx| {
+            let store = cx.new(|_| NoteStore::new());
+            SidebarView::new(store, cx)
+        });
+        let store = view.read_with(cx, |v, _| v.test_store());
+        store.update(cx, |s, _| s.seed_test_data());
+        cx.run_until_parked();
+
+        let anchor_pos = point(px(50.), px(120.));
+        view.update(cx, |v, cx| {
+            v.toggle_icon_picker_at("projects", Some(anchor_pos), cx);
+        });
+        cx.run_until_parked();
+
+        assert_eq!(
+            view.read_with(cx, |v, _| v.picking_icon_for.clone()),
+            Some(FolderIconPickerState {
+                folder_id: "projects".to_string(),
+                position: anchor_pos,
+            })
+        );
+
+        view.update(cx, |v, cx| {
+            v.pick_folder_icon("projects", IconName::Briefcase, cx);
+        });
+        cx.run_until_parked();
+
+        assert!(view.read_with(cx, |v, _| v.picking_icon_for.is_none()));
+        assert_eq!(
+            store.read_with(cx, |s, _| s
+                .folder_tree()
+                .iter()
+                .find(|n| n.folder.id == "projects")
+                .map(|n| n.folder.icon.clone())),
+            Some("briefcase".to_string())
         );
     }
 

@@ -13,7 +13,7 @@ pub struct SidebarView {
     pub(crate) context_menu: Option<SidebarContextMenu>,
     pub(crate) context_menu_focus: FocusHandle,
     pub(crate) renaming: Option<RenameState>,
-    pub(crate) picking_icon_for: Option<String>,
+    pub(crate) picking_icon_for: Option<FolderIconPickerState>,
     pub(crate) tree_scroll_handle: UniformListScrollHandle,
     pub(crate) search_scroll_handle: UniformListScrollHandle,
     pub(crate) tree_rows: Vec<TreeRow>,
@@ -24,6 +24,12 @@ pub struct SidebarView {
     pub(crate) updater: Option<Entity<crate::updater::UpdateManager>>,
     pub(crate) _store_subscription: Subscription,
     pub(crate) _updater_subscription: Option<Subscription>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FolderIconPickerState {
+    pub folder_id: String,
+    pub position: Point<Pixels>,
 }
 
 #[derive(Clone, Debug)]

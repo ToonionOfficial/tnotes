@@ -1,5 +1,6 @@
 use crate::components::icon::{Icon, IconName};
 use crate::theme::ThemeExt;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 
 #[allow(dead_code)]
@@ -14,6 +15,7 @@ pub struct FolderTreeItem {
     count: Option<usize>,
     on_toggle: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
     on_right_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
+    on_icon_click: Option<Box<dyn Fn(&MouseDownEvent, &mut Window, &mut App) + 'static>>,
 }
 
 #[allow(dead_code)]
@@ -28,6 +30,7 @@ impl FolderTreeItem {
             count: None,
             on_toggle: None,
             on_right_click: None,
+            on_icon_click: None,
         }
     }
 
@@ -64,6 +67,14 @@ impl FolderTreeItem {
         handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_right_click = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_icon_click(
+        mut self,
+        handler: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_icon_click = Some(Box::new(handler));
         self
     }
 }
@@ -103,6 +114,32 @@ impl RenderOnce for FolderTreeItem {
 
         let on_toggle = self.on_toggle;
         let on_right_click = self.on_right_click;
+        let on_icon_click = self.on_icon_click;
+
+        let icon_element = div()
+            .id(SharedString::from(format!("folder-icon-btn-{}", self.id)))
+            .flex_shrink_0()
+            .w(px(20.))
+            .h(px(20.))
+            .rounded(px(4.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .when(on_icon_click.is_some(), |s| {
+                s.cursor_pointer()
+                    .hover(|h| h.bg(theme.secondary).text_color(theme.foreground))
+            })
+            .when_some(on_icon_click, |el, handler| {
+                el.on_mouse_down(MouseButton::Left, move |ev, window, cx| {
+                    cx.stop_propagation();
+                    handler(ev, window, cx);
+                })
+            })
+            .child(
+                Icon::new(item_icon)
+                    .size(px(14.))
+                    .color(theme.muted_foreground),
+            );
 
         let mut row = div()
             .id(self.id)
@@ -128,18 +165,7 @@ impl RenderOnce for FolderTreeItem {
                     .min_w_0()
                     .overflow_hidden()
                     .child(chevron)
-                    .child(
-                        div()
-                            .flex_shrink_0()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                Icon::new(item_icon)
-                                    .size(px(14.))
-                                    .color(theme.muted_foreground),
-                            ),
-                    )
+                    .child(icon_element)
                     .child(div().flex_1().min_w_0().truncate().child(self.name)),
             );
 
