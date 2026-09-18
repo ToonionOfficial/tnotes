@@ -2,7 +2,7 @@
 ; Defines 64-bit per-user installer (avoids UAC elevation during self-updates)
 
 #ifndef AppVersion
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.0-alpha.1"
 #endif
 
 [Setup]
