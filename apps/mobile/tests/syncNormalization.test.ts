@@ -9,6 +9,7 @@ describe("Sync Payload Normalization", () => {
       folderId: "folder_456",
       title: "Meeting Notes",
       body: "Discuss Q3 goals",
+      searchableText: "Discuss Q3 goals",
       pinned: true,
       trashed: false,
       version: 2,
@@ -27,6 +28,7 @@ describe("Sync Payload Normalization", () => {
       folder_id: "folder_456",
       title: "Meeting Notes",
       body: "Discuss Q3 goals",
+      searchable_text: "Discuss Q3 goals",
       pinned: true,
       trashed: false,
       version: 2,
@@ -36,6 +38,29 @@ describe("Sync Payload Normalization", () => {
       device_id: "dev_iphone",
       checksum: "abc123hash",
     })
+  })
+
+  it("defaults a missing searchableText to empty string", () => {
+    const normalized = normalizePayloadForSync("note", {
+      id: "01HXYZ3",
+      userId: "user_123",
+      title: "No Text",
+      body: "",
+    })
+
+    expect(normalized.searchable_text).toBe("")
+  })
+
+  it("passes through snake_case searchable_text from server payloads", () => {
+    const normalized = normalizePayloadForSync("note", {
+      id: "01HXYZ4",
+      user_id: "user_123",
+      title: "Remote",
+      body: "{}",
+      searchable_text: "remote text",
+    })
+
+    expect(normalized.searchable_text).toBe("remote text")
   })
 
   it("handles Note with null folder and soft delete", () => {

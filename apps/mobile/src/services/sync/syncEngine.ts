@@ -46,6 +46,7 @@ export function normalizePayloadForSync(
       folder_id: raw.folderId !== undefined ? raw.folderId : (raw.folder_id ?? null),
       title: raw.title ?? "",
       body: raw.body ?? "",
+      searchable_text: raw.searchableText ?? raw.searchable_text ?? "",
       pinned: Boolean(raw.pinned),
       trashed: Boolean(raw.trashed),
       version: Number(raw.version ?? 1),

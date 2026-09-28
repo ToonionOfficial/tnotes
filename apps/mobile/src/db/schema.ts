@@ -47,6 +47,7 @@ export const notes = sqliteTable(
     }),
     title: text("title").notNull().default(""),
     body: text("body").notNull().default(""),
+    searchableText: text("searchable_text").notNull().default(""),
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     trashed: integer("trashed", { mode: "boolean" }).notNull().default(false),
     version: integer("version").notNull().default(1),

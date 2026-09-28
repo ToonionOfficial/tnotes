@@ -65,7 +65,8 @@ export async function getNotesPageAsync(filters: NoteFilters = {}): Promise<Sear
     params.push(limit, offset)
     const rows = await expo.getAllAsync<NoteRow>(
       `SELECT n.id, n.user_id AS userId, n.folder_id AS folderId, n.title,
-        substr(n.body, 1, 300) AS body, n.pinned, n.trashed, n.version,
+        substr(n.body, 1, 300) AS body, n.searchable_text AS searchableText,
+        n.pinned, n.trashed, n.version,
         n.created_at AS createdAt, n.updated_at AS updatedAt, n.deleted_at AS deletedAt,
         n.device_id AS deviceId, n.checksum,
         snippet(notes_fts, 1, '<mark>', '</mark>', '...', 20) AS snippet
@@ -94,7 +95,7 @@ export async function getNotesPageAsync(filters: NoteFilters = {}): Promise<Sear
     : "pinned DESC, updated_at DESC, id DESC"
   const rows = await expo.getAllAsync<NoteRow>(
     `SELECT id, user_id AS userId, folder_id AS folderId, title, substr(body, 1, 300) AS body,
-      pinned, trashed, version, created_at AS createdAt, updated_at AS updatedAt,
+      searchable_text AS searchableText, pinned, trashed, version, created_at AS createdAt, updated_at AS updatedAt,
       deleted_at AS deletedAt, device_id AS deviceId, checksum
     FROM notes WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     params,
@@ -145,6 +146,7 @@ export function searchNotes(
           n.deleted_at AS deletedAt,
           n.device_id AS deviceId,
           n.checksum,
+          n.searchable_text AS searchableText,
           snippet(notes_fts, 1, '<mark>', '</mark>', '...', 20) AS snippet
         FROM notes n
         JOIN notes_fts f ON n.rowid = f.rowid
@@ -171,6 +173,7 @@ export function searchNotes(
           n.deleted_at AS deletedAt,
           n.device_id AS deviceId,
           n.checksum,
+          n.searchable_text AS searchableText,
           snippet(notes_fts, 1, '<mark>', '</mark>', '...', 20) AS snippet
         FROM notes n
         JOIN notes_fts f ON n.rowid = f.rowid
@@ -223,6 +226,7 @@ export function searchNotes(
     deletedAt: row.deletedAt ? Number(row.deletedAt) : null,
     deviceId: String(row.deviceId),
     checksum: String(row.checksum ?? ""),
+    searchableText: String(row.searchableText ?? ""),
     snippet: row.snippet ? String(row.snippet) : undefined,
   }))
 }
@@ -379,6 +383,7 @@ export function getNotes(filters?: NoteFilters): Note[] {
       folderId: notes.folderId,
       title: notes.title,
       body: sql<string>`substr(${notes.body}, 1, 300)`,
+      searchableText: notes.searchableText,
       pinned: notes.pinned,
       trashed: notes.trashed,
       version: notes.version,
@@ -411,7 +416,8 @@ export function getNoteById(id: string): Note | null {
 
 export async function getNoteByIdAsync(id: string): Promise<Note | null> {
   const row = await expo.getFirstAsync<NoteRow>(
-    `SELECT id, user_id AS userId, folder_id AS folderId, title, body, pinned, trashed, version,
+    `SELECT id, user_id AS userId, folder_id AS folderId, title, body,
+      searchable_text AS searchableText, pinned, trashed, version,
       created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt,
       device_id AS deviceId, checksum FROM notes WHERE id = ?`,
     id,
@@ -422,6 +428,7 @@ export async function getNoteByIdAsync(id: string): Promise<Note | null> {
 export function createNote(input: {
   title?: string
   body?: string
+  searchableText?: string
   folderId?: string | null
   pinned?: boolean
 }): Note {
@@ -440,6 +447,7 @@ export function createNote(input: {
     folderId: input.folderId ?? null,
     title,
     body,
+    searchableText: input.searchableText ?? "",
     pinned: input.pinned ?? false,
     trashed: false,
     version: 1,
@@ -461,6 +469,7 @@ export function updateNote(
   input: {
     title?: string
     body?: string
+    searchableText?: string
     folderId?: string | null
     pinned?: boolean
   },
@@ -478,6 +487,8 @@ export function updateNote(
     ...existing,
     title: input.title !== undefined ? input.title : existing.title,
     body,
+    searchableText:
+      input.searchableText !== undefined ? input.searchableText : existing.searchableText,
     folderId: input.folderId !== undefined ? input.folderId : existing.folderId,
     pinned: input.pinned !== undefined ? input.pinned : existing.pinned,
     version: nextVersion,
