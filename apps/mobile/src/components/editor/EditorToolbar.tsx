@@ -1,7 +1,7 @@
-import type { EditorBridge } from "@10play/tentap-editor"
-import { useBridgeState } from "@10play/tentap-editor"
 import { GlassView } from "expo-glass-effect"
+import type { RefObject } from "react"
 import { Keyboard, Platform, ScrollView, View } from "react-native"
+import type { EnrichedMarkdownTextInputInstance, StyleState } from "react-native-enriched-markdown"
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -9,13 +9,19 @@ import { useAppTheme } from "@/hooks/useAppTheme"
 import { ToolbarButton } from "./ToolbarButton"
 
 interface EditorToolbarProps {
-  editor: EditorBridge
+  inputRef: RefObject<EnrichedMarkdownTextInputInstance | null>
+  styleState: StyleState | null
+  keyboardVisible: boolean
   onOpenFormat?: () => void
 }
 
-export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
+export function EditorToolbar({
+  inputRef,
+  styleState,
+  keyboardVisible,
+  onOpenFormat,
+}: EditorToolbarProps) {
   const insets = useSafeAreaInsets()
-  const editorState = useBridgeState(editor)
   const { isDarkMode } = useAppTheme()
 
   const { height, progress } = useReanimatedKeyboardAnimation()
@@ -30,38 +36,32 @@ export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
     }
   })
 
-  const dismissContainerStyle = useAnimatedStyle(() => {
-    return {
-      opacity: progress.value,
-      width: interpolate(progress.value, [0, 1], [0, 48]),
-      transform: [{ scale: interpolate(progress.value, [0, 1], [0.6, 1]) }],
-      overflow: "hidden" as const,
-    }
-  })
-
-  const dismissAllKeyboards = () => {
+  const handleKeyboardToggle = () => {
     try {
-      editor.blur()
-      editor.injectJS(
-        "if (document.activeElement) { document.activeElement.blur(); } window.getSelection()?.removeAllRanges();",
-      )
+      if (keyboardVisible) {
+        inputRef.current?.blur()
+      } else {
+        inputRef.current?.focus()
+      }
     } catch {}
-    Keyboard.dismiss()
+    if (keyboardVisible) {
+      Keyboard.dismiss()
+    }
   }
 
   const handleOpenFormat = () => {
-    dismissAllKeyboards()
+    if (keyboardVisible) {
+      try {
+        inputRef.current?.blur()
+      } catch {}
+      Keyboard.dismiss()
+    }
     if (onOpenFormat) {
       onOpenFormat()
     }
   }
 
-  const handleDismissKeyboard = () => {
-    dismissAllKeyboards()
-  }
-
-  const isHeadingOrStyleActive =
-    Boolean(editorState.headingLevel) || editorState.isBlockquoteActive || editorState.isCodeActive
+  const isHeadingOrStyleActive = Boolean(styleState?.heading.isActive)
 
   return (
     <Animated.View
@@ -96,6 +96,7 @@ export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               alignItems: "center",
               gap: 7,
@@ -112,75 +113,44 @@ export function EditorToolbar({ editor, onOpenFormat }: EditorToolbarProps) {
             />
 
             <ToolbarButton
-              icon="checklist"
-              size={21}
-              isActive={editorState.isTaskListActive}
-              isDisabled={!editorState.canToggleTaskList}
-              onPress={() => editor.toggleTaskList()}
-            />
-
-            <ToolbarButton
               icon="bulletList"
               size={21}
-              isActive={editorState.isBulletListActive}
-              isDisabled={!editorState.canToggleBulletList}
-              onPress={() => editor.toggleBulletList()}
+              isActive={styleState?.unorderedList.isActive ?? false}
+              onPress={() => inputRef.current?.toggleUnorderedList()}
             />
 
             <ToolbarButton
               icon="bold"
               size={21}
-              isActive={editorState.isBoldActive}
-              isDisabled={!editorState.canToggleBold}
-              onPress={() => editor.toggleBold()}
+              isActive={styleState?.bold.isActive ?? false}
+              onPress={() => inputRef.current?.toggleBold()}
             />
 
             <ToolbarButton
               icon="italic"
               size={21}
-              isActive={editorState.isItalicActive}
-              isDisabled={!editorState.canToggleItalic}
-              onPress={() => editor.toggleItalic()}
+              isActive={styleState?.italic.isActive ?? false}
+              onPress={() => inputRef.current?.toggleItalic()}
             />
 
             <ToolbarButton
               icon="underline"
               size={21}
-              isActive={editorState.isUnderlineActive}
-              isDisabled={!editorState.canToggleUnderline}
-              onPress={() => editor.toggleUnderline()}
+              isActive={styleState?.underline.isActive ?? false}
+              onPress={() => inputRef.current?.toggleUnderline()}
             />
 
             <ToolbarButton
               icon="strike"
               size={21}
-              isActive={editorState.isStrikeActive}
-              isDisabled={!editorState.canToggleStrike}
-              onPress={() => editor.toggleStrike()}
-            />
-
-            <ToolbarButton
-              icon="code"
-              size={21}
-              isActive={editorState.isCodeActive}
-              isDisabled={!editorState.canToggleCode}
-              onPress={() => editor.toggleCode()}
-            />
-
-            <ToolbarButton
-              icon="quote"
-              size={21}
-              isActive={editorState.isBlockquoteActive}
-              isDisabled={!editorState.canToggleBlockquote}
-              onPress={() => editor.toggleBlockquote()}
+              isActive={styleState?.strikethrough.isActive ?? false}
+              onPress={() => inputRef.current?.toggleStrikethrough()}
             />
           </ScrollView>
 
           <View className="h-6 w-px bg-white/10" />
 
-          <Animated.View style={dismissContainerStyle}>
-            <ToolbarButton icon="dismiss" size={22} onPress={handleDismissKeyboard} />
-          </Animated.View>
+          <ToolbarButton icon="dismiss" size={22} onPress={handleKeyboardToggle} />
         </View>
       </GlassView>
     </Animated.View>

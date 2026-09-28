@@ -1,12 +1,16 @@
-import type { EditorBridge } from "@10play/tentap-editor"
-import { useBridgeState } from "@10play/tentap-editor"
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
   BottomSheetView,
 } from "@gorhom/bottom-sheet"
+import type { RefObject } from "react"
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
+import type {
+  EnrichedMarkdownTextInputInstance,
+  HeadingLevel,
+  StyleState,
+} from "react-native-enriched-markdown"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { ToolbarIcon, type ToolbarIconName } from "./ToolbarIcon"
 
@@ -37,23 +41,15 @@ const STYLES = [
     fontSize: 15,
     fontWeight: "400" as const,
   },
-  {
-    id: "code",
-    label: "Code",
-    fontSize: 14,
-    fontWeight: "400" as const,
-    fontFamily: "monospace" as const,
-  },
-  {
-    id: "quote",
-    label: "Quote",
-    fontSize: 15,
-    fontWeight: "400" as const,
-    fontStyle: "italic" as const,
-  },
 ] as const
 
 type HeadingType = (typeof STYLES)[number]["id"]
+
+const HEADING_LEVELS: Record<Exclude<HeadingType, "body">, HeadingLevel> = {
+  title: 1,
+  heading: 2,
+  subheading: 3,
+}
 
 export interface FormatSheetRef {
   open: () => void
@@ -61,7 +57,8 @@ export interface FormatSheetRef {
 }
 
 interface FormatSheetProps {
-  editor: EditorBridge
+  inputRef: RefObject<EnrichedMarkdownTextInputInstance | null>
+  styleState: StyleState | null
   onClose?: () => void
 }
 
@@ -102,11 +99,10 @@ function FormatButton({
 }
 
 export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function FormatSheet(
-  { editor, onClose },
+  { inputRef, styleState, onClose },
   ref,
 ) {
   const bottomSheetRef = useRef<BottomSheet>(null)
-  const editorState = useBridgeState(editor)
   const { colors, isDarkMode } = useAppTheme()
   const snapPoints = useMemo(() => [265], [])
 
@@ -120,48 +116,41 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
 
   useImperativeHandle(ref, () => ({ open, close }), [open, close])
 
+  const focusInput = useCallback(() => {
+    try {
+      inputRef.current?.focus()
+    } catch {}
+  }, [inputRef])
+
   const handleManualClose = useCallback(() => {
     bottomSheetRef.current?.close()
-    try {
-      editor.focus()
-    } catch {}
+    focusInput()
     onClose?.()
-  }, [editor, onClose])
+  }, [focusInput, onClose])
 
-  const currentHeadingLevel = editorState.headingLevel
-  const isBlockquote = editorState.isBlockquoteActive
-  const isCodeActive = editorState.isCodeActive
+  const headingLevel = styleState?.heading.isActive ? styleState.heading.level : 0
+  const activeHeading: HeadingLevel | null = headingLevel === 0 ? null : headingLevel
 
   let activeStyle: HeadingType = "body"
-  if (currentHeadingLevel === 1) activeStyle = "title"
-  else if (currentHeadingLevel === 2) activeStyle = "heading"
-  else if (currentHeadingLevel === 3) activeStyle = "subheading"
-  else if (isBlockquote) activeStyle = "quote"
-  else if (isCodeActive) activeStyle = "code"
+  if (headingLevel === 1) activeStyle = "title"
+  else if (headingLevel === 2) activeStyle = "heading"
+  else if (headingLevel === 3) activeStyle = "subheading"
 
   const handleSelectStyle = (type: HeadingType) => {
-    switch (type) {
-      case "title":
-        editor.toggleHeading(1)
-        break
-      case "heading":
-        editor.toggleHeading(2)
-        break
-      case "subheading":
-        editor.toggleHeading(3)
-        break
-      case "body":
-        if (currentHeadingLevel) {
-          editor.toggleHeading(currentHeadingLevel as 1 | 2 | 3)
-        }
-        if (isBlockquote) editor.toggleBlockquote()
-        break
-      case "quote":
-        editor.toggleBlockquote()
-        break
-      case "code":
-        editor.toggleCode()
-        break
+    if (type === "body") {
+      if (activeHeading) {
+        inputRef.current?.toggleHeading(activeHeading)
+      }
+      return
+    }
+    const level = HEADING_LEVELS[type]
+    if (headingLevel === level) {
+      inputRef.current?.toggleHeading(level)
+    } else {
+      if (activeHeading) {
+        inputRef.current?.toggleHeading(activeHeading)
+      }
+      inputRef.current?.toggleHeading(level)
     }
   }
 
@@ -181,13 +170,11 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
   const handleSheetChange = useCallback(
     (index: number) => {
       if (index === -1) {
-        try {
-          editor.focus()
-        } catch {}
+        focusInput()
         onClose?.()
       }
     },
-    [onClose, editor],
+    [focusInput, onClose],
   )
 
   return (
@@ -252,8 +239,6 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
                     fontSize: style.fontSize,
                     fontWeight: style.fontWeight,
                     letterSpacing: "letterSpacing" in style ? style.letterSpacing : undefined,
-                    fontFamily: "fontFamily" in style ? style.fontFamily : undefined,
-                    fontStyle: "fontStyle" in style ? style.fontStyle : undefined,
                   }}
                   className={
                     isSelected ? (isDarkMode ? "text-[#32285F]" : "text-white") : "text-foreground"
@@ -269,65 +254,39 @@ export const FormatSheet = forwardRef<FormatSheetRef, FormatSheetProps>(function
         <View className="mb-2.5 w-full flex-row overflow-hidden rounded-2xl bg-background border border-border/40 p-1">
           <FormatButton
             icon="bold"
-            active={editorState.isBoldActive}
-            disabled={!editorState.canToggleBold}
-            onPress={() => editor.toggleBold()}
+            active={styleState?.bold.isActive ?? false}
+            onPress={() => inputRef.current?.toggleBold()}
           />
           <FormatButton
             icon="italic"
-            active={editorState.isItalicActive}
-            disabled={!editorState.canToggleItalic}
-            onPress={() => editor.toggleItalic()}
+            active={styleState?.italic.isActive ?? false}
+            onPress={() => inputRef.current?.toggleItalic()}
           />
           <FormatButton
             icon="underline"
-            active={editorState.isUnderlineActive}
-            disabled={!editorState.canToggleUnderline}
-            onPress={() => editor.toggleUnderline()}
+            active={styleState?.underline.isActive ?? false}
+            onPress={() => inputRef.current?.toggleUnderline()}
           />
           <FormatButton
             icon="strike"
-            active={editorState.isStrikeActive}
-            disabled={!editorState.canToggleStrike}
-            onPress={() => editor.toggleStrike()}
-          />
-          <FormatButton
-            icon="code"
-            active={editorState.isCodeActive}
-            disabled={!editorState.canToggleCode}
-            onPress={() => editor.toggleCode()}
+            active={styleState?.strikethrough.isActive ?? false}
+            onPress={() => inputRef.current?.toggleStrikethrough()}
           />
         </View>
 
         <View className="w-full flex-row overflow-hidden rounded-2xl bg-background border border-border/40 p-1">
           <FormatButton
-            icon="checklist"
-            active={editorState.isTaskListActive}
-            disabled={!editorState.canToggleTaskList}
-            onPress={() => editor.toggleTaskList()}
-          />
-          <FormatButton
             icon="bulletList"
-            active={editorState.isBulletListActive}
-            disabled={!editorState.canToggleBulletList}
-            onPress={() => editor.toggleBulletList()}
+            active={styleState?.unorderedList.isActive ?? false}
+            onPress={() => inputRef.current?.toggleUnorderedList()}
           />
           <FormatButton
             icon="orderedList"
-            active={editorState.isOrderedListActive}
-            disabled={!editorState.canToggleOrderedList}
-            onPress={() => editor.toggleOrderedList()}
+            active={styleState?.orderedList.isActive ?? false}
+            onPress={() => inputRef.current?.toggleOrderedList()}
           />
-          <FormatButton
-            icon="outdent"
-            disabled={!editorState.canLift && !editorState.canLiftTaskListItem}
-            onPress={() => (editorState.canLift ? editor.lift() : editor.liftTaskListItem())}
-          />
-          <FormatButton
-            icon="indent"
-            disabled={!editorState.canSink && !editorState.canSinkTaskListItem}
-            onPress={() => (editorState.canSink ? editor.sink() : editor.sinkTaskListItem())}
-          />
+          <FormatButton icon="outdent" onPress={() => inputRef.current?.outdentList()} />
+          <FormatButton icon="indent" onPress={() => inputRef.current?.indentList()} />
         </View>
       </BottomSheetView>
     </BottomSheet>
