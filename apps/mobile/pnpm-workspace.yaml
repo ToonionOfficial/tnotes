@@ -1,5 +1,6 @@
 allowBuilds:
   esbuild: true
+  react-native-enriched-markdown: true
 minimumReleaseAgeExclude:
   - '@expo/cli@57.0.20 || 57.0.22 || 57.0.25 || 57.0.26'
   - '@expo/env@2.4.3'
