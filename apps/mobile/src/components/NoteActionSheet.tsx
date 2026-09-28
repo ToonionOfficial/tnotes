@@ -12,7 +12,7 @@ import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { formatNoteTime } from "@/utils/date"
-import { stripHtml } from "@/utils/text"
+import { displayTitle, notePreviewText } from "@/utils/text"
 
 interface NoteActionSheetProps {
   note?: Note | SearchResult | null
@@ -66,11 +66,7 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
       [],
     )
 
-    const previewText = activeNote
-      ? "snippet" in activeNote && activeNote.snippet
-        ? stripHtml(String(activeNote.snippet))
-        : stripHtml(activeNote.body)
-      : ""
+    const previewText = activeNote ? notePreviewText(activeNote) : ""
 
     const handleShare = async () => {
       if (!activeNote) return
@@ -118,7 +114,7 @@ export const NoteActionSheet = forwardRef<NoteActionSheetRef, NoteActionSheetPro
                   numberOfLines={1}
                   className="flex-1 text-[17px] font-semibold text-foreground"
                 >
-                  {activeNote.title || "Untitled Note"}
+                  {displayTitle(activeNote.title)}
                 </Text>
               </View>
               <View className="mt-1 flex-row items-center gap-1.5">

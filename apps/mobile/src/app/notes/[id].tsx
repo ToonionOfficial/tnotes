@@ -6,6 +6,7 @@ import {
   documentToJson,
   documentToMarkdown,
   extractText,
+  firstContentText,
   markdownToDocument,
   parseDocument,
 } from "@/document"
@@ -42,7 +43,7 @@ export default function NoteScreen() {
     const doc = markdownToDocument(markdown)
     const body = documentToJson(doc)
     const searchableText = extractText(doc)
-    const title = extractTitle(searchableText)
+    const title = extractTitle(firstContentText(doc))
 
     if (currentIdRef.current === "new") {
       if (isBlank) return

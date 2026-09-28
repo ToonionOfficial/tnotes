@@ -1,5 +1,6 @@
 import { expo } from "@/db"
 import { isBenchmarkSyncPayload } from "@/db/queries/benchmark"
+import { firstLineTitle } from "@/utils/text"
 import type { SyncChange } from "./types"
 
 function toSqlString(val: unknown): string {
@@ -62,7 +63,7 @@ export async function applyRemoteChangesAsync(changes: SyncChange[]): Promise<nu
     } else if (entity_type === "note") {
       const userId = String(payload.user_id ?? "default_user")
       const folderId = payload.folder_id ? String(payload.folder_id) : null
-      const title = String(payload.title ?? "")
+      const title = firstLineTitle(String(payload.title ?? ""))
       const body = String(payload.body ?? "")
       const searchableText = String(payload.searchable_text ?? payload.searchableText ?? "")
       const pinned = payload.pinned ? 1 : 0

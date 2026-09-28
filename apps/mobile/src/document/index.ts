@@ -10,7 +10,7 @@ export {
   paragraphDocument,
   parseDocument,
 } from "./codec"
-export { extractText } from "./extract"
+export { extractText, firstContentText } from "./extract"
 export { documentToMarkdown, markdownToDocument } from "./markdown"
 export type {
   AudioData,

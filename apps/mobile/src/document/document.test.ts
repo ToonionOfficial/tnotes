@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { documentToJson, emptyDocument, paragraphDocument, parseDocument } from "@/document/codec"
-import { extractText } from "@/document/extract"
+import { extractText, firstContentText } from "@/document/extract"
+import { markdownToDocument } from "@/document/markdown"
 
 describe("parseDocument", () => {
   it("returns an empty document for blank input", () => {
@@ -122,5 +123,29 @@ describe("extractText", () => {
     expect(doc).toBeDefined()
     if (!doc) return
     expect(extractText(doc)).toBe("outer inner")
+  })
+})
+
+describe("firstContentText", () => {
+  it("returns the first paragraph of a multi-paragraph note", () => {
+    const doc = markdownToDocument("hello there\n\nthis is a note")
+    expect(extractText(doc)).toBe("hello there this is a note")
+    expect(firstContentText(doc)).toBe("hello there")
+  })
+
+  it("skips empty leading blocks", () => {
+    const doc = markdownToDocument("---\n\nReal start")
+    expect(firstContentText(doc)).toBe("Real start")
+  })
+
+  it("returns the first item of lists", () => {
+    const tasks = markdownToDocument("- [x] Done\n- [ ] Todo")
+    expect(firstContentText(tasks)).toBe("Done")
+    const bullets = markdownToDocument("- outer\n  - inner")
+    expect(firstContentText(bullets)).toBe("outer")
+  })
+
+  it("returns empty string for an empty document", () => {
+    expect(firstContentText(emptyDocument())).toBe("")
   })
 })

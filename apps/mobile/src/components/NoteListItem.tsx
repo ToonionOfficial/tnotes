@@ -13,7 +13,7 @@ import type { SearchResult } from "@/db/queries"
 import type { Note } from "@/db/schema"
 import { useAppTheme } from "@/hooks/useAppTheme"
 import { formatNoteTime } from "@/utils/date"
-import { stripHtml } from "@/utils/text"
+import { displayTitle, notePreviewText } from "@/utils/text"
 
 interface NoteListItemProps {
   item: Note | SearchResult
@@ -71,8 +71,7 @@ export const NoteListItem = memo(function NoteListItem({
     roundingClass = "rounded-b-3xl"
   }
 
-  const previewText =
-    "snippet" in item && item.snippet ? stripHtml(item.snippet) : stripHtml(item.body)
+  const previewText = notePreviewText(item)
 
   const noteRow = (
     <Pressable
@@ -101,7 +100,7 @@ export const NoteListItem = memo(function NoteListItem({
             <Pin size={12} color={colors.primary} fill={colors.primary} />
           )}
           <Text numberOfLines={1} className="flex-1 text-[16px] font-semibold text-foreground">
-            {item.title || "Untitled Note"}
+            {displayTitle(item.title)}
           </Text>
         </View>
         <View className="mt-0.5 flex-row items-center gap-1.5">

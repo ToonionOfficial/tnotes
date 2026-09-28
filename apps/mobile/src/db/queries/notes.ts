@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import { computeChecksum } from "@/utils/crypto"
 import { ulid } from "@/utils/id"
+import { firstLineTitle } from "@/utils/text"
 import { db, expo } from "../index"
 import { type Note, notes } from "../schema"
 import { getFolderById } from "./folders"
@@ -438,7 +439,7 @@ export function createNote(input: {
   const now = Date.now()
   const id = ulid()
   const body = input.body ?? ""
-  const title = input.title ?? ""
+  const title = firstLineTitle(input.title ?? "")
   const checksum = computeChecksum(body)
 
   const newNote: Note = {
@@ -485,7 +486,7 @@ export function updateNote(
 
   const updatedNote: Note = {
     ...existing,
-    title: input.title !== undefined ? input.title : existing.title,
+    title: input.title !== undefined ? firstLineTitle(input.title) : existing.title,
     body,
     searchableText:
       input.searchableText !== undefined ? input.searchableText : existing.searchableText,
