@@ -1,10 +1,11 @@
-import { RichText } from "@10play/tentap-editor"
 import { useRef } from "react"
 import { View } from "react-native"
+import {
+  EnrichedMarkdownTextInput,
+  type EnrichedMarkdownTextInputInstance,
+} from "react-native-enriched-markdown"
+import { useAppTheme } from "@/hooks/useAppTheme"
 import { EditorHeader } from "./EditorHeader"
-import { EditorToolbar } from "./EditorToolbar"
-import { FormatSheet, type FormatSheetRef } from "./FormatSheet"
-import { useNoteEditor } from "./useNoteEditorBridge"
 
 interface NoteEditorProps {
   initialContent?: string
@@ -12,7 +13,7 @@ interface NoteEditorProps {
   headerTitle?: string
   onBack?: () => void
   onDone?: () => void
-  onSave?: (html: string, text: string) => void
+  onSave?: (markdown: string) => void
 }
 
 export function NoteEditor({
@@ -23,7 +24,8 @@ export function NoteEditor({
   onDone,
   onSave,
 }: NoteEditorProps) {
-  const formatSheetRef = useRef<FormatSheetRef>(null)
+  const { colors } = useAppTheme()
+  const inputRef = useRef<EnrichedMarkdownTextInputInstance>(null)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleFlushSave = async () => {
@@ -33,32 +35,21 @@ export function NoteEditor({
     }
     if (onSave) {
       try {
-        const html = await editor.getHTML()
-        const text = await editor.getText()
-        onSave(html, text)
+        const markdown = await inputRef.current?.getMarkdown()
+        if (markdown !== undefined) onSave(markdown)
       } catch {}
     }
   }
 
-  const handleChange = () => {
+  const handleChangeMarkdown = (markdown: string) => {
     if (!onSave) return
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
     }
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const html = await editor.getHTML()
-        const text = await editor.getText()
-        onSave(html, text)
-      } catch {}
+    saveTimeoutRef.current = setTimeout(() => {
+      onSave(markdown)
     }, 400)
   }
-
-  const editor = useNoteEditor({
-    initialContent,
-    autofocus,
-    onChange: handleChange,
-  })
 
   const handleBack = async () => {
     await handleFlushSave()
@@ -72,12 +63,18 @@ export function NoteEditor({
 
   return (
     <View className="flex-1 bg-background">
-      <EditorHeader editor={editor} title={headerTitle} onBack={handleBack} onDone={handleDone} />
-      <View className="flex-1">
-        <RichText editor={editor} />
+      <EditorHeader title={headerTitle} onBack={handleBack} onDone={handleDone} />
+      <View className="flex-1 px-6 pt-4">
+        <EnrichedMarkdownTextInput
+          ref={inputRef}
+          defaultValue={initialContent ?? ""}
+          autoFocus={autofocus}
+          cursorColor={colors.primary}
+          selectionColor={colors.primary}
+          onChangeMarkdown={handleChangeMarkdown}
+          style={{ flex: 1, color: colors.foreground, fontSize: 18 }}
+        />
       </View>
-      <EditorToolbar editor={editor} onOpenFormat={() => formatSheetRef.current?.open()} />
-      <FormatSheet ref={formatSheetRef} editor={editor} />
     </View>
   )
 }

@@ -11,6 +11,7 @@ export {
   parseDocument,
 } from "./codec"
 export { extractText } from "./extract"
+export { documentToMarkdown, markdownToDocument } from "./markdown"
 export type {
   AudioData,
   Block,

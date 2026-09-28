@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAppTheme } from "@/hooks/useAppTheme"
 
 interface EditorHeaderProps {
-  editor: EditorBridge
+  editor?: EditorBridge
   title?: string
   onBack: () => void
   onShare?: () => void
@@ -49,6 +49,51 @@ const CHECK_ICON = Icon.select({
   android: import("@expo/material-symbols/check.xml"),
 })
 
+function UndoButton({ editor }: { editor: EditorBridge }) {
+  const editorState = useBridgeState(editor)
+  const { colors } = useAppTheme()
+
+  const handleUndo = () => {
+    if (editorState.canUndo) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      editor.undo()
+    }
+  }
+
+  if (Platform.OS === "ios") {
+    return (
+      <Host matchContents ignoreSafeArea="all">
+        <Button
+          variant="text"
+          onPress={handleUndo}
+          modifiers={[
+            buttonStyle("glass"),
+            buttonBorderShape("circle"),
+            controlSize("large"),
+            foregroundStyle(colors.foreground),
+            disabledModifier(!editorState.canUndo),
+          ]}
+        >
+          <Icon name={UNDO_ICON} color={colors.foreground} size={18} />
+        </Button>
+      </Host>
+    )
+  }
+
+  return (
+    <Pressable
+      onPress={handleUndo}
+      disabled={!editorState.canUndo}
+      hitSlop={8}
+      className={`size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent ${
+        !editorState.canUndo ? "opacity-35" : ""
+      }`}
+    >
+      <Undo size={19} color={colors.foreground} />
+    </Pressable>
+  )
+}
+
 export const EditorHeader = memo(function EditorHeader({
   editor,
   onBack,
@@ -57,19 +102,11 @@ export const EditorHeader = memo(function EditorHeader({
   onDone,
 }: EditorHeaderProps) {
   const insets = useSafeAreaInsets()
-  const editorState = useBridgeState(editor)
   const { colors } = useAppTheme()
 
   const handleBack = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     onBack()
-  }
-
-  const handleUndo = () => {
-    if (editorState.canUndo) {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      editor.undo()
-    }
   }
 
   const handleShare = () => {
@@ -121,21 +158,7 @@ export const EditorHeader = memo(function EditorHeader({
           </Host>
 
           <View className="flex-row items-center gap-2.5">
-            <Host matchContents ignoreSafeArea="all">
-              <Button
-                variant="text"
-                onPress={handleUndo}
-                modifiers={[
-                  buttonStyle("glass"),
-                  buttonBorderShape("circle"),
-                  controlSize("large"),
-                  foregroundStyle(colors.foreground),
-                  disabledModifier(!editorState.canUndo),
-                ]}
-              >
-                <Icon name={UNDO_ICON} color={colors.foreground} size={18} />
-              </Button>
-            </Host>
+            {editor && <UndoButton editor={editor} />}
 
             {onShare && (
               <Host matchContents ignoreSafeArea="all">
@@ -198,16 +221,7 @@ export const EditorHeader = memo(function EditorHeader({
           </Pressable>
 
           <View className="flex-row items-center gap-2.5">
-            <Pressable
-              onPress={handleUndo}
-              disabled={!editorState.canUndo}
-              hitSlop={8}
-              className={`size-11 items-center justify-center rounded-full bg-card border border-border/40 active:bg-accent ${
-                !editorState.canUndo ? "opacity-35" : ""
-              }`}
-            >
-              <Undo size={19} color={colors.foreground} />
-            </Pressable>
+            {editor && <UndoButton editor={editor} />}
 
             {onShare && (
               <Pressable
