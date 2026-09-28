@@ -1,10 +1,25 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
 import { ActivityIndicator, View } from "react-native"
 import { NoteEditor } from "@/components/editor/NoteEditor"
+import {
+  documentToJson,
+  documentToMarkdown,
+  extractText,
+  firstContentText,
+  markdownToDocument,
+  parseDocument,
+} from "@/document"
 import { useFolder } from "@/hooks/useFolders"
 import { useCreateNote, useNote, useUpdateNote } from "@/hooks/useNotes"
-import { extractTitle } from "@/utils/text"
+import { extractTitle, stripHtml } from "@/utils/text"
+
+function bodyToMarkdown(body: string): string {
+  if (!body.trim()) return ""
+  const doc = parseDocument(body)
+  if (doc) return documentToMarkdown(doc)
+  return stripHtml(body)
+}
 
 export default function NoteScreen() {
   const router = useRouter()
@@ -21,16 +36,21 @@ export default function NoteScreen() {
   const updateNoteMutation = useUpdateNote()
 
   const currentIdRef = useRef<string>(id)
+  const initialContent = useMemo(() => bodyToMarkdown(note?.body ?? ""), [note?.body])
 
-  const handleSave = async (html: string, plainText: string) => {
-    const isBlank = !html.trim() || html === "<p></p>"
-    const title = extractTitle(plainText)
+  const handleSave = async (markdown: string) => {
+    const isBlank = !markdown.trim()
+    const doc = markdownToDocument(markdown)
+    const body = documentToJson(doc)
+    const searchableText = extractText(doc)
+    const title = extractTitle(firstContentText(doc))
 
     if (currentIdRef.current === "new") {
       if (isBlank) return
       const created = await createNoteMutation.mutateAsync({
         title,
-        body: html,
+        body,
+        searchableText,
         folderId: folderId ?? null,
       })
       currentIdRef.current = created.id
@@ -40,7 +60,8 @@ export default function NoteScreen() {
         id: currentIdRef.current,
         input: {
           title,
-          body: html,
+          body,
+          searchableText,
         },
       })
     }
@@ -56,7 +77,7 @@ export default function NoteScreen() {
 
   return (
     <NoteEditor
-      initialContent={note?.body ?? ""}
+      initialContent={initialContent}
       autofocus={isNew}
       headerTitle={currentFolder?.name ?? "All Notes"}
       onSave={handleSave}

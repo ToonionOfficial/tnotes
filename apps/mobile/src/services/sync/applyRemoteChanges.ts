@@ -1,5 +1,6 @@
 import { expo } from "@/db"
 import { isBenchmarkSyncPayload } from "@/db/queries/benchmark"
+import { firstLineTitle } from "@/utils/text"
 import type { SyncChange } from "./types"
 
 function toSqlString(val: unknown): string {
@@ -62,8 +63,9 @@ export async function applyRemoteChangesAsync(changes: SyncChange[]): Promise<nu
     } else if (entity_type === "note") {
       const userId = String(payload.user_id ?? "default_user")
       const folderId = payload.folder_id ? String(payload.folder_id) : null
-      const title = String(payload.title ?? "")
+      const title = firstLineTitle(String(payload.title ?? ""))
       const body = String(payload.body ?? "")
+      const searchableText = String(payload.searchable_text ?? payload.searchableText ?? "")
       const pinned = payload.pinned ? 1 : 0
       const trashed = tombstone || payload.trashed ? 1 : 0
       const createdAt = Number(payload.created_at ?? updated_at)
@@ -73,10 +75,10 @@ export async function applyRemoteChangesAsync(changes: SyncChange[]): Promise<nu
       const checksum = String(payload.checksum ?? "")
 
       statements.push(`INSERT INTO notes (
-        id, user_id, folder_id, title, body, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
+        id, user_id, folder_id, title, body, searchable_text, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
       ) VALUES (
         ${toSqlString(entity_id)}, ${toSqlString(userId)}, ${toSqlString(folderId)}, ${toSqlString(title)},
-        ${toSqlString(body)}, ${toSqlInt(pinned)}, ${toSqlInt(trashed)}, ${toSqlInt(version)},
+        ${toSqlString(body)}, ${toSqlString(searchableText)}, ${toSqlInt(pinned)}, ${toSqlInt(trashed)}, ${toSqlInt(version)},
         ${toSqlInt(updated_at)}, ${toSqlInt(createdAt)}, ${toSqlInt(deletedAt)}, ${toSqlString(deviceId)},
         ${toSqlString(checksum)}
       )
@@ -85,6 +87,7 @@ export async function applyRemoteChangesAsync(changes: SyncChange[]): Promise<nu
         folder_id = excluded.folder_id,
         title = excluded.title,
         body = excluded.body,
+        searchable_text = excluded.searchable_text,
         pinned = excluded.pinned,
         trashed = excluded.trashed,
         version = excluded.version,

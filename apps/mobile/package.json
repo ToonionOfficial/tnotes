@@ -21,7 +21,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@10play/tentap-editor": "^1.0.1",
     "@expo/material-symbols": "^0.1.1",
     "@expo/ui": "~57.0.20",
     "@gorhom/bottom-sheet": "^5.2.14",
@@ -59,6 +58,7 @@
     "react-hook-form": "^7.86.0",
     "react-native": "0.86.3",
     "react-native-drawer-layout": "^4.2.10",
+    "react-native-enriched-markdown": "^1.0.2",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-keyboard-controller": "1.21.9",
     "react-native-reanimated": "4.5.1",

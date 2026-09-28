@@ -93,10 +93,10 @@ export async function createBenchmarkNotes(noteCount: number): Promise<Benchmark
     const checksum = computeChecksum(body)
 
     statements.push(`INSERT INTO notes (
-      id, user_id, folder_id, title, body, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
+      id, user_id, folder_id, title, body, searchable_text, pinned, trashed, version, updated_at, created_at, deleted_at, device_id, checksum
     ) VALUES (
       ${toSqlString(noteId)}, ${toSqlString(userId)}, ${toSqlString(folderId)},
-      ${toSqlString(title)}, ${toSqlString(body)}, 0, 0, 1, ${now}, ${now}, NULL,
+      ${toSqlString(title)}, ${toSqlString(body)}, '', 0, 0, 1, ${now}, ${now}, NULL,
       ${toSqlString(deviceId)}, ${toSqlString(checksum)}
     )`)
   }

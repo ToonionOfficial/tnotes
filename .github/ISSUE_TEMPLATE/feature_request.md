@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Propose a new capability or an API addition
+about: Propose a new capability
 title: "[feat]: "
 labels: enhancement
 ---
@@ -11,7 +11,7 @@ labels: enhancement
 
 ## Proposed change
 
-<!-- What should be added? Note the surface if you know it: hook API, renderer, config, theme, example, docs. -->
+<!-- What should be added? Note the surface if you know it: document model, sync protocol, server API, desktop UI, mobile UI, web UI. -->
 
 ## Alternatives
 
@@ -19,4 +19,4 @@ labels: enhancement
 
 ## Scope
 
-<!-- Core (`twrite-core`), GPUI (`twrite-gpui`), example, docs — and whether it needs a version bump. -->
+<!-- tnotes-document, tnotes-core, server, desktop, mobile, web — and whether it needs a version bump or a local DB migration. -->

@@ -134,6 +134,7 @@ export function useCreateNote() {
     mutationFn: async (input: {
       title?: string
       body?: string
+      searchableText?: string
       folderId?: string | null
       pinned?: boolean
     }) => createNote(input),
@@ -196,6 +197,7 @@ export function useUpdateNote() {
       input: {
         title?: string
         body?: string
+        searchableText?: string
         folderId?: string | null
         pinned?: boolean
       }
