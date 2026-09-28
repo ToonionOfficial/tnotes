@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something broken, throwing, or rendering wrong
+about: Something broken, throwing, syncing wrong, or rendering wrong
 title: "[bug]: "
 labels: bug
 ---
@@ -11,7 +11,7 @@ labels: bug
 
 ## Repro steps
 
-<!-- Example plus actions, e.g. `cargo run --example hooks`, then what you typed/clicked. -->
+<!-- Which app plus actions, e.g. mobile dev client, then what you typed/clicked/synced. -->
 
 1.
 2.
@@ -23,10 +23,10 @@ labels: bug
 
 ## Actual
 
-<!-- What happened instead. Paste panic messages or test output if any. -->
+<!-- What happened instead. Paste panic messages, sync errors, or test output if any. -->
 
 ## Environment
 
-- OS:
+- OS / device:
 - Commit/rev:
-- Crate(s): <!-- twrite-core / twrite-gpui / example / docs -->
+- Area: <!-- tnotes-document / tnotes-core / server / desktop / mobile / web -->
